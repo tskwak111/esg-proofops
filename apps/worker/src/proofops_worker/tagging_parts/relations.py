@@ -1,31 +1,43 @@
 """Verified relation packet selection and validation, independent of the dispatch ledger."""
 
-from dataclasses import asdict, dataclass
+from __future__ import annotations
 
+from dataclasses import asdict, dataclass
+from typing import TYPE_CHECKING, Any, cast
+
+from proofops.application.claims import Claim
+from proofops.application.evidence.retrieval import EvidencePacket
 from proofops.application.evidence.span_citations import verify_source_ref
+from proofops.application.tagging.contracts import TaggingSettings
 from proofops.application.tagging.relations import (
     OCCURRENCE_V3_PROFILE,
     relation_request,
     validate_relations,
 )
 from proofops.domain.provenance import canonical_hash
-from proofops.domain.values import _source_ref_from_dict
+from proofops.domain.rulepacks import RulePackSnapshot
+from proofops.domain.values import SourceRef, _source_ref_from_dict
+
+if TYPE_CHECKING:
+    from proofops_worker.live_tagging import LiveTaggingRuntime
 
 
 @dataclass(frozen=True)
 class RelationPacket:
-    sources: tuple
-    selected: dict
-    global_elements: dict
-    rulepack: object
-    refused: dict
-    refusals: list
-    anchors: dict
-    selection_args: dict
-    envelope: dict | None
+    sources: tuple[SourceRef, ...]
+    selected: dict[str, SourceRef]
+    global_elements: dict[str, set[str]]
+    rulepack: RulePackSnapshot | None
+    refused: dict[str, dict[str, SourceRef | None]]
+    refusals: list[dict[str, Any]]
+    anchors: dict[str, Any]
+    selection_args: dict[str, Any]
+    envelope: dict[str, Any] | None
 
 
-def build_relation_packet(self, claim, packet):
+def build_relation_packet(
+    self: LiveTaggingRuntime, claim: Claim, packet: EvidencePacket
+) -> RelationPacket:
     # Read runtime attributes at their original guard/branch, not at the call site.
     data = packet.to_dict()
     expected = dict(
@@ -60,18 +72,18 @@ def build_relation_packet(self, claim, packet):
         from proofops.application.tagging.pb2_table_evidence import structural_relation_ids
 
         local.update(
-            structural_relation_ids(data, claim, self.graph, tenant_id=self.auth.tenant_id)
+            structural_relation_ids(data, claim, self.graph, tenant_id=self.auth.tenant_id)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
         )
     blocks = {block.source_id: block for block in self.graph.blocks}
     selected = {}
-    global_elements = {}
+    global_elements: dict[str, set[str]] = {}
     rulepack = None
     if self.attribution_policy is not None and self.snapshot.get("rulepack"):
         from proofops.domain.rulepacks import RulePackSnapshot
 
         rulepack = RulePackSnapshot(**self.snapshot["rulepack"])
-    refused = {}
-    refusals = []
+    refused: dict[str, dict[str, SourceRef | None]] = {}
+    refusals: list[dict[str, Any]] = []
     for candidate in data["evidence_candidates"]:
         for raw in candidate["source_refs"]:
             if candidate.get("source_scope") == "global_bound":
@@ -95,7 +107,7 @@ def build_relation_packet(self, claim, packet):
                     relation_source_rejection,
                 )
 
-                reason = relation_source_rejection(
+                reason = relation_source_rejection(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                     claim,
                     source,
                     self.graph,
@@ -124,7 +136,7 @@ def build_relation_packet(self, claim, packet):
             sources, selected, global_elements, rulepack, refused, refusals, {}, {}, None
         )
     anchors = {}
-    if self.relation_settings.model_profile in (
+    if cast(TaggingSettings, self.relation_settings).model_profile in (
         OCCURRENCE_V3_PROFILE,
         "relation-decision-gate-v1",
     ):
@@ -135,9 +147,9 @@ def build_relation_packet(self, claim, packet):
         ]
         if len(values) == 3 and all(v == values[0] for v in values):
             anchors = {k: v["quote"] if v else None for k, v in values[0].items()}
-    selection_args = (
+    selection_args: dict[str, Any] = (
         {"claim_text": claim.quote, "dimensions": anchors}
-        if self.relation_settings.model_profile
+        if cast(TaggingSettings, self.relation_settings).model_profile
         in (OCCURRENCE_V3_PROFILE, "relation-decision-gate-v1")
         else {}
     )
@@ -147,7 +159,7 @@ def build_relation_packet(self, claim, packet):
         sources,
         self.graph,
         tenant_id=self.auth.tenant_id,
-        profile=self.relation_settings.model_profile,
+        profile=cast(TaggingSettings, self.relation_settings).model_profile,
         **selection_args,
     ) | {
         "claim_id": claim.claim_id,
@@ -166,7 +178,9 @@ def build_relation_packet(self, claim, packet):
     )
 
 
-def validate_relation_response(self, raw, *, claim, plan):
+def validate_relation_response(
+    self: LiveTaggingRuntime, raw: dict[str, Any], *, claim: Claim, plan: RelationPacket
+) -> tuple[dict[str, dict[str, SourceRef | None]], dict[str, Any]]:
     sources, selection_args = plan.sources, plan.selection_args
     selected, rulepack, global_elements = plan.selected, plan.rulepack, plan.global_elements
     roles = validate_relations(
@@ -174,7 +188,7 @@ def validate_relation_response(self, raw, *, claim, plan):
         self.graph,
         raw,
         tenant_id=self.auth.tenant_id,
-        profile=self.relation_settings.model_profile,
+        profile=cast(TaggingSettings, self.relation_settings).model_profile,
         **selection_args,
     )
     if self.attribution_policy is not None:
@@ -183,7 +197,7 @@ def validate_relation_response(self, raw, *, claim, plan):
         )
 
         roles = {
-            sid: filter_evidence_dimensions(
+            sid: filter_evidence_dimensions(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                 claim,
                 selected[sid],
                 values,

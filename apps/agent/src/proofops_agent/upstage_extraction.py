@@ -18,7 +18,7 @@ import re as re
 from collections.abc import Callable as Callable
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, NoReturn, cast
 from uuid import UUID, uuid5
 
 from proofops.adapters.local.upstage import MODEL as UPSTAGE_MODEL
@@ -29,6 +29,7 @@ from proofops.application.claims import FAILURE_DIAGNOSTICS_POLICY as FAILURE_DI
 from proofops.application.claims import (
     ExtractionOutputError,
     ExtractionProfile,
+    ExtractionSpan,
     validate_extraction_response,
 )
 from proofops.application.ingest.atomic_candidates import atomic_candidates as atomic_candidates
@@ -42,6 +43,12 @@ from proofops.domain.values import _require_uuid as _require_uuid
 from proofops_agent.extraction_parts import wire
 from proofops_agent.extraction_parts.contracts import (
     _PROVIDER_METADATA_KEYS as _PROVIDER_METADATA_KEYS,
+)
+from proofops_agent.extraction_parts.contracts import (
+    DisplayCatalog,
+    DisplayCatalogOption,
+    TitleCatalog,
+    TitleCatalogOption,
 )
 from proofops_agent.extraction_parts.profiles import (
     _ASCII_DIGITS as _ASCII_DIGITS,
@@ -169,6 +176,10 @@ from proofops_agent.extraction_parts.wire import ATOMIC_PROFILE as ATOMIC_PROFIL
 from proofops_agent.extraction_parts.wire import ATOMIC_PROFILE_V3 as ATOMIC_PROFILE_V3
 from proofops_agent.extraction_parts.wire import ROW_POLICY as ROW_POLICY
 from proofops_agent.extraction_parts.wire import ROW_PROFILE as ROW_PROFILE
+
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.rb1_input_isolation import InputIsolation
 
 
 class UpstageClaimExtractor:
@@ -358,7 +369,7 @@ class UpstageClaimExtractor:
         self._context_chars = 512 if getattr(probe, "wire_policy_version", 1) == 2 else 2000
         self._request_ids: list[tuple[str, str]] = []
 
-    def _validate_spans(self, payload: dict, text: str):
+    def _validate_spans(self, payload: dict[str, Any], text: str) -> tuple[ExtractionSpan, ...]:
         """Validate spans with this extractor's own pinned policy.
 
         The live path and the receipt-replay path both funnel through here, so
@@ -399,8 +410,13 @@ class UpstageClaimExtractor:
         return self.cumulative_usage()
 
     def extract(
-        self, packet: dict, *, context_graph=None, display_catalog=None, h1_title_catalog=None
-    ) -> dict:
+        self,
+        packet: dict[str, Any],
+        *,
+        context_graph: Any = None,
+        display_catalog: DisplayCatalog | None = None,
+        h1_title_catalog: TitleCatalog | None = None,
+    ) -> dict[str, Any]:
         result = self._extract(
             packet,
             context_graph=context_graph,
@@ -414,8 +430,10 @@ class UpstageClaimExtractor:
 
         data = packet["untrusted_document_data"]
         block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
-        candidates = candidates_for(block, context_graph)
-        spans, coverage = reconcile(data["text"], candidates, result["spans"])
+        # External package helper is untyped; its annotations are outside this scope.
+        candidates = candidates_for(block, context_graph)  # type: ignore[no-untyped-call]
+        # External package helper is untyped; its annotations are outside this scope.
+        spans, coverage = reconcile(data["text"], candidates, result["spans"])  # type: ignore[no-untyped-call]
         try:
             self._validate_spans({"spans": spans}, data["text"])
         except ValueError:
@@ -450,12 +468,12 @@ class UpstageClaimExtractor:
 
     def _extract(
         self,
-        packet: dict,
+        packet: dict[str, Any],
         *,
         context_graph: Any = None,
-        display_catalog=None,
-        h1_title_catalog=None,
-    ) -> dict:
+        display_catalog: DisplayCatalog | None = None,
+        h1_title_catalog: TitleCatalog | None = None,
+    ) -> dict[str, Any]:
         """Extract atomic claims from ``packet``'s own text only.
 
         Production context path (R03f): when this extractor was built with
@@ -512,14 +530,17 @@ class UpstageClaimExtractor:
                 if self._k6:
                     from proofops.application.ingest.k6_coverage import observations_for
 
-                raw_rows = observations_for(block, context_graph)
+                # External package helper is untyped; its annotations are outside this scope.
+                raw_rows = observations_for(block, context_graph)  # type: ignore[no-untyped-call]
             else:
-                raw_rows = observations(text, context=context)
+                # External package helper is untyped; its annotations are outside this scope.
+                raw_rows = observations(text, context=context)  # type: ignore[no-untyped-call]
             rows = raw_rows
             if self._table_footnotes:
                 from proofops.application.tagging.dec24 import table_footnote
 
-                rows = [r for r in raw_rows if not table_footnote(r["quote"], kind="table")]
+                # External package helper is untyped; its annotations are outside this scope.
+                rows = [r for r in raw_rows if not table_footnote(r["quote"], kind="table")]  # type: ignore[no-untyped-call]
             result: dict[str, Any] = {
                 "spans": [
                     dict(
@@ -651,7 +672,8 @@ class UpstageClaimExtractor:
         ):
             from proofops.application.ingest.fxg_wire import before_dispatch
 
-            before_dispatch()
+            # External package helper is untyped; its annotations are outside this scope.
+            before_dispatch()  # type: ignore[no-untyped-call]
         try:
             directory.mkdir(mode=0o700)
         except FileExistsError:
@@ -831,13 +853,13 @@ class UpstageClaimExtractor:
     def _replay_receipt(
         self,
         directory: Path,
-        packet: dict,
+        packet: dict[str, Any],
         packet_sha: str,
         request_id: str,
         context_graph: Any = None,
-        display_catalog=None,
-        expected_body=None,
-    ):
+        display_catalog: DisplayCatalog | None = None,
+        expected_body: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Reuse an existing receipt for this exact packet; never re-issue its call.
 
         A retained receipt means the provider request for this packet was already
@@ -1075,8 +1097,14 @@ class UpstageClaimExtractor:
         path.chmod(0o400)
 
     def _fail(
-        self, directory: Path, packet_sha: str, request_id: str, code: str, *, transport=False
-    ) -> None:
+        self,
+        directory: Path,
+        packet_sha: str,
+        request_id: str,
+        code: str,
+        *,
+        transport: bool = False,
+    ) -> NoReturn:
         if transport:
             error = code if code in UPSTAGE_TRANSPORT_STOP_CODES else "UPSTREAM_UNAVAILABLE"
             from proofops.application.provider_resilience import ISOLATED_CODES
@@ -1143,12 +1171,12 @@ class GraphBoundExtractor:
 
     def __init__(
         self,
-        inner: Any,
-        graph: Any,
+        inner: UpstageClaimExtractor,
+        graph: CanonicalDocumentGraph,
         source: bytes | None = None,
         *,
-        display_prefetch_workers=1,
-        rb1=None,
+        display_prefetch_workers: int = 1,
+        rb1: InputIsolation | None = None,
     ) -> None:
         if not (
             getattr(inner, "_context", False) or getattr(inner, "_display_text_profile", None)
@@ -1168,8 +1196,8 @@ class GraphBoundExtractor:
 
             self._graph, self.native_figure_receipt = native_figure_candidates(graph, source)
             graph = self._graph
-        self._display_catalog = None
-        self._h1_title_catalog = None
+        self._display_catalog: DisplayCatalog | None = None
+        self._h1_title_catalog: TitleCatalog | None = None
         if getattr(inner, "_h1", False) and source is not None:
             from proofops.adapters.local.h1_native_title import NativeTitleCatalog
 
@@ -1179,11 +1207,11 @@ class GraphBoundExtractor:
 
             self._display_catalog = GlyphDisplayCatalog(graph, source)
 
-    def prefetch(self, packets):
+    def prefetch(self, packets: list[dict[str, Any]]) -> None:
         if self._display_catalog is None or self._display_prefetch_workers == 1:
             return
         blocks = {b.source_id: b for b in self._graph.blocks}
-        selected = set()
+        selected: set[str] = set()
         for packet in packets:
             # Keep packet and focal identity checks before the optional CPU work.
             self._inner._packet_text(packet)
@@ -1195,7 +1223,8 @@ class GraphBoundExtractor:
                 try:
                     context, _ = self._inner._context_for(packet, self._graph)
                 except ValueError as error:
-                    if self._rb1 is None or not self._rb1.capture(sid, error):
+                    # External package helper is untyped; its annotations are outside this scope.
+                    if self._rb1 is None or not self._rb1.capture(sid, error):  # type: ignore[no-untyped-call]
                         raise
                     continue
                 selected.update(b["source_id"] for b in context)
@@ -1210,43 +1239,52 @@ class GraphBoundExtractor:
         self._display_catalog.prefetch_pages(pages, max_workers=self._display_prefetch_workers)
 
     @property
-    def graph(self):
+    def graph(self) -> CanonicalDocumentGraph:
         """Use this derived graph for discovery under the explicit QC profile."""
         return self._graph
 
     @property
-    def profile(self):  # ClaimExtractorPort: frozen discovery reads this.
+    def profile(self) -> ExtractionProfile:  # ClaimExtractorPort: frozen discovery reads this.
         return self._inner.profile
 
-    def extract(self, packet: dict) -> dict:
+    def extract(self, packet: dict[str, Any]) -> dict[str, Any]:
         if self._rb1 is not None and self._rb1.active:
             sid = packet["untrusted_document_data"]["source_id"]
             if sid in self._rb1.failures:
                 self._inner._packet_text(packet)
                 self._inner._validate_context_graph(packet, self._graph)
-                self._rb1.check(sid)
+                # External package helper is untyped; its annotations are outside this scope.
+                self._rb1.check(sid)  # type: ignore[no-untyped-call]
         if getattr(self._inner, "_display_text_profile", None) and self._display_catalog is None:
             raise ExtractionOutputError("DISPLAY_SOURCE_UNAVAILABLE")
         try:
             return self._inner.extract(
                 packet,
                 context_graph=self._graph,
-                **(
-                    {"h1_title_catalog": self._h1_title_catalog}
-                    if self._h1_title_catalog is not None
-                    else {}
+                **cast(
+                    TitleCatalogOption,
+                    (
+                        {"h1_title_catalog": self._h1_title_catalog}
+                        if self._h1_title_catalog is not None
+                        else {}
+                    ),
                 ),
-                **(
-                    {"display_catalog": self._display_catalog}
-                    if self._display_catalog is not None
-                    else {}
+                **cast(
+                    DisplayCatalogOption,
+                    (
+                        {"display_catalog": self._display_catalog}
+                        if self._display_catalog is not None
+                        else {}
+                    ),
                 ),
             )
         except ValueError as error:
-            if self._rb1 is not None and self._rb1.capture(
+            # External package helper is untyped; its annotations are outside this scope.
+            if self._rb1 is not None and self._rb1.capture(  # type: ignore[no-untyped-call]
                 packet["untrusted_document_data"]["source_id"], error
             ):
-                self._rb1.check(packet["untrusted_document_data"]["source_id"])
+                # External package helper is untyped; its annotations are outside this scope.
+                self._rb1.check(packet["untrusted_document_data"]["source_id"])  # type: ignore[no-untyped-call]
             if (
                 getattr(self._inner, "_i5_tables", False)
                 and getattr(self._inner, "_j8", False)

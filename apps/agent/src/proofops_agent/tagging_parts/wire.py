@@ -1,6 +1,7 @@
 """Element request rendering and response restoration without transport state."""
 
 import json
+from collections.abc import Callable
 from dataclasses import asdict
 from typing import Any
 
@@ -9,6 +10,7 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 from proofops.domain.values import _require_uuid, _source_ref_from_dict
 
+from proofops_agent.extraction_parts.contracts import DisplayCatalog, RequestBody, RestoreReference
 from proofops_agent.upstage_extraction import UpstageClaimExtractor
 
 MODEL_PROFILE = "upstage-compact-ids-frozen-unicode-v1"
@@ -20,8 +22,12 @@ CONSISTENCY_PROFILE = "upstage-compact-element-consistency-v6"
 
 
 def build_wire_request(
-    request: dict, settings: TaggingSettings, *, display_catalog, request_body
-) -> tuple[str, str, dict[str, dict], str]:
+    request: dict[str, Any],
+    settings: TaggingSettings,
+    *,
+    display_catalog: DisplayCatalog | None,
+    request_body: RequestBody,
+) -> tuple[str, str, dict[str, dict[str, Any]], str]:
     from proofops.application.tagging.finals_i4 import K4_ELEMENTS, elements_k4
 
     system = request["system_prompt"]
@@ -124,7 +130,7 @@ def build_wire_request(
         data["evidence_candidates"].sort(
             key=lambda candidate: canonical_json(candidate["source_refs"])
         )
-    refs: dict[str, dict] = {}
+    refs: dict[str, dict[str, Any]] = {}
     for candidate in data.get("evidence_candidates", []):
         if settings.model_profile in (QUOTE_V5_PROFILE, CONSISTENCY_PROFILE):
             candidate.pop("source_id", None)
@@ -155,7 +161,7 @@ def build_wire_request(
     if "tb1_table_bundles" in data:
         from proofops.application.tagging.tb1_table_bundles import bundle_refs
 
-        def tb1_id(source):
+        def tb1_id(source: dict[str, Any]) -> str:
             matches = [
                 key
                 for key, ref in refs.items()
@@ -211,7 +217,7 @@ def build_wire_request(
         data[field] = compact
     if table is not None:
 
-        def cell_id(source):
+        def cell_id(source: dict[str, Any]) -> str:
             matches = [
                 key
                 for key, ref in refs.items()
@@ -408,20 +414,24 @@ def build_wire_request(
             if k11:
                 from proofops.application.tagging.k11_contract import elements as k11_elements
 
-                wire_system = k11_elements(
+                # External package helper is untyped; its annotations are outside this scope.
+                wire_system = k11_elements(  # type: ignore[no-untyped-call]
                     schema,
                     classification,
                     policy=data["tagging_wire_policy"],
                     quality_policy=quality_policy,
                 )
             else:
-                wire_system = elements(schema, classification, quality_policy=quality_policy)
+                # External package helper is untyped; its annotations are outside this scope.
+                wire_system = elements(schema, classification, quality_policy=quality_policy)  # type: ignore[no-untyped-call]
         else:
-            wire_system = elements_k4(schema, classification, quality_policy=quality_policy)
+            # External package helper is untyped; its annotations are outside this scope.
+            wire_system = elements_k4(schema, classification, quality_policy=quality_policy)  # type: ignore[no-untyped-call]
         if k9 and not k10:
             from proofops.application.tagging.k9_contract import element_guidance_for
 
-            wire_system += element_guidance_for(k9_binding, data.get("atomic_quote", ""))
+            # External package helper is untyped; its annotations are outside this scope.
+            wire_system += element_guidance_for(k9_binding, data.get("atomic_quote", ""))  # type: ignore[no-untyped-call]
         # Authorization above covered these server policies before projection.
         data.pop("tagging_response_policy", None)
         data.pop("selected_quantity_policy", None)
@@ -431,17 +441,21 @@ def build_wire_request(
             validate_policy,
         )
 
-        validate_policy(data.pop("structural_quality_policy"))
-        wire_system += element_guidance(data.get("atomic_quote", ""))
+        # External package helper is untyped; its annotations are outside this scope.
+        validate_policy(data.pop("structural_quality_policy"))  # type: ignore[no-untyped-call]
+        # External package helper is untyped; its annotations are outside this scope.
+        wire_system += element_guidance(data.get("atomic_quote", ""))  # type: ignore[no-untyped-call]
     if "v3_dec92_policy" in data:
         from proofops.application.tagging.v3_dec92 import ELEMENT_GUIDANCE, validate_policy
 
-        validate_policy(data.pop("v3_dec92_policy"))
+        # External package helper is untyped; its annotations are outside this scope.
+        validate_policy(data.pop("v3_dec92_policy"))  # type: ignore[no-untyped-call]
         wire_system += "\n" + ELEMENT_GUIDANCE
     if "qt2_contextual_elements_policy" in data:
         from proofops.application.tagging.qt2_context import GUIDANCE, validate_policy
 
-        validate_policy(data.pop("qt2_contextual_elements_policy"))
+        # External package helper is untyped; its annotations are outside this scope.
+        validate_policy(data.pop("qt2_contextual_elements_policy"))  # type: ignore[no-untyped-call]
         wire_system += "\n" + GUIDANCE
     POLICY: dict[str, Any]
     if "qt1_tuple_policy" in data:
@@ -503,7 +517,8 @@ def build_wire_request(
         ):
             wire_system += NAMED_MEANS_GUIDANCE
         wire_system += INSTRUCTIONS
-        wire_user = fit_context(
+        # External package helper is untyped; its annotations are outside this scope.
+        wire_user = fit_context(  # type: ignore[no-untyped-call]
             wire_system,
             user,
             lambda system, value: request_body(
@@ -520,8 +535,13 @@ def build_wire_request(
 
 
 def restore_ref(
-    selection, refs: dict[str, dict], *, model_profile, display_catalog, policy=None
-) -> dict:
+    selection: Any,
+    refs: dict[str, dict[str, Any]],
+    *,
+    model_profile: str,
+    display_catalog: DisplayCatalog | None,
+    policy: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if model_profile not in (
         QUOTE_PROFILE,
         QUOTE_V4_PROFILE,
@@ -554,7 +574,7 @@ def restore_ref(
 
         if policy not in (POLICY, TABLE_POLICY, VALUE_POLICY, K6_POLICY):
             raise ValueError("CITATION_RESTORE_POLICY_UNKNOWN")
-        restore = (
+        restore: Callable[[str, dict[str, Any]], dict[str, Any]] = (
             restore_table
             if policy in (TABLE_POLICY, VALUE_POLICY, K6_POLICY)
             else restore_whitespace
@@ -569,8 +589,15 @@ def restore_ref(
 
 
 def restore_payload(
-    payload, refs, *, model_profile, display_catalog, restore_ref, refine_year, policy=None
-):
+    payload: dict[str, Any],
+    refs: dict[str, Any],
+    *,
+    model_profile: str,
+    display_catalog: DisplayCatalog | None,
+    restore_ref: RestoreReference,
+    refine_year: Callable[[dict[str, Any]], None],
+    policy: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if policy is not None:
         from proofops.application.tagging.citation_restore import POLICY
         from proofops.application.tagging.k6_citations import POLICY as K6_POLICY
@@ -587,7 +614,8 @@ def restore_payload(
             if policy is not None and policy == K6_POLICY:
                 from proofops.application.tagging.k6_citations import anchor_units
 
-                selected = anchor_units(selected, refs)
+                # External package helper is untyped; its annotations are outside this scope.
+                selected = anchor_units(selected, refs)  # type: ignore[no-untyped-call]
             element["evidence_refs"] = [restore_ref(key, refs, policy=policy) for key in selected]
             if display_catalog is not None:
                 value = element.get("normalized_value")
@@ -609,7 +637,8 @@ def restore_payload(
                     refine_selected_value,
                 )
 
-                refine_selected_value(element)
+                # External package helper is untyped; its annotations are outside this scope.
+                refine_selected_value(element)  # type: ignore[no-untyped-call]
         except (ValueError, KeyError, TypeError, AttributeError):
             if policy is None:
                 raise
@@ -626,7 +655,7 @@ def restore_payload(
     return payload
 
 
-def refine_g1_year(element: dict) -> None:
+def refine_g1_year(element: dict[str, Any]) -> None:
     """Add a unique literal year only inside an already selected citation."""
     if element.get("element_id") != "G1" or element.get("state") != "present":
         return

@@ -10,7 +10,7 @@ from typing import Any
 from proofops.application.ports.jobs import JobLease, LeaseLost
 from proofops.application.telemetry import Telemetry, TraceContext
 
-from proofops_worker.consumer import StageFailure, TagHeartbeatFailed
+from proofops_worker.consumer import LeaseHeartbeatState, StageFailure, TagHeartbeatFailed
 
 
 def worker_context(lease: JobLease, propagated: Mapping[str, str]) -> TraceContext:
@@ -35,7 +35,7 @@ def observe_job(
     operation: Callable[[JobLease], tuple[bytes, dict[str, Any]]],
     *,
     context: TraceContext,
-    heartbeat_state=None,
+    heartbeat_state: LeaseHeartbeatState | None = None,
 ) -> tuple[bytes, dict[str, Any]]:
     if (context.tenant_id, context.run_id, context.job_id) != (
         lease.message.tenant_id,

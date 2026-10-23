@@ -16,8 +16,10 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from time import time
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
 from proofops.domain.rulepacks import canonical_json
@@ -30,19 +32,22 @@ from proofops_worker.tag_recovery import (
     recovery_proof,
 )
 
+if TYPE_CHECKING:
+    from proofops_worker.tag_runner import LocalTagRunner
 
-def _receipts(runner, run_id: str) -> Path:
+
+def _receipts(runner: LocalTagRunner, run_id: str) -> Path:
     return Path(runner.store.path).parent / "tagging-receipts" / run_id
 
 
-def _report(path: str | None, payload: dict) -> None:
+def _report(path: str | None, payload: dict[str, Any]) -> None:
     text = canonical_json(payload)
     if path:
         Path(path).write_text(text + "\n")
     print(text)
 
 
-def _inspect(runner, options) -> int:
+def _inspect(runner: LocalTagRunner, options: argparse.Namespace) -> int:
     tenant_id, run_id = str(options.tenant_id), str(options.run_id)
     receipts = _receipts(runner, run_id)
     proof = recovery_proof(runner.store.usage.cost_data(tenant_id, run_id), receipts)
@@ -65,7 +70,7 @@ def _inspect(runner, options) -> int:
     return 0
 
 
-def _authorize(runner, options) -> int:
+def _authorize(runner: LocalTagRunner, options: argparse.Namespace) -> int:
     tenant_id, run_id = str(options.tenant_id), str(options.run_id)
     receipts = _receipts(runner, run_id)
     plan, proof, run = plan_recovery(
@@ -98,7 +103,7 @@ def _authorize(runner, options) -> int:
     return 0
 
 
-def main(argv=None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     arguments = argparse.ArgumentParser(description="Inspect or authorize one tag-stage recovery")
     arguments.add_argument("command", choices=("inspect", "authorize"))
     arguments.add_argument("--tenant-id", required=True, type=UUID)
@@ -122,7 +127,7 @@ def main(argv=None) -> int:
     options = arguments.parse_args(argv)
     if options.command == "authorize" and not options.authorized_by.strip():
         raise SystemExit("--authorized-by is required to record an authorization")
-    runner = build_composition(stage="tag")
+    runner = cast("LocalTagRunner", build_composition(stage="tag"))
     try:
         if options.command == "inspect":
             return _inspect(runner, options)

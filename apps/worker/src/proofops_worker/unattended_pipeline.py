@@ -5,6 +5,22 @@ source status, never the already frozen packet, replicas or confirmed revisions.
 The final checkpoint owns and hashes these records; nothing is published early.
 """
 
+from __future__ import annotations
+
+from concurrent.futures import Future
+from typing import TYPE_CHECKING, Any, cast
+
+from proofops.application.claims import ExtractionProfile
+from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+from proofops.application.ports.jobs import JobLease
+
+from proofops_worker.extraction_parts.dispatch import PacketResult
+
+if TYPE_CHECKING:
+    from proofops_worker.extract_runner import LocalExtractRunner
+    from proofops_worker.tag_runner import LocalTagRunner
+
+
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -17,30 +33,42 @@ from proofops.domain.provenance import canonical_hash
 
 
 class PageTagPipeline:
-    def __init__(self, extractor_runner, snapshot, graph, profile, lease, checkpoint):
+    def __init__(
+        self,
+        extractor_runner: LocalExtractRunner,
+        snapshot: dict[str, Any],
+        graph: CanonicalDocumentGraph,
+        profile: ExtractionProfile,
+        lease: JobLease,
+        checkpoint: bytes,
+    ) -> None:
         from proofops_worker.composition import build_composition
 
         bound_composition = getattr(extractor_runner, "tag_composition", None)
-        self.runner = bound_composition() if bound_composition else build_composition(stage="tag")
+        self.runner = (
+            bound_composition()
+            if bound_composition
+            else cast("LocalTagRunner", build_composition(stage="tag"))
+        )
         self.snapshot, self.graph, self.profile = snapshot, graph, profile
         self.lease, self.checkpoint = lease, checkpoint
-        self.scope = claim_scope(snapshot, graph)
+        self.scope = claim_scope(snapshot, graph)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
         self.pool = ThreadPoolExecutor(max_workers=1)
-        self.pending = []
+        self.pending: list[Future[dict[str, Any]]] = []
         self.started = time.monotonic()
 
-    def ready(self, page, responses):
+    def ready(self, page: int, responses: dict[str, PacketResult]) -> None:
         # Make a private immutable copy; extraction threads can't change this input.
         self.pending.append(self.pool.submit(self._tag, page, dict(responses)))
 
-    def _tag(self, page, responses):
+    def _tag(self, page: int, responses: dict[str, PacketResult]) -> dict[str, Any]:
         profile = self.profile
 
         class CompletedExtractor:
-            def __init__(self):
+            def __init__(self) -> None:
                 self.profile = profile
 
-            def extract(self, packet):
+            def extract(self, packet: dict[str, Any]) -> dict[str, Any]:
                 value = responses.get(packet["untrusted_document_data"]["source_id"])
                 if isinstance(value, Exception):
                     raise value
@@ -67,11 +95,11 @@ class PageTagPipeline:
         )
         if not discovery.claims:
             return dict(page=page, claims=[], started_seconds=time.monotonic() - self.started)
-        payload = snapshot_pins(self.snapshot, self.graph, self.profile, self.checkpoint)
+        payload = snapshot_pins(self.snapshot, self.graph, self.profile, self.checkpoint)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
         payload["coverage"] = json.loads(self.checkpoint)["coverage"]
         payload["discovery"] = asdict(discovery)
         payload["synthetic"] = False
-        usage = dict(model_calls=0, synthetic_calls=0)
+        usage: dict[str, Any] = dict(model_calls=0, synthetic_calls=0)
         started = time.monotonic() - self.started
         result = json.loads(
             self.runner._execute(
@@ -89,7 +117,7 @@ class PageTagPipeline:
             parse_checkpoint_sha256=sha256(self.checkpoint).hexdigest(),
         )
 
-    def finish(self):
+    def finish(self) -> list[dict[str, Any]]:
         try:
             return [future.result() for future in self.pending]
         finally:

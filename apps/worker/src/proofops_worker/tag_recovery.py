@@ -31,10 +31,11 @@ recovery record links the two so the lineage is explicit rather than implied.
 from __future__ import annotations
 
 import json
+from collections.abc import Collection, Iterable, Sequence
 from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from proofops.application.ports.jobs import JobMessage
@@ -43,6 +44,14 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 from proofops.domain.values import _require_sha256, _require_uuid
 from proofops_agent.upstage_tagging import NEVER_SENT_ERROR_CODES, TransportResume
+
+if TYPE_CHECKING:
+    import sqlite3
+
+    from proofops.adapters.local.job_store import LocalSQLiteJobStore
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops.adapters.local.tag_store import LocalTagStore
+
 
 RECOVERY_KIND = "tag_recovery"
 PROOF_KIND = "tag_recovery_proof"
@@ -115,10 +124,10 @@ class TagRecoveryPlan:
             raise RecoveryRejected("TAG_RECOVERY_TIME_INVALID")
 
     def to_dict(self) -> dict[str, Any]:
-        return json.loads(canonical_json(asdict(self)))
+        return cast(dict[str, Any], json.loads(canonical_json(asdict(self))))
 
     @classmethod
-    def from_dict(cls, data) -> TagRecoveryPlan:
+    def from_dict(cls, data: dict[str, Any]) -> TagRecoveryPlan:
         try:
             return cls(
                 **(
@@ -179,7 +188,7 @@ def _stop_records(receipts: Path) -> dict[str, list[dict[str, Any]]]:
     return stops
 
 
-def _classify(row, receipt_ids: set[str]) -> str:
+def _classify(row: dict[str, Any], receipt_ids: set[str]) -> str:
     """Name the residue of one settled attempt from the ledger and the receipt tree.
 
     ``never_sent`` is deliberately hard to earn. It needs all of:
@@ -255,7 +264,7 @@ def _durable_failures(receipts: Path) -> dict[str, list[str]]:
     return found
 
 
-def recovery_proof(usage_rows, receipts: Path) -> dict[str, Any]:
+def recovery_proof(usage_rows: Sequence[dict[str, Any]], receipts: Path) -> dict[str, Any]:
     """Recompute, from the ledger and the receipt tree, what each attempt actually cost.
 
     This is the whole safety argument for re-issuing work, so it is derived here
@@ -295,7 +304,9 @@ def recovery_proof(usage_rows, receipts: Path) -> dict[str, Any]:
     }
 
 
-def issued_since_baseline(store, tenant_id, run_id, receipts: Path, baseline) -> list[str]:
+def issued_since_baseline(
+    store: LocalSQLiteRunStore, tenant_id: str, run_id: str, receipts: Path, baseline: Iterable[str]
+) -> list[str]:
     """Which request_ids exist now that the pinned baseline did not contain?
 
     Both sources are durable, so this survives a crash or a restart: a receipt
@@ -313,7 +324,14 @@ def issued_since_baseline(store, tenant_id, run_id, receipts: Path, baseline) ->
     return sorted(present - known)
 
 
-def eligible_claims(items, *, published, never_sent, unresolved, limit: int):
+def eligible_claims(
+    items: Iterable[dict[str, Any]],
+    *,
+    published: Collection[str],
+    never_sent: Iterable[str],
+    unresolved: Iterable[str],
+    limit: int,
+) -> tuple[list[str], list[str]]:
     """Which committed claims may be re-issued, and which request_ids that replaces.
 
     A claim qualifies only when it is still blocked on unresolved preliminary tags,
@@ -344,7 +362,9 @@ def eligible_claims(items, *, published, never_sent, unresolved, limit: int):
     return eligible, reissued
 
 
-def _lineage(store, tenant_id: str, run_id: str) -> tuple[JobMessage, dict[str, Any]]:
+def _lineage(
+    store: LocalSQLiteRunStore, tenant_id: str, run_id: str
+) -> tuple[JobMessage, dict[str, Any]]:
     run = store.jobs.get_run(tenant_id, run_id)
     if "tag_job" not in run or "tag_snapshot_sha256" not in run:
         raise RecoveryRejected("TAG_RECOVERY_LINEAGE_REQUIRED")
@@ -352,15 +372,15 @@ def _lineage(store, tenant_id: str, run_id: str) -> tuple[JobMessage, dict[str, 
 
 
 def plan_recovery(
-    store,
-    tags,
+    store: LocalSQLiteRunStore,
+    tags: LocalTagStore,
     *,
     tenant_id: str,
     run_id: str,
     receipts: Path,
     claim_limit: int,
     max_new_requests: int,
-    acknowledged_failures,
+    acknowledged_failures: Iterable[str],
     authorized_by: str,
     now: int,
 ) -> tuple[TagRecoveryPlan, dict[str, Any], dict[str, Any]]:
@@ -368,7 +388,8 @@ def plan_recovery(
     if type(claim_limit) is not int or not 1 <= claim_limit <= MAX_CLAIMS:
         raise RecoveryRejected("TAG_RECOVERY_CLAIM_BOUND_INVALID")
     lineage, run = _lineage(store, tenant_id, run_id)
-    envelope = tags.load_snapshot(tenant_id, run_id)
+    # External adapter/application boundary is not yet annotated.
+    envelope = tags.load_snapshot(tenant_id, run_id)  # type: ignore[no-untyped-call]
     if "decision_settings" in envelope:
         # v1 authorizes nine Luna requests, not additional provider judgments.
         # Ordinary immutable replay remains available; paid recovery needs a new contract.
@@ -432,7 +453,9 @@ def plan_recovery(
     return plan, proof, run
 
 
-def _open_authorizations(jobs, db, plan: TagRecoveryPlan) -> list[str]:
+def _open_authorizations(
+    jobs: LocalSQLiteJobStore, db: sqlite3.Connection, plan: TagRecoveryPlan
+) -> list[str]:
     """Which prior authorizations for this same lineage are still unfinished?
 
     A second authorization against the same committed stage would enqueue a second
@@ -455,7 +478,14 @@ def _open_authorizations(jobs, db, plan: TagRecoveryPlan) -> list[str]:
     return sorted(open_jobs)
 
 
-def authorize_recovery(store, plan: TagRecoveryPlan, proof, run, *, now: int) -> JobMessage:
+def authorize_recovery(
+    store: LocalSQLiteRunStore,
+    plan: TagRecoveryPlan,
+    proof: dict[str, Any],
+    run: dict[str, Any],
+    *,
+    now: int,
+) -> JobMessage:
     """Record the authorization and enqueue its job inside one transaction."""
     if canonical_hash(proof) != plan.proof_sha256:
         raise RecoveryRejected("TAG_RECOVERY_PROOF_MISMATCH")
@@ -494,7 +524,7 @@ def authorize_recovery(store, plan: TagRecoveryPlan, proof, run, *, now: int) ->
     return message
 
 
-def load_plan(store, message: JobMessage) -> TagRecoveryPlan | None:
+def load_plan(store: LocalSQLiteRunStore, message: JobMessage) -> TagRecoveryPlan | None:
     with store.jobs._transaction() as db:
         raw = store.jobs._raw(db, message.tenant_id, message.run_id, RECOVERY_KIND, message.job_id)
     if raw is None:
@@ -525,7 +555,9 @@ class TagRecovery:
             raise RecoveryRejected("TAG_RECOVERY_ALLOWANCE_SPENT:" + str(error)) from None
 
     @classmethod
-    def load(cls, store, tags, message: JobMessage) -> TagRecovery | None:
+    def load(
+        cls, store: LocalSQLiteRunStore, tags: LocalTagStore, message: JobMessage
+    ) -> TagRecovery | None:
         plan = load_plan(store, message)
         if plan is None:
             return None
@@ -554,7 +586,8 @@ class TagRecovery:
             Path(plan.receipts_root),
             proof["baseline_request_ids"],
         )
-        return cls(plan, tags.load_snapshot(message.tenant_id, message.run_id), len(issued))
+        # External adapter/application boundary is not yet annotated.
+        return cls(plan, tags.load_snapshot(message.tenant_id, message.run_id), len(issued))  # type: ignore[no-untyped-call]
 
     def can_attempt_claim(self) -> bool:
         """Is a whole claim still affordable, replicas at every stage included?"""
@@ -570,9 +603,13 @@ class TagRecovery:
         item = self._items.get(claim_id)
         if item is None:
             raise RecoveryRejected("TAG_RECOVERY_CLAIM_NOT_IN_LINEAGE")
-        return reviewable_checkpoint(json.loads(canonical_json(item)), pinned_profile=self._profile)
+        return cast(
+            dict[str, Any],
+            # External adapter/application boundary is not yet annotated.
+            reviewable_checkpoint(json.loads(canonical_json(item)), pinned_profile=self._profile),  # type: ignore[no-untyped-call]
+        )
 
-    def verify_published(self, store) -> int:
+    def verify_published(self, store: LocalSQLiteRunStore) -> int:
         """Check every carried published item still matches its immutable revision.
 
         The review identifier is content-addressed on the review inputs, so a

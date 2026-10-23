@@ -2,6 +2,21 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, TypedDict, cast
+
+from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+from proofops.application.ports.jobs import JobLease
+
+if TYPE_CHECKING:
+    from proofops.adapters.local.openai import OpenAIProbe
+    from proofops.adapters.local.openrouter import OpenRouterProbe
+    from proofops.adapters.local.upstage import UpstageProbe
+    from proofops.adapters.local.upstage_parse import UpstageParseProbe
+
+    from proofops_worker.live_tagging import LiveTaggingRuntime
+
+
 import json
 import os
 import secrets
@@ -23,6 +38,11 @@ from proofops_worker.local_runner import LocalParserRunner
 from proofops_worker.tag_runner import LocalTagRunner
 
 
+class ProviderFactories(TypedDict, total=False):
+    parse: Callable[[Path], UpstageParseProbe]
+    llm: Callable[..., UpstageProbe | OpenRouterProbe | OpenAIProbe]
+
+
 def build_composition(
     *,
     stage: str = "parse",
@@ -30,10 +50,10 @@ def build_composition(
     verify_paragraphs: bool = False,
     native_typography_tolerance: bool = False,
     raster_ocr: bool = False,
-    provider_factories=None,
-    provider_ledgers=None,
-    claim_progress=None,
-    claim_stage_progress=None,
+    provider_factories: ProviderFactories | None = None,
+    provider_ledgers: tuple[Path, Path] | None = None,
+    claim_progress: Callable[[str, int], None] | None = None,
+    claim_stage_progress: Callable[[str, int, str], None] | None = None,
 ) -> LocalParserRunner | LocalExtractRunner | LocalTagRunner:
     if type(native_typography_tolerance) is not bool or (
         native_typography_tolerance and (not verify_paragraphs or stage != "parse" or raster_ocr)
@@ -114,7 +134,7 @@ def build_composition(
             else UpstageParseProbe(os.environ.get("UPSTAGE_API_KEY", ""), note_ledger)
         )
     runner = LocalParserRunner(
-        LocalSQLiteRunStore(database),
+        LocalSQLiteRunStore(database),  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
         uploads,
         OpenDataLoaderParser(database.parent / "parser-prepared", upstage_probe=upstage_probe),
         profile=profile,
@@ -141,7 +161,13 @@ def build_composition(
 
             from proofops_worker.live_tagging import LiveTaggingRuntime
 
-            def live_factory(owner, snapshot, graph, lease, usage):
+            def live_factory(
+                owner: LocalTagRunner,
+                snapshot: dict[str, Any],
+                graph: CanonicalDocumentGraph,
+                lease: JobLease,
+                usage: dict[str, Any],
+            ) -> LiveTaggingRuntime:
                 if provider_factories and "decision_settings" in snapshot:
                     # Hosted profiles do not authorize Decisions transports. Never
                     # silently compose research ledgers/keys from a hosted worker.
@@ -452,12 +478,15 @@ def build_composition(
             extractor=extractor,
             telemetry=runner.telemetry,
             max_workers=max_workers,
-            tag_composition=lambda: build_composition(
-                stage="tag",
-                provider_factories=provider_factories,
-                provider_ledgers=provider_ledgers,
-                claim_progress=claim_progress,
-                claim_stage_progress=claim_stage_progress,
+            tag_composition=lambda: cast(
+                LocalTagRunner,
+                build_composition(
+                    stage="tag",
+                    provider_factories=provider_factories,
+                    provider_ledgers=provider_ledgers,
+                    claim_progress=claim_progress,
+                    claim_stage_progress=claim_stage_progress,
+                ),
             ),
         )
     return runner

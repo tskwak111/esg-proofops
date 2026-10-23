@@ -6,6 +6,7 @@ applicability, numerical check, assurance, track or grade.
 """
 
 import json
+from typing import Any
 
 from proofops.application.budget import TokenUsage
 from proofops.application.tagging.service import RawTagResponse
@@ -20,7 +21,7 @@ class SyntheticTaggingTransport:
         # Explicit synthetic byte counter, not an approved model tokenizer.
         return len(text.encode("utf-8"))
 
-    def invoke(self, request: dict) -> RawTagResponse:
+    def invoke(self, request: dict[str, Any]) -> RawTagResponse:
         user = json.loads(request["user_json"])
         classification = json.loads(
             request["system_prompt"].rsplit(

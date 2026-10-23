@@ -16,7 +16,7 @@ from hashlib import sha256
 from importlib.resources import files
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID, uuid4, uuid5
 
 from proofops.adapters.local.run_artifacts import (
@@ -26,20 +26,40 @@ from proofops.adapters.local.run_artifacts import (
 )
 from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser, ParseFailure
 from proofops.application.budget import BudgetExceeded
-from proofops.application.ingest.graph_fusion import ParserProfile
-from proofops.application.ports.jobs import JobMessage, LeaseLost
+from proofops.application.ingest.graph_fusion import (
+    CanonicalDocumentGraph,
+    ParserProfile,
+    SourceArtifact,
+)
+from proofops.application.ports.jobs import JobLease, JobMessage, LeaseLost
 from proofops.application.telemetry import Telemetry, TraceContext
 from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 from pypdf.errors import PdfReadError
 
-from proofops_worker.consumer import StageFailure, consume_job, with_lease_heartbeat
+from proofops_worker.consumer import (
+    HeartbeatRepository,
+    StageFailure,
+    consume_job,
+    with_lease_heartbeat,
+)
 from proofops_worker.extract_runner import paragraph_priority
 from proofops_worker.telemetry import observe_job
 
+if TYPE_CHECKING:
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops.adapters.local.upstage import UpstageProbe
+    from proofops.adapters.local.upstage_parse import UpstageParseProbe
+    from proofops.application.uploads import UploadService
 
-def _with_parser_heartbeat(store, lease, clock, operation):
+
+def _with_parser_heartbeat(
+    store: HeartbeatRepository,
+    lease: JobLease,
+    clock: Callable[[], float],
+    operation: Callable[[JobLease], tuple[bytes, dict[str, Any]]],
+) -> tuple[bytes, dict[str, Any]]:
     """Renew only this local parser's lease; any renewal failure blocks publication."""
     try:
         return with_lease_heartbeat(store, lease, clock, operation)
@@ -52,18 +72,18 @@ def _with_parser_heartbeat(store, lease, clock, operation):
 class LocalParserRunner:
     def __init__(
         self,
-        store,
-        uploads,
+        store: LocalSQLiteRunStore,
+        uploads: UploadService,
         parser: OpenDataLoaderParser,
         *,
         profile: ParserProfile,
         telemetry: Telemetry,
-        clock=time.time,
-        note_client=None,
-        note_ledger=None,
+        clock: Callable[[], float] = time.time,
+        note_client: UpstageProbe | None = None,
+        note_ledger: str | Path | None = None,
         verify_paragraphs: bool = False,
-        raster_probe=None,
-        raster_ledger=None,
+        raster_probe: UpstageParseProbe | None = None,
+        raster_ledger: str | Path | None = None,
         native_typography_tolerance: bool = False,
     ):
         if not uploads.local_synthetic or not isinstance(profile, ParserProfile):
@@ -84,14 +104,14 @@ class LocalParserRunner:
         # hashed, separately versioned proof on this instance (see
         # native_paragraph_typography.py) after the unchanged base replay.
         self.native_typography_tolerance = native_typography_tolerance
-        self.last_typography_proof = None
+        self.last_typography_proof: dict[str, Any] | None = None
         self.note_client = note_client
         self.note_ledger = (
             note_ledger if note_ledger is not None else getattr(note_client, "ledger", None)
         )
         self.raster_probe, self.raster_ledger = raster_probe, raster_ledger
 
-    def _raster_enabled(self, snapshot):
+    def _raster_enabled(self, snapshot: dict[str, Any]) -> bool:
         raster_keys = {key for key in snapshot if key.startswith("raster_ocr_")}
         if not raster_keys:
             if self.raster_probe is not None or self.raster_ledger is not None:
@@ -115,7 +135,7 @@ class LocalParserRunner:
             raise ValueError("RASTER_OCR_RUNTIME_NOT_SUPPORTED")
         return True
 
-    def _note_policy(self):
+    def _note_policy(self) -> dict[str, Any] | None:
         if self.note_client is None:
             return None
         if not isinstance(self.note_client.model, str) or not self.note_client.model:
@@ -130,7 +150,9 @@ class LocalParserRunner:
             batch_sha256=sha256(package.joinpath("note_review_batch.py").read_bytes()).hexdigest(),
         )
 
-    def _inputs(self, tenant_id, run_id):
+    def _inputs(
+        self, tenant_id: str, run_id: str
+    ) -> tuple[dict[str, Any], SourceArtifact, ParserProfile]:
         snapshot, source, profile = load_run_inputs(
             self.store, self.uploads, tenant_id=tenant_id, run_id=run_id
         )
@@ -138,7 +160,7 @@ class LocalParserRunner:
             raise ParseFailure("RUN_INPUT_INTEGRITY_MISMATCH")
         return snapshot, source, profile
 
-    def _directory(self, source, profile):
+    def _directory(self, source: SourceArtifact, profile: ParserProfile) -> Path:
         return (
             self.parser.artifact_root
             / source.tenant_id
@@ -151,7 +173,8 @@ class LocalParserRunner:
     ) -> str:
         from proofops.adapters.local.i4_parse_scope import for_snapshot
 
-        snapshot = self.store.snapshot(tenant_id, run_id)
+        # External adapter/application boundary is not yet annotated.
+        snapshot = self.store.snapshot(tenant_id, run_id)  # type: ignore[no-untyped-call]
         with for_snapshot(snapshot, tenant_id, run_id):
             return self._run_once(
                 tenant_id=tenant_id, run_id=run_id, note_review_artifacts=note_review_artifacts
@@ -165,17 +188,20 @@ class LocalParserRunner:
         if note_review_artifacts and self.note_client is not None:
             raise ValueError("NOTE_REVIEW_INPUT_MODE_CONFLICT")
         # No tenant discovery or implicit live-provider selection.
-        snapshot = self.store.snapshot(tenant_id, run_id)
+        # External adapter/application boundary is not yet annotated.
+        snapshot = self.store.snapshot(tenant_id, run_id)  # type: ignore[no-untyped-call]
         raster_enabled = self._raster_enabled(snapshot)
         run = self.store.jobs.get_run(tenant_id, run_id)
-        native_policy = native_paragraph_policy() if self.verify_paragraphs else None
+        # External adapter/application boundary is not yet annotated.
+        native_policy = native_paragraph_policy() if self.verify_paragraphs else None  # type: ignore[no-untyped-call]
         page_reader = None
         from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 
         if snapshot.get("claim_source_policy", {}).get("profile") in PAGE_OCR_PROFILES:
             from proofops.adapters.local.claim_source_policies import claim_source_reader
 
-            ocr_profile = claim_source_reader(snapshot["claim_source_policy"])
+            # External adapter/application boundary is not yet annotated.
+            ocr_profile = claim_source_reader(snapshot["claim_source_policy"])  # type: ignore[no-untyped-call]
             for_run = ocr_profile.for_run
             table_policy_sha256 = ocr_profile.table_policy_sha256
             ocr_policy = ocr_profile.native_policy
@@ -189,13 +215,15 @@ class LocalParserRunner:
                 native_policy = ocr_policy()
         if (
             "parse_job" in run
-            and self.store.jobs.parser_native_policy(JobMessage(**run["parse_job"]))
+            # External adapter/application boundary is not yet annotated.
+            and self.store.jobs.parser_native_policy(JobMessage(**run["parse_job"]))  # type: ignore[no-untyped-call]
             != native_policy
         ):
             raise ValueError("NATIVE_PARAGRAPH_ALREADY_PUBLISHED")
         if self.note_client is not None and "parse_job" in run:
             if (
-                self.store.jobs.parser_note_policy(JobMessage(**run["parse_job"]))
+                # External adapter/application boundary is not yet annotated.
+                self.store.jobs.parser_note_policy(JobMessage(**run["parse_job"]))  # type: ignore[no-untyped-call]
                 != self._note_policy()
             ):
                 raise ValueError("NOTE_REVIEW_ALREADY_PUBLISHED")
@@ -217,27 +245,36 @@ class LocalParserRunner:
                 message, job_id=str(uuid5(UUID(message.job_id), "extract")), stage="extract"
             )
 
-            def operation(lease):
-                usage = {"model_calls": 0, "parser_executions": 0, "artifact_reused": False}
+            def operation(lease: JobLease) -> tuple[bytes, dict[str, Any]]:
+                usage: dict[str, Any] = {
+                    "model_calls": 0,
+                    "parser_executions": 0,
+                    "artifact_reused": False,
+                }
                 policy = None
-                attempted = []
-                raster_attempted = []
-                raster_registrations = ()
-                raster_receipts = {}
+                attempted: list[str] = []
+                raster_attempted: list[str] = []
+                raster_registrations: tuple[dict[str, Any], ...] = ()
+                raster_receipts: dict[str, dict[str, Any] | None] = {}
 
-                def invoke(*args, **kwargs):
+                def invoke(*args: Any, **kwargs: Any) -> dict[str, Any]:
                     try:
                         self.store.jobs.heartbeat(lease, now=int(self.clock()), lease_seconds=90)
-                        self.store.jobs.register_parser_note_request(
+                        # External adapter/application boundary is not yet annotated.
+                        self.store.jobs.register_parser_note_request(  # type: ignore[no-untyped-call]
                             lease, kwargs["request_id"], now=int(self.clock())
                         )
                     except LeaseLost:
                         raise StageFailure("NOTE_REVIEW_LEASE_LOST", usage=usage) from None
                     attempted.append(kwargs["request_id"])
                     try:
-                        return self.note_client.complete(*args, **kwargs)
+                        return cast(
+                            dict[str, Any],
+                            cast("UpstageProbe", self.note_client).complete(*args, **kwargs),
+                        )
                     finally:
-                        self.store.jobs.finish_parser_note_request(lease, kwargs["request_id"])
+                        # External adapter/application boundary is not yet annotated.
+                        self.store.jobs.finish_parser_note_request(lease, kwargs["request_id"])  # type: ignore[no-untyped-call]
 
                 try:
                     snapshot, source, profile = self._inputs(tenant_id, run_id)
@@ -254,13 +291,17 @@ class LocalParserRunner:
                     ) != (tenant_id, run_id, source.document_version_id, snapshot["input_hash"]):
                         raise ParseFailure("RUN_INPUT_INTEGRITY_MISMATCH")
                     policy = self._note_policy()
-                    pinned_notes = self.store.jobs.parser_note_reviews(message)
+                    # External adapter/application boundary is not yet annotated.
+                    pinned_notes = self.store.jobs.parser_note_reviews(message)  # type: ignore[no-untyped-call]
                     if policy is None and pinned_notes is not None:
-                        policy = self.store.jobs.parser_note_policy(message)
+                        # External adapter/application boundary is not yet annotated.
+                        policy = self.store.jobs.parser_note_policy(message)  # type: ignore[no-untyped-call]
                     if policy is not None and note_review_artifacts:
                         raise ValueError("NOTE_REVIEW_INPUT_MODE_CONFLICT")
-                    self.store.jobs.bind_parser_note_policy(lease, policy, now=int(self.clock()))
-                    self.store.jobs.bind_parser_native_policy(
+                    # External adapter/application boundary is not yet annotated.
+                    self.store.jobs.bind_parser_note_policy(lease, policy, now=int(self.clock()))  # type: ignore[no-untyped-call]
+                    # External adapter/application boundary is not yet annotated.
+                    self.store.jobs.bind_parser_native_policy(  # type: ignore[no-untyped-call]
                         lease, native_policy, now=int(self.clock())
                     )
                     if policy is None:
@@ -291,8 +332,8 @@ class LocalParserRunner:
                         from proofops.adapters.local.note_review_batch import review_tables
 
                         client = SimpleNamespace(
-                            model=self.note_client.model,
-                            summary=self.note_client.summary,
+                            model=cast("UpstageProbe", self.note_client).model,
+                            summary=cast("UpstageProbe", self.note_client).summary,
                             complete=invoke,
                         )
                         prepared = review_tables(
@@ -311,7 +352,8 @@ class LocalParserRunner:
                             validate_automatic_note_reviews,
                         )
 
-                        validate_automatic_note_reviews(
+                        # External adapter/application boundary is not yet annotated.
+                        validate_automatic_note_reviews(  # type: ignore[no-untyped-call]
                             graph, pinned_notes, policy, selected_pages=profile.physical_pages
                         )
                     if pinned_notes:
@@ -352,17 +394,20 @@ class LocalParserRunner:
 
                             if (
                                 (
-                                    _execution_policy() == VERIFIED_READ_V11_POLICY
+                                    # External adapter/application boundary is not yet annotated.
+                                    _execution_policy() == VERIFIED_READ_V11_POLICY  # type: ignore[no-untyped-call]
                                     and native_policy.get("mode") == "upstage-ocr-page-v19"
                                 )
                                 or (
-                                    _execution_policy()
+                                    # External adapter/application boundary is not yet annotated.
+                                    _execution_policy()  # type: ignore[no-untyped-call]
                                     in (VERIFIED_READ_V12_POLICY, S3_VERIFIED_READ_V13_POLICY)
                                     and native_policy.get("mode")
                                     in {"upstage-ocr-page-v19", "upstage-ocr-page-v20"}
                                 )
                                 or (
-                                    _execution_policy() == S3_VERIFIED_READ_V13_POLICY
+                                    # External adapter/application boundary is not yet annotated.
+                                    _execution_policy() == S3_VERIFIED_READ_V13_POLICY  # type: ignore[no-untyped-call]
                                     and native_policy.get("mode") == "upstage-ocr-page-v21"
                                 )
                             ):
@@ -371,7 +416,8 @@ class LocalParserRunner:
                                 )
                                 from proofops.adapters.local.s2_reader_execution import reader_scope
 
-                                if _execution_policy() in (
+                                # External adapter/application boundary is not yet annotated.
+                                if _execution_policy() in (  # type: ignore[no-untyped-call]
                                     VERIFIED_READ_V12_POLICY,
                                     S3_VERIFIED_READ_V13_POLICY,
                                 ):
@@ -379,23 +425,37 @@ class LocalParserRunner:
                                         reader_scope,
                                     )
 
-                                source_reader = page_ocr_profile(
+                                # External adapter/application boundary is not yet annotated.
+                                source_reader = page_ocr_profile(  # type: ignore[no-untyped-call]
                                     native_policy["mode"], policy=native_policy, native=True
                                 )
 
-                                def attest_native_sources(g, s, *, tenant_id, geometry_mode):
+                                def attest_native_sources(
+                                    g: CanonicalDocumentGraph,
+                                    s: bytes,
+                                    *,
+                                    tenant_id: str,
+                                    geometry_mode: str,
+                                ) -> dict[str, Any]:
                                     with reader_scope(
                                         source_reader, run_id=run_id, tenant_id=tenant_id
                                     ) as instance:
-                                        return instance.attest_native_sources(
-                                            g, s, tenant_id=tenant_id, geometry_mode=geometry_mode
+                                        return cast(
+                                            dict[str, Any],
+                                            instance.attest_native_sources(
+                                                g,
+                                                s,
+                                                tenant_id=tenant_id,
+                                                geometry_mode=geometry_mode,
+                                            ),
                                         )
 
                         native_receipt = attest_native_sources(
                             graph, source.content, tenant_id=tenant_id, geometry_mode="glyph"
                         )
                         if page_reader is not None:
-                            remember_parse_attestation(
+                            # External adapter/application boundary is not yet annotated.
+                            remember_parse_attestation(  # type: ignore[no-untyped-call]
                                 reader_name="native:" + native_policy["mode"],
                                 policy=native_policy,
                                 receipt=native_receipt,
@@ -420,8 +480,10 @@ class LocalParserRunner:
                                 tenant_id=tenant_id,
                             )
                         else:
-                            if _parse_enabled():
-                                graph = replay_verified(
+                            # External adapter/application boundary is not yet annotated.
+                            if _parse_enabled():  # type: ignore[no-untyped-call]
+                                # External adapter/application boundary is not yet annotated.
+                                graph = replay_verified(  # type: ignore[no-untyped-call]
                                     reader_name="native:" + str((native_policy or {}).get("mode")),
                                     policy=native_policy,
                                     receipt=native_receipt,
@@ -439,7 +501,8 @@ class LocalParserRunner:
                             evidence_source_reader,
                         )
 
-                        ev1 = evidence_source_reader(snapshot["evidence_source_policy"])
+                        # External adapter/application boundary is not yet annotated.
+                        ev1 = evidence_source_reader(snapshot["evidence_source_policy"])  # type: ignore[no-untyped-call]
                         evidence_pages = tuple(
                             sorted(set(profile.physical_pages) - set(profile.claim_physical_pages))
                         )
@@ -455,8 +518,10 @@ class LocalParserRunner:
                                 else {}
                             ),
                         )
-                        if _parse_enabled():
-                            remember_parse_attestation(
+                        # External adapter/application boundary is not yet annotated.
+                        if _parse_enabled():  # type: ignore[no-untyped-call]
+                            # External adapter/application boundary is not yet annotated.
+                            remember_parse_attestation(  # type: ignore[no-untyped-call]
                                 reader_name=ev1.__name__,
                                 policy=ev1.policy(),
                                 receipt=evidence_receipt,
@@ -464,7 +529,8 @@ class LocalParserRunner:
                                 source=source.content,
                                 tenant_id=tenant_id,
                             )
-                            graph = replay_verified(
+                            # External adapter/application boundary is not yet annotated.
+                            graph = replay_verified(  # type: ignore[no-untyped-call]
                                 reader_name=ev1.__name__,
                                 policy=ev1.policy(),
                                 receipt=evidence_receipt,
@@ -514,7 +580,7 @@ class LocalParserRunner:
                                 native_receipt,
                                 ids,
                                 probe=self.raster_probe,
-                                ledger=self.raster_ledger,
+                                ledger=cast(str | Path, self.raster_ledger),
                             )
                             raster_attempted.append(request["request_id"])
                             if receipt is None:
@@ -686,7 +752,8 @@ class LocalParserRunner:
                     code = source_failure_code(error) or "PARSER_FAILED"
                     raise StageFailure(code, usage=usage) from None
                 finally:
-                    note_identifiers = self.store.jobs.parser_note_requests(message)
+                    # External adapter/application boundary is not yet annotated.
+                    note_identifiers = self.store.jobs.parser_note_requests(message)  # type: ignore[no-untyped-call]
                     if raster_enabled:
                         from proofops.adapters.local.raster_job_store import raster_requests
 
@@ -719,7 +786,8 @@ class LocalParserRunner:
                             from proofops.adapters.local.upstage import request_usage
 
                             returned = set(
-                                self.store.jobs.parser_note_requests(message, returned=True)
+                                # External adapter/application boundary is not yet annotated.
+                                self.store.jobs.parser_note_requests(message, returned=True)  # type: ignore[no-untyped-call]
                             )
                             returned.update(
                                 request_id
@@ -797,8 +865,11 @@ class LocalParserRunner:
             return result
         return "pending_downstream" if run.get("current_stage") == "extract" else "idle"
 
-    def load_graph(self, *, tenant_id: str, run_id: str):
+    def load_graph(self, *, tenant_id: str, run_id: str) -> CanonicalDocumentGraph:
         """The sole runner publication read: fence-committed pointer plus verified rich graph."""
-        return load_run_graph(
-            self.store, self.uploads, self.parser, tenant_id=tenant_id, run_id=run_id
+        return cast(
+            CanonicalDocumentGraph,
+            load_run_graph(
+                self.store, self.uploads, self.parser, tenant_id=tenant_id, run_id=run_id
+            ),
         )

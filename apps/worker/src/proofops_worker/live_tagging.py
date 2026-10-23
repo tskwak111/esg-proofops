@@ -1,20 +1,32 @@
 """Scoped local Upstage composition; immutable receipts, no implicit rule approval."""
 
+from __future__ import annotations
+
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
+from typing import TYPE_CHECKING, Any, Unpack, cast
 
 from proofops.adapters.local.tag_store import tagging_settings
 from proofops.application.authorization import AuthContext
-from proofops.application.budget import BudgetExceeded
+from proofops.application.budget import BudgetCall, BudgetExceeded
+from proofops.application.claims import Claim
 from proofops.application.evidence.binding import local_relation_tags
+from proofops.application.evidence.retrieval import EvidencePacket
+from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.application.input_reservation import validate_capacity_policy
-from proofops.application.ports.jobs import LeaseLost
-from proofops.application.preflight import check_local_upstage_tagger
+from proofops.application.ports.jobs import JobLease, LeaseLost
+from proofops.application.preflight import Preflight, check_local_upstage_tagger
 from proofops.application.registry import Registry, artifact_sha256
+from proofops.application.tagging.contracts import (
+    PreliminaryClassification,
+    RawTagResponse,
+    TaggingSettings,
+)
 from proofops.application.tagging.preliminary import (
     preliminary_request,
     preliminary_table_request,
@@ -24,14 +36,26 @@ from proofops.application.tagging.relations import (
     OCCURRENCE_V3_PROFILE,
     RelationValidationError,
 )
+from proofops.application.tagging.tracks import TrackCandidate
 from proofops.domain.provenance import canonical_hash
+from proofops.domain.values import SourceRef
 from proofops_agent.upstage_preliminary import UpstagePreliminaryTransport
 from proofops_agent.upstage_tagging import (
     TransportResume,
     UpstageTaggingTransport,
 )
 
-from proofops_worker.consumer import TagHeartbeatFailed, point_heartbeat
+from proofops_worker.consumer import LeaseHeartbeatState, TagHeartbeatFailed, point_heartbeat
+from proofops_worker.tagging_parts.contracts import (
+    BudgetReservation,
+    ConsensusOptions,
+    ContextReceiptOptions,
+    PreliminaryResult,
+    RelationRoles,
+    ReplicaOutcome,
+    ReplicaValue,
+    SourceTransport,
+)
 from proofops_worker.tagging_parts.decisions import (
     configure_decisions,
     decision_pair,
@@ -66,16 +90,29 @@ from proofops_worker.tagging_parts.replicas import (
     update_accounting,
 )
 
+if TYPE_CHECKING:
+    from proofops.adapters.local.decisions import DecisionProbe
+    from proofops.adapters.local.glyph_display_text import GlyphDisplayCatalog
+    from proofops.adapters.local.openrouter import OpenRouterProbe
+    from proofops.adapters.local.upstage import UpstageProbe
+
+    from proofops_worker.tag_runner import LocalTagRunner
+
 
 class LiveTaggingRuntime:
     synthetic = False
-    heartbeat_state = None
+    heartbeat_state: LeaseHeartbeatState | None = None
+    s2_call_allowance: int
+    s2_reserved_calls: set[tuple[str, int]]
+    replica_workers: int
+    scope_records: dict[str, Any]
+    decision_probes: dict[str, DecisionProbe]
 
-    def _check_heartbeat(self):
+    def _check_heartbeat(self) -> None:
         if self.heartbeat_state is not None:
             self.heartbeat_state.check()
 
-    def reserve_tag_call(self, call, **kwargs):
+    def reserve_tag_call(self, call: BudgetCall, **kwargs: Unpack[BudgetReservation]) -> bool:
         """The claim-volume allowance never replaces persisted or USD limits."""
         if not hasattr(self, "s2_call_allowance"):
             return self.runner.store.usage.reserve_budget(call, **kwargs)
@@ -87,10 +124,21 @@ class LiveTaggingRuntime:
                 self.s2_reserved_calls.add((call.request_id, call.attempt))
             return reserved
 
-    def __init__(self, runner, snapshot, graph, lease, usage, *, probe, ledger, receipts):
+    def __init__(
+        self,
+        runner: LocalTagRunner,
+        snapshot: dict[str, Any],
+        graph: CanonicalDocumentGraph,
+        lease: JobLease,
+        usage: dict[str, Any],
+        *,
+        probe: UpstageProbe | OpenRouterProbe,
+        ledger: str | Path,
+        receipts: str | Path,
+    ) -> None:
         from proofops.application.evidence.relation_attribution import snapshot_policy
 
-        self.attribution_policy = snapshot_policy(snapshot)
+        self.attribution_policy = snapshot_policy(snapshot)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
         if (
             snapshot.get("tagging_mode") != "upstage_local"
             or snapshot["input_hash"]
@@ -128,21 +176,23 @@ class LiveTaggingRuntime:
                 # An authorization is bound to the exact receipt tree it was proven
                 # against; it can never be applied to a different local state.
                 raise ValueError("LIVE_TAGGING_RESUME_ROOT_MISMATCH")
-        self.settings = tagging_settings(snapshot)
-        self.preliminary_settings = tagging_settings(snapshot, preliminary=True)
+        self.settings: TaggingSettings = tagging_settings(snapshot)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        self.preliminary_settings: TaggingSettings = tagging_settings(snapshot, preliminary=True)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
         self.registry = Registry.sqlite(runner.store.path)
         self.auth = AuthContext(
             "local-worker", graph.tenant_id, "viewer", frozenset(), snapshot["run_id"]
         )
-        self.allowed_packets = set()
-        self.preliminary_records = {}
-        self.relation_records = {}
-        self.decision_records = {}
-        self.decision_request_ids = {p: set() for p in ("openai", "openrouter")}
-        self.relation_settings = (
-            tagging_settings(snapshot, relation=True) if "relation_settings" in snapshot else None
+        self.allowed_packets: set[tuple[str, str]] = set()
+        self.preliminary_records: dict[str, list[dict[str, Any]]] = {}
+        self.relation_records: dict[str, list[dict[str, Any]]] = {}
+        self.decision_records: dict[str, dict[str, Any]] = {}
+        self.decision_request_ids: dict[str, set[str]] = {
+            p: set() for p in ("openai", "openrouter")
+        }
+        self.relation_settings: TaggingSettings | None = (
+            tagging_settings(snapshot, relation=True) if "relation_settings" in snapshot else None  # type: ignore[no-untyped-call]  # External API is not annotated yet.
         )
-        self.request_ids = set()
+        self.request_ids: set[str] = set()
         accounting = snapshot.get("analysis_profile_policy", {}).get("s5_usage_accounting")
         if accounting not in (None, "s5_final_reporting_snapshot_v1"):
             raise ValueError("S5_USAGE_ACCOUNTING_POLICY_MISMATCH")
@@ -153,7 +203,7 @@ class LiveTaggingRuntime:
             for row in runner.store.jobs.list_usage(graph.tenant_id, snapshot["run_id"])
             for identifier in row.get("tag_request_ids", [])
         }
-        self.display_catalog = None
+        self.display_catalog: GlyphDisplayCatalog | None = None
         if "display_text_policy" in snapshot:
             from proofops.adapters.local.glyph_display_text import GlyphDisplayCatalog
             from proofops.application.ingest.display_text import POLICY
@@ -204,18 +254,24 @@ class LiveTaggingRuntime:
         configure_decisions(self, runner, snapshot, ledger)
         self._capacity(self.settings.model_id)
 
-    def _capacity(self, model_id):
+    def _capacity(self, model_id: str) -> int:
         if model_id == "gpt-6-luna":
             from proofops.adapters.local.openai import validate_capacity_policy as validate_openai
 
-            return validate_openai(self.snapshot["input_reservation_policy"], model_id=model_id)
+            return cast(
+                int,
+                validate_openai(self.snapshot["input_reservation_policy"], model_id=model_id),  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            )
         if model_id == "openai/gpt-6-luna":
             from proofops.adapters.local.openrouter import (
                 validate_capacity_policy as validate_luna_capacity,
             )
 
-            return validate_luna_capacity(
-                self.snapshot["input_reservation_policy"], model_id=model_id
+            return cast(
+                int,
+                validate_luna_capacity(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                    self.snapshot["input_reservation_policy"], model_id=model_id
+                ),
             )
         return validate_capacity_policy(
             self.snapshot["input_reservation_policy"],
@@ -223,12 +279,12 @@ class LiveTaggingRuntime:
             checked_at=datetime.fromtimestamp(self.runner.clock(), UTC),
         )
 
-    def _fence(self):
+    def _fence(self) -> None:
         from proofops.adapters.local.verified_read_cache import _parse_enabled
 
         self._check_heartbeat()
         now = int(self.runner.clock())
-        if not _parse_enabled() and not self.runner.store.jobs.can_call(self.lease, now=now):
+        if not _parse_enabled() and not self.runner.store.jobs.can_call(self.lease, now=now):  # type: ignore[no-untyped-call]  # External API is not annotated yet.
             raise LeaseLost("LEASE_LOST")
         try:
             point_heartbeat(
@@ -242,7 +298,7 @@ class LiveTaggingRuntime:
             raise TagHeartbeatFailed() from None
         self._check_heartbeat()
 
-    def _authorize(self, settings, request):
+    def _authorize(self, settings: TaggingSettings, request: dict[str, Any]) -> Preflight:
         self._fence()
         prefix = next(
             (
@@ -289,7 +345,9 @@ class LiveTaggingRuntime:
             document_rights=self.snapshot["document"]["metadata"]["rights_profile_id"],
         )
 
-    def display_packet(self, packet, *, claim=None):
+    def display_packet(
+        self, packet: EvidencePacket, *, claim: Claim | None = None
+    ) -> EvidencePacket:
         display_catalog = getattr(self, "display_catalog", None)
         policy = getattr(self, "snapshot", {}).get("analysis_profile_policy", {})
         from proofops.application.ingest.k5_context import POLICY as K5_POLICY
@@ -316,7 +374,7 @@ class LiveTaggingRuntime:
         if k5:
             if claim is None or claim.claim_id != data["claim_id"]:
                 raise ValueError("SENTENCE_CONTEXT_CLAIM_REQUIRED")
-            data["sentence_context"] = configured_context(claim, self.graph, policy)
+            data["sentence_context"] = configured_context(claim, self.graph, policy)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
         if "tagging_wire_policy" in policy:
             from proofops.application.tagging.k7_wire import POLICY as K7_WIRE
             from proofops.application.tagging.k7_wire import POLICY_K8 as K8_WIRE
@@ -353,7 +411,7 @@ class LiveTaggingRuntime:
 
             if claim is None or claim.claim_id != data["claim_id"]:
                 raise ValueError("TABLE_EVIDENCE_CLAIM_REQUIRED")
-            data = augment_packet(
+            data = augment_packet(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                 data,
                 claim,
                 self.graph,
@@ -394,73 +452,80 @@ class LiveTaggingRuntime:
                 "local_implementation_binding_policy"
             ]
         if "qt2_contextual_elements_policy" in policy:
-            from proofops.application.tagging.qt2_context import augment_packet, validate_policy
+            from proofops.application.tagging.qt2_context import augment_packet as qt2_augment
+            from proofops.application.tagging.qt2_context import validate_policy
 
             contextual = policy["qt2_contextual_elements_policy"]
-            validate_policy(contextual)
+            validate_policy(contextual)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
             if policy.get("qt2_contextual_elements_policy_sha256") != canonical_hash(contextual):
                 raise ValueError("QT2_CONTEXT_POLICY_PIN_MISMATCH")
-            data = augment_packet(data, claim, self.graph, tenant_id=self.graph.tenant_id)
+            data = qt2_augment(data, claim, self.graph, tenant_id=self.graph.tenant_id)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
         if "qt1_tuple_policy" in policy:
-            from proofops.application.tagging.qt1_tuples import POLICY, augment_packet
+            from proofops.application.tagging.qt1_tuples import POLICY as qt1_policy
+            from proofops.application.tagging.qt1_tuples import augment_packet as qt1_augment
 
-            if policy["qt1_tuple_policy"] != POLICY:
+            if policy["qt1_tuple_policy"] != qt1_policy:
                 raise ValueError("QT1_TUPLE_POLICY_MISMATCH")
-            data = augment_packet(data, claim, self.graph, tenant_id=self.graph.tenant_id)
+            data = qt1_augment(data, claim, self.graph, tenant_id=self.graph.tenant_id)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
         if "tb1_table_policy" in policy:
-            from proofops.application.tagging.tb1_table_bundles import POLICY, augment_packet
+            from proofops.application.tagging.tb1_table_bundles import POLICY as tb1_policy
+            from proofops.application.tagging.tb1_table_bundles import augment_packet as tb1_augment
 
-            if policy["tb1_table_policy"] != POLICY or policy.get(
+            if policy["tb1_table_policy"] != tb1_policy or policy.get(
                 "tb1_table_policy_sha256"
-            ) != canonical_hash(POLICY):
+            ) != canonical_hash(tb1_policy):
                 raise ValueError("TB1_TABLE_POLICY_MISMATCH")
-            augment_packet(data, claim, self.graph, tenant_id=self.auth.tenant_id)
+            tb1_augment(data, claim, self.graph, tenant_id=self.auth.tenant_id)
         if "v3_dec92_policy" in policy:
             from proofops.application.tagging.v3_context import augment_packet as v3_augment
             from proofops.application.tagging.v3_dec92 import validate_policy as validate_v3
 
-            validate_v3(policy["v3_dec92_policy"])
+            validate_v3(policy["v3_dec92_policy"])  # type: ignore[no-untyped-call]  # External API is not annotated yet.
             if policy.get("v3_dec92_policy_sha256") != canonical_hash(policy["v3_dec92_policy"]):
                 raise ValueError("V3_DEC92_POLICY_PIN_MISMATCH")
-            data = v3_augment(data, claim, self.graph, tenant_id=self.graph.tenant_id)
+            data = v3_augment(data, claim, self.graph, tenant_id=self.graph.tenant_id)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
         if display_catalog is not None:
             data["display_text"] = display_catalog.element_pins(data)
         if policy.get("hold_recovery_policy") is not None:
             from proofops.application.tagging.k2_recovery import validate_policy
 
-            validate_policy(policy["hold_recovery_policy"])
+            validate_policy(policy["hold_recovery_policy"])  # type: ignore[no-untyped-call]  # External API is not annotated yet.
             if policy.get("hold_recovery_policy_sha256") != canonical_hash(
                 policy["hold_recovery_policy"]
             ):
                 raise ValueError("K2_RECOVERY_POLICY_PIN_MISMATCH")
             data["local_element_recovery_policy"] = policy["hold_recovery_policy"]
         if self.snapshot.get("analysis_profile_policy", {}).get("hold_recovery") == "hf1-v1":
-            from proofops.application.tagging.citation_restore import POLICY
+            from proofops.application.tagging.citation_restore import POLICY as citation_policy
 
-            data["citation_restore_policy"] = POLICY
+            data["citation_restore_policy"] = citation_policy
         if policy.get("citation_restore") == "citation-table-separators-pb2-v1":
-            from proofops.application.tagging.pb2_citation_restore import POLICY
+            from proofops.application.tagging.pb2_citation_restore import (
+                POLICY as pb2_citation_policy,
+            )
 
-            data["citation_restore_policy"] = POLICY
+            data["citation_restore_policy"] = pb2_citation_policy
         if policy.get("citation_restore") == "citation-selected-value-pb6-v1":
-            from proofops.application.tagging.pb6_citation_restore import POLICY
+            from proofops.application.tagging.pb6_citation_restore import (
+                POLICY as pb6_citation_policy,
+            )
 
-            data["citation_restore_policy"] = POLICY
+            data["citation_restore_policy"] = pb6_citation_policy
         if policy.get("citation_restore") == "citation-selected-adjacent-unit-k6-v1":
-            from proofops.application.tagging.k6_citations import POLICY
+            from proofops.application.tagging.k6_citations import POLICY as k6_citation_policy
 
-            data["citation_restore_policy"] = POLICY
+            data["citation_restore_policy"] = k6_citation_policy
         return freeze_packet(data)
 
-    def allow_packet(self, claim_id, packet_sha256):
+    def allow_packet(self, claim_id: str, packet_sha256: str) -> None:
         self.allowed_packets.add((claim_id, packet_sha256))
 
     @staticmethod
-    def token_counter(text):
+    def token_counter(text: str) -> int:
         # Retrieval size bound only; provider reservation uses the full capacity below.
         return len(text.encode("utf-8"))
 
-    def count_input_tokens(self, request):
+    def count_input_tokens(self, request: dict[str, Any]) -> int:
         # Validate the actual wire and current authority before reserving its upper bound.
         # A withdrawn or exhausted recovery allowance stops here, before any
         # reservation: tag_replicates records TAGGING_INPUT_COUNT_INVALID and
@@ -471,16 +536,16 @@ class LiveTaggingRuntime:
             request, counter=lambda system, user: self._capacity(self.settings.model_id)
         )
 
-    def account(self, request_id):
+    def account(self, request_id: str) -> None:
         return account(self, request_id)
 
-    def _update_accounting(self):
+    def _update_accounting(self) -> None:
         return update_accounting(self)
 
-    def flush_accounting(self):
+    def flush_accounting(self) -> None:
         return flush_accounting(self)
 
-    def invoke(self, request):
+    def invoke(self, request: dict[str, Any]) -> RawTagResponse:
         try:
             context = (
                 self.probe.response_context(role="elements", replica=request["replicate_id"])
@@ -492,7 +557,7 @@ class LiveTaggingRuntime:
         finally:
             self.account(request["request_id"])
 
-    def preliminary(self, claim, graph):
+    def preliminary(self, claim: Claim, graph: CanonicalDocumentGraph) -> PreliminaryResult | None:
         from proofops.application.tagging import cf5_context
 
         plan = build_preliminary_packet(
@@ -508,7 +573,7 @@ class LiveTaggingRuntime:
         packet, context_receipt = plan.packet, plan.context_receipt
         decision, unattended, cf5 = plan.decision, plan.unattended, plan.cf5
 
-        def validate(raw):
+        def validate(raw: dict[str, Any]) -> tuple[PreliminaryClassification, dict[str, Any]]:
             return validate_preliminary_response(
                 self,
                 raw,
@@ -525,8 +590,16 @@ class LiveTaggingRuntime:
             self.preliminary_transport,
             self.preliminary_records,
             validate,
-            **({"require_consensus": False} if decision or unattended else {}),
-            **({"context_receipt": context_receipt} if context_receipt else {}),
+            **(
+                ConsensusOptions(require_consensus=False)
+                if decision or unattended
+                else ConsensusOptions()
+            ),
+            **(
+                ContextReceiptOptions(context_receipt=context_receipt)
+                if context_receipt
+                else ContextReceiptOptions()
+            ),
         )
         if decision:
             return self._decision_preliminary(claim, packet, results)
@@ -539,7 +612,7 @@ class LiveTaggingRuntime:
                 (r.track.track if r.track else None, r.safe_harbor_category) for r in results
             )
             header, count = votes.most_common(1)[0]
-            if cf5 and not cf5_context.header_agreed(
+            if cf5 and not cf5_context.header_agreed(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                 [(r.track.track if r.track else None, r.safe_harbor_category) for r in results]
             ):
                 return None
@@ -548,8 +621,8 @@ class LiveTaggingRuntime:
             winners = [
                 r for r in results if r.track and (r.track.track, r.safe_harbor_category) == header
             ]
-            dimensions = {}
-            for key in set().union(*(r.context.dimensions for r in winners)):
+            dimensions: dict[str, SourceRef | None] = {}
+            for key in set[str]().union(*(r.context.dimensions for r in winners)):
                 values = [r.context.dimensions.get(key) for r in winners]
                 dimensions[key] = values[0] if all(v == values[0] for v in values) else None
             self.preliminary_records[claim.claim_id].append(
@@ -560,16 +633,16 @@ class LiveTaggingRuntime:
                 )
             )
             context = ClaimContext(claim, dimensions)
-            return winners[0].track, context, local_relation_tags(context)
+            return cast(TrackCandidate, winners[0].track), context, local_relation_tags(context)
         if results is None or results[0].track is None:
             return None
         context = results[0].context
         return results[0].track, context, local_relation_tags(context)
 
-    def preliminary_agreement(self, claim_id):
+    def preliminary_agreement(self, claim_id: str) -> dict[str, Any]:
         return preliminary_agreement(self, claim_id)
 
-    def relations(self, claim, packet):
+    def relations(self, claim: Claim, packet: EvidencePacket) -> RelationRoles | None:
         """Tag only verified external sources already present in this frozen packet."""
         self.relation_records[claim.claim_id] = []
         if self.relation_settings is None:
@@ -596,10 +669,10 @@ class LiveTaggingRuntime:
             ]
             return None
 
-        sources, envelope, anchors = plan.sources, plan.envelope, plan.anchors
+        sources, envelope, anchors = plan.sources, cast(dict[str, Any], plan.envelope), plan.anchors
         refused, refusals = plan.refused, plan.refusals
 
-        def validate(raw):
+        def validate(raw: dict[str, Any]) -> tuple[RelationRoles, dict[str, Any]]:
             return validate_relation_response(self, raw, claim=claim, plan=plan)
 
         results = self._source_replicas(
@@ -618,7 +691,7 @@ class LiveTaggingRuntime:
             return None
         # A disputed source stays wholly unresolved; never combine roles from
         # different replicas into a relationship that no replica proposed.
-        resolved = {
+        resolved: RelationRoles = {
             source_id: roles
             if all(result[source_id] == roles for result in results)
             else {name: None for result in results for name in result[source_id]}
@@ -640,7 +713,7 @@ class LiveTaggingRuntime:
                 pair, receipts = self._decision_pair(
                     claim,
                     state,
-                    relation_questions(),
+                    relation_questions(),  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                     "relation:" + source.source_id,
                     packet_sha256=canonical_hash(envelope),
                     retrieval_packet_sha256=packet.packet_sha256,
@@ -649,7 +722,7 @@ class LiveTaggingRuntime:
                     a.get("relation", {}).get("choice") if a.get("relation") else "unknown"
                     for a in pair
                 ]
-                support = resolve_relation(*choices)
+                support = resolve_relation(*choices)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                 self.relation_records[claim.claim_id].append(
                     dict(
                         source_id=source.source_id,
@@ -665,8 +738,15 @@ class LiveTaggingRuntime:
         return refused | resolved
 
     def _decision_pair(
-        self, claim, state, questions, purpose, *, packet_sha256, retrieval_packet_sha256=None
-    ):
+        self,
+        claim: Claim,
+        state: dict[str, Any],
+        questions: list[dict[str, Any]],
+        purpose: str,
+        *,
+        packet_sha256: str,
+        retrieval_packet_sha256: str | None = None,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         return decision_pair(
             self,
             claim,
@@ -677,10 +757,14 @@ class LiveTaggingRuntime:
             retrieval_packet_sha256=retrieval_packet_sha256,
         )
 
-    def _decision_preliminary(self, claim, packet, results):
+    def _decision_preliminary(
+        self, claim: Claim, packet: dict[str, Any], results: list[PreliminaryClassification] | None
+    ) -> PreliminaryResult | None:
         return decision_preliminary(self, claim, packet, results)
 
-    def _run_source_replicas(self, run_one, settings):
+    def _run_source_replicas(
+        self, run_one: Callable[[int], ReplicaOutcome[ReplicaValue]], settings: TaggingSettings
+    ) -> list[ReplicaOutcome[ReplicaValue]]:
         workers = (
             min(getattr(self, "replica_workers", getattr(self.runner, "max_workers", 1)), 3)
             if settings.model_id in ("openai/gpt-6-luna", "gpt-6-luna")
@@ -701,18 +785,18 @@ class LiveTaggingRuntime:
 
     def _source_replicas(
         self,
-        prefix,
-        claim,
-        packet,
-        settings,
-        transport,
-        record_store,
-        validate,
+        prefix: str,
+        claim: Claim,
+        packet: dict[str, Any],
+        settings: TaggingSettings,
+        transport: SourceTransport,
+        record_store: dict[str, list[dict[str, Any]]],
+        validate: Callable[[dict[str, Any]], tuple[ReplicaValue, dict[str, Any]]],
         *,
-        retrieval_packet_sha256=None,
-        require_consensus=True,
-        context_receipt=None,
-    ):
+        retrieval_packet_sha256: str | None = None,
+        require_consensus: bool = True,
+        context_receipt: dict[str, Any] | None = None,
+    ) -> list[ReplicaValue] | None:
         return source_replicas(
             self,
             prefix,

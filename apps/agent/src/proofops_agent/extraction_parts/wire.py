@@ -8,24 +8,25 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import asdict
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID, uuid5
 
 from proofops.application.claims import (
     ExtractionOutputError,
+    ExtractionSpan,
 )
 from proofops.application.ingest.atomic_candidates import (
-    PROFILE as ATOMIC_PROFILE,
+    PROFILE as _ATOMIC_PROFILE,
 )
-from proofops.application.ingest.atomic_candidates import PROFILE_V3 as ATOMIC_PROFILE_V3
+from proofops.application.ingest.atomic_candidates import PROFILE_V3 as _ATOMIC_PROFILE_V3
 from proofops.application.ingest.atomic_candidates import (
     atomic_candidates,
 )
 from proofops.application.ingest.table_row_candidates import (
-    POLICY as ROW_POLICY,
+    POLICY as _ROW_POLICY,
 )
 from proofops.application.ingest.table_row_candidates import (
-    PROFILE as ROW_PROFILE,
+    PROFILE as _ROW_PROFILE,
 )
 from proofops.application.ingest.table_row_candidates import (
     row_candidates,
@@ -34,6 +35,7 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.sentences import sentence_spans
 from proofops.domain.values import _require_sha256, _require_uuid
 
+from proofops_agent.extraction_parts.contracts import DisplayCatalog
 from proofops_agent.extraction_parts.profiles import (
     _MAX_ATOMIC_CANDIDATES,
     _MAX_SOURCE_SENTENCES,
@@ -48,8 +50,16 @@ from proofops_agent.extraction_parts.profiles import (
     join_selected_linewraps,
 )
 
+if TYPE_CHECKING:
+    from proofops_agent.upstage_extraction import UpstageClaimExtractor
 
-def _require_graph(self, packet: dict, context_graph: Any) -> None:
+ATOMIC_PROFILE = _ATOMIC_PROFILE
+ATOMIC_PROFILE_V3 = _ATOMIC_PROFILE_V3
+ROW_POLICY = _ROW_POLICY
+ROW_PROFILE = _ROW_PROFILE
+
+
+def _require_graph(self: UpstageClaimExtractor, packet: dict[str, Any], context_graph: Any) -> None:
     """Graph presence matches the context option; then verify its identity."""
     if self._context:
         if context_graph is None:
@@ -60,15 +70,15 @@ def _require_graph(self, packet: dict, context_graph: Any) -> None:
 
 
 def _resolve_payload(
-    self,
+    self: UpstageClaimExtractor,
     payload: Any,
     text: str,
     source_id: str,
-    display_pin=None,
+    display_pin: dict[str, Any] | None = None,
     *,
-    packet=None,
-    context_graph=None,
-) -> tuple[tuple, dict[str, Any]]:
+    packet: dict[str, Any] | None = None,
+    context_graph: Any = None,
+) -> tuple[tuple[ExtractionSpan, ...], dict[str, Any]]:
     """Turn one raw model response into validated spans plus its rejection record.
 
     Live and replay paths share this single site, so a stored response can
@@ -83,13 +93,19 @@ def _resolve_payload(
     if self._source_ids:
         atomic_index = None
         if self._atomic or self._table_rows:
-            blocks = self._context_for(packet, context_graph)[0] if self._context else []
+            blocks = (
+                self._context_for(cast(dict[str, Any], packet), context_graph)[0]
+                if self._context
+                else []
+            )
             atomic_index = [
                 (entry["sentence_id"], (entry["char_start"], entry["char_end"]))
                 for entry in (
-                    self._atomic_entries(packet, text, blocks)
+                    self._atomic_entries(cast(dict[str, Any], packet), text, blocks)
                     if self._atomic
-                    else self._row_entries(packet, text, blocks, context_graph=context_graph)
+                    else self._row_entries(
+                        cast(dict[str, Any], packet), text, blocks, context_graph=context_graph
+                    )
                 )
             ]
         spans, diagnostics = self._resolve_sentence_ids(
@@ -137,19 +153,23 @@ def _resolve_payload(
             diagnostics["table_context_excluded"] = [
                 dict(char_start=span.char_start, char_end=span.char_end)
                 for span in spans
-                if table_context_row(span.quote)
+                # External package helper is untyped; its annotations are outside this scope.
+                if table_context_row(span.quote)  # type: ignore[no-untyped-call]
             ]
-            spans = tuple(span for span in spans if not table_context_row(span.quote))
+            # External package helper is untyped; its annotations are outside this scope.
+            spans = tuple(span for span in spans if not table_context_row(span.quote))  # type: ignore[no-untyped-call]
         if self._table_footnotes and packet is not None:
             from proofops.application.tagging.dec24 import adjacent_table, table_footnote
 
-            table_context = adjacent_table(
+            # External package helper is untyped; its annotations are outside this scope.
+            table_context = adjacent_table(  # type: ignore[no-untyped-call]
                 packet, context_graph, located_only=self._located_table_context
             )
             excluded = [
                 span
                 for span in spans
-                if table_footnote(
+                # External package helper is untyped; its annotations are outside this scope.
+                if table_footnote(  # type: ignore[no-untyped-call]
                     span.quote,
                     kind=packet["untrusted_document_data"]["kind"],
                     table_context=table_context,
@@ -178,8 +198,10 @@ def _resolve_payload(
                 self._validate_context_graph(packet, context_graph)
                 table = next(b for b in context_graph.blocks if b.source_id == source_id)
                 # PB1 time-series observations keep value/unit/year together.
-                if not observations_for(table, context_graph):
-                    cells = graph_cells(table, context_graph)
+                # External package helper is untyped; its annotations are outside this scope.
+                if not observations_for(table, context_graph):  # type: ignore[no-untyped-call]
+                    # External package helper is untyped; its annotations are outside this scope.
+                    cells = graph_cells(table, context_graph)  # type: ignore[no-untyped-call]
             refined, changes = refine_selected(
                 [dict(asdict(span), topic_ids=list(span.topic_ids)) for span in spans],
                 text,
@@ -216,7 +238,8 @@ def _resolve_payload(
         if self._h1:
             from proofops.application.ingest.h1_boundaries import scope_note, strategy_title
 
-            notes = [span for span in spans if scope_note(span.quote)]
+            # External package helper is untyped; its annotations are outside this scope.
+            notes = [span for span in spans if scope_note(span.quote)]  # type: ignore[no-untyped-call]
             diagnostics["h1_scope_notes"] = [
                 dict(
                     char_start=span.char_start,
@@ -227,12 +250,14 @@ def _resolve_payload(
             ]
             spans = tuple(span for span in spans if span not in notes)
             title = packet.get("h1_native_title", {}) if packet else {}
-            if title.get("is_title") is True and strategy_title(text):
+            # External package helper is untyped; its annotations are outside this scope.
+            if title.get("is_title") is True and strategy_title(text):  # type: ignore[no-untyped-call]
                 from proofops.application.ingest.h1_boundaries import POLICY as H1_POLICY
 
                 if (
                     title.get("source_id") != source_id
-                    or title.get("source_sha256") != packet.get("source_sha256")
+                    or title.get("source_sha256")
+                    != cast(dict[str, Any], packet).get("source_sha256")
                     or title.get("quote_sha256") != canonical_hash(text)
                     or title.get("policy_sha256") != canonical_hash(H1_POLICY)
                 ):
@@ -242,7 +267,8 @@ def _resolve_payload(
         if self._k6 and packet is not None:
             from proofops.application.ingest.k6_coverage import rescue_targets
 
-            selected, diagnostics["k6_target_rescue"] = rescue_targets(
+            # External package helper is untyped; its annotations are outside this scope.
+            selected, diagnostics["k6_target_rescue"] = rescue_targets(  # type: ignore[no-untyped-call]
                 [asdict(s) | dict(topic_ids=list(s.topic_ids)) for s in spans],
                 text,
                 kind=packet["untrusted_document_data"]["kind"],
@@ -254,10 +280,12 @@ def _resolve_payload(
 
             self._validate_context_graph(packet, context_graph)
             block = next(b for b in context_graph.blocks if b.source_id == source_id)
-            selected, diagnostics["q1_activity_rescue"] = retain_activities(
+            # External package helper is untyped; its annotations are outside this scope.
+            selected, diagnostics["q1_activity_rescue"] = retain_activities(  # type: ignore[no-untyped-call]
                 [asdict(s) | dict(topic_ids=list(s.topic_ids)) for s in spans],
                 text,
-                graph_cells(block, context_graph),
+                # External package helper is untyped; its annotations are outside this scope.
+                graph_cells(block, context_graph),  # type: ignore[no-untyped-call]
             )
             spans = self._validate_spans({"spans": selected}, text)
         return spans, diagnostics
@@ -298,15 +326,15 @@ def _resolve_payload(
 
 
 def _resolve_sentence_ids(
-    self,
+    self: UpstageClaimExtractor,
     payload: Any,
     text: str,
     source_id: str,
     *,
-    index=None,
-    join_lines=False,
-    paragraph_kind=None,
-) -> tuple[tuple, dict[str, Any]]:
+    index: list[tuple[str, tuple[int, int]]] | None = None,
+    join_lines: bool = False,
+    paragraph_kind: str | None = None,
+) -> tuple[tuple[ExtractionSpan, ...], dict[str, Any]]:
     """Restore exact source spans for selected sentence ids; reject everything else."""
     if (
         not isinstance(payload, dict)
@@ -359,7 +387,9 @@ def _resolve_sentence_ids(
     if self._sentence_prefix and join_lines:
         from proofops.application.ingest.sentence_prefix import expand_sentence_prefixes
 
-        span_dicts, prefix_records = expand_sentence_prefixes(span_dicts, text, kind=paragraph_kind)
+        span_dicts, prefix_records = expand_sentence_prefixes(
+            span_dicts, text, kind=cast(str, paragraph_kind)
+        )
         self._validate_spans({"spans": span_dicts}, text)
     if join_lines:
         span_dicts = join_selected_linewraps(
@@ -406,7 +436,14 @@ def _sentence_index(
     ]
 
 
-def _atomic_entries(self, packet, text, context_blocks, *, diagnostics=None):
+def _atomic_entries(
+    self: UpstageClaimExtractor,
+    packet: dict[str, Any],
+    text: str,
+    context_blocks: list[dict[str, Any]],
+    *,
+    diagnostics: dict[str, int] | None = None,
+) -> list[dict[str, Any]]:
     data = packet["untrusted_document_data"]
     axes = tuple(b["text"] for b in context_blocks if b["role"].startswith("table_"))
     candidates = atomic_candidates(
@@ -444,7 +481,14 @@ def _atomic_entries(self, packet, text, context_blocks, *, diagnostics=None):
     return entries
 
 
-def _row_entries(self, packet, text, context_blocks, *, context_graph=None):
+def _row_entries(
+    self: UpstageClaimExtractor,
+    packet: dict[str, Any],
+    text: str,
+    context_blocks: list[dict[str, Any]],
+    *,
+    context_graph: Any = None,
+) -> list[dict[str, Any]]:
     data = packet["untrusted_document_data"]
     kind = data["kind"]
     if self._qc_native_figures:
@@ -494,21 +538,25 @@ def _row_entries(self, packet, text, context_blocks, *, context_graph=None):
 
         self._validate_context_graph(packet, context_graph)
         block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
-        cells = graph_cells(block, context_graph)
+        # External package helper is untyped; its annotations are outside this scope.
+        cells = graph_cells(block, context_graph)  # type: ignore[no-untyped-call]
         if self._j8:
             from proofops.application.ingest.j8_cells import cell_entries, graph_cells
 
-            cells = graph_cells(block, context_graph)
+            # External package helper is untyped; its annotations are outside this scope.
+            cells = graph_cells(block, context_graph)  # type: ignore[no-untyped-call]
         if self._q1:
             from proofops.application.ingest.q1_tables import cell_entries
         if self._j8 or any("\n" in c["text"] for c in cells):
-            entries = cell_entries(text, cells, source_id=data["source_id"])
-            if len(entries) > ROW_POLICY["max_candidates"]:
+            # External package helper is untyped; its annotations are outside this scope.
+            entries: list[dict[str, Any]] = cell_entries(text, cells, source_id=data["source_id"])  # type: ignore[no-untyped-call]
+            if len(entries) > cast(int, ROW_POLICY["max_candidates"]):
                 raise ExtractionOutputError("EXTRACTION_SOURCE_SENTENCES_UNBOUNDED")
             return entries
     axes = [b for b in context_blocks if b["role"].startswith("table_")]
-    candidates = row_candidates(text, kind=kind, table_context=tuple(b["text"] for b in axes))
-    if len(candidates) > ROW_POLICY["max_candidates"]:
+    # External package helper is untyped; its annotations are outside this scope.
+    candidates = row_candidates(text, kind=kind, table_context=tuple(b["text"] for b in axes))  # type: ignore[no-untyped-call]
+    if len(candidates) > cast(int, ROW_POLICY["max_candidates"]):
         raise ExtractionOutputError("EXTRACTION_SOURCE_SENTENCES_UNBOUNDED")
     entries = []
     for row in candidates:
@@ -537,8 +585,13 @@ def _row_entries(self, packet, text, context_blocks, *, context_graph=None):
 
 
 def _source_id_wire(
-    self, packet: dict, text: str, packet_sha: str, context_graph: Any, display_catalog=None
-) -> tuple[str, dict, str]:
+    self: UpstageClaimExtractor,
+    packet: dict[str, Any],
+    text: str,
+    packet_sha: str,
+    context_graph: Any,
+    display_catalog: DisplayCatalog | None = None,
+) -> tuple[str, dict[str, Any], str]:
     """Build the pinned source-ID wire: system, user data, bound request id.
 
     The source text travels already split, so there is no text for the model
@@ -610,7 +663,8 @@ def _source_id_wire(
     if self._i3_wire:
         from proofops.application.ingest.i3_wire import compact
 
-        user_data["untrusted_document_data"] = compact(user_data["untrusted_document_data"])
+        # External package helper is untyped; its annotations are outside this scope.
+        user_data["untrusted_document_data"] = compact(user_data["untrusted_document_data"])  # type: ignore[no-untyped-call]
         system_prompt += _i3_wire_suffix()
     if self._i4_identity:
         for i, entry in enumerate(user_data["untrusted_document_data"]["source_sentences"]):
@@ -625,7 +679,13 @@ def _source_id_wire(
     return system_prompt, {**user_data, "request_id": request_id}, request_id
 
 
-def _display_wire(self, packet, system, user, catalog):
+def _display_wire(
+    self: UpstageClaimExtractor,
+    packet: dict[str, Any],
+    system: str,
+    user: dict[str, Any],
+    catalog: DisplayCatalog | None,
+) -> tuple[str, dict[str, Any]]:
     if not self._display_text_profile:
         return system, user
     from proofops.application.ingest.display_text import POLICY, display_alignment
@@ -647,7 +707,7 @@ def _display_wire(self, packet, system, user, catalog):
             deleted = [i - start for i in pin["deleted_offsets"] if start < i < end - 1]
             sentence["text"] = display_alignment(text[start:end], deleted).text
     for block in data.get("context_blocks", []):
-        context_pin = catalog.block_pin(block["source_id"])
+        context_pin = cast(DisplayCatalog, catalog).block_pin(block["source_id"])
         if context_pin["raw_sha256"] != canonical_hash(block["text"]):
             raise ValueError("DISPLAY_CONTEXT_MISMATCH")
         block["text"] = context_pin["text"]
@@ -659,7 +719,7 @@ def _display_wire(self, packet, system, user, catalog):
     return system + _display_suffix(), user
 
 
-def _packet_text(self, packet: Any) -> str:
+def _packet_text(self: UpstageClaimExtractor, packet: Any) -> str:
     try:
         if not isinstance(packet, dict):
             raise ValueError("packet must be a mapping")
@@ -677,10 +737,10 @@ def _packet_text(self, packet: Any) -> str:
             raise ValueError("extraction profile mismatch")
     except (ValueError, KeyError, TypeError, AttributeError):
         raise ValueError("EXTRACTION_PACKET_IDENTITY_INVALID") from None
-    return packet["untrusted_document_data"]["text"]
+    return cast(str, packet["untrusted_document_data"]["text"])
 
 
-def _validate_context_graph(packet: dict, context_graph: Any) -> None:
+def _validate_context_graph(packet: dict[str, Any], context_graph: Any) -> None:
     """Verify graph and focal identity against the packet before any call.
 
     A cross-tenant, cross-document, cross-manifest, or cross-source graph
@@ -736,7 +796,7 @@ def _validate_context_graph(packet: dict, context_graph: Any) -> None:
 
 
 def _context_request_body(
-    self, system_prompt: str, user_json: str, request_id: str
+    self: UpstageClaimExtractor, system_prompt: str, user_json: str, request_id: str
 ) -> dict[str, Any]:
     """One construction site for the stored context request document."""
     return {
@@ -750,8 +810,13 @@ def _context_request_body(
 
 
 def _context_wire(
-    self, packet: dict, text: str, packet_sha: str, context_graph: Any, display_catalog=None
-) -> tuple[str, dict, str]:
+    self: UpstageClaimExtractor,
+    packet: dict[str, Any],
+    text: str,
+    packet_sha: str,
+    context_graph: Any,
+    display_catalog: DisplayCatalog | None = None,
+) -> tuple[str, dict[str, Any], str]:
     """Build the pinned context wire: system, user data, bound request id.
 
     The system prompt is always the context profile's prompt — even when
@@ -786,13 +851,15 @@ def _context_wire(
     return system_prompt, user_data, request_id
 
 
-def _context_order_policy() -> dict:
+def _context_order_policy() -> dict[str, Any]:
     from proofops.application.tagging.preliminary import CONTEXT_POSITION_ORDER
 
     return CONTEXT_POSITION_ORDER
 
 
-def _context_for(self, packet: dict, context_graph: Any) -> tuple[list[dict], list[str]]:
+def _context_for(
+    self: UpstageClaimExtractor, packet: dict[str, Any], context_graph: Any
+) -> tuple[list[dict[str, Any]], list[str]]:
     """Bounded, source-bound interpretation-only blocks for this packet's block.
 
     Reuses the exact same pure helpers as the preliminary path (no
@@ -826,7 +893,8 @@ def _context_for(self, packet: dict, context_graph: Any) -> tuple[list[dict], li
     if self._qc_native_figures:
         from proofops.application.ingest.k6_coverage import native_figure_context_blocks
 
-        native_context = native_figure_context_blocks(focal, context_graph)
+        # External package helper is untyped; its annotations are outside this scope.
+        native_context = native_figure_context_blocks(focal, context_graph)  # type: ignore[no-untyped-call]
         if native_context:
             if sum(len(b.raw_text) + 1 for b in native_context) > self._context_chars:
                 raise ExtractionOutputError("QC_NATIVE_FIGURE_CONTEXT_TOO_LARGE")
@@ -895,7 +963,7 @@ def _context_for(self, packet: dict, context_graph: Any) -> tuple[list[dict], li
     return selected, omitted_ids
 
 
-def _quotes(payload: Any) -> list:
+def _quotes(payload: Any) -> list[str]:
     if not isinstance(payload, dict) or set(payload) != {"claims"}:
         raise ValueError("claims-only response required")
     claims = payload["claims"]
@@ -906,7 +974,7 @@ def _quotes(payload: Any) -> list:
     return claims
 
 
-def _locate(quote: str, text: str) -> dict:
+def _locate(quote: str, text: str) -> dict[str, Any]:
     if quote not in text or text.find(quote) != text.rfind(quote):
         raise ValueError("claim quote absent or ambiguous")
     start = text.index(quote)
