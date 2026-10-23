@@ -6,7 +6,7 @@ import json
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any
+from typing import Any, cast
 
 from proofops.application.upload_contracts import (
     PdfLimits,
@@ -19,9 +19,9 @@ from .strict import _inspect_strict
 
 def _inspect(path: str, limits: PdfLimits) -> int:
     if limits.policy_profile == "strict-v1":
-        return _inspect_strict(path, limits)["pages"]
+        return cast(int, _inspect_strict(path, limits)["pages"])
     with TemporaryDirectory(prefix="proofops-display-") as temporary:
-        return _inspect_display(path, limits, Path(temporary) / "display.pdf")["pages"]
+        return cast(int, _inspect_display(path, limits, Path(temporary) / "display.pdf")["pages"])
 
 
 def main() -> None:

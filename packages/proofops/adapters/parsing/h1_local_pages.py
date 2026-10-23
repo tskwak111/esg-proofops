@@ -1,7 +1,12 @@
 """Bound local Java preprocessing to selected pages; retain the original mapping."""
 
+from __future__ import annotations
+
+from collections.abc import Sequence
 from copy import deepcopy
 from hashlib import sha256
+from pathlib import Path
+from typing import Any
 
 from pypdf import PdfReader, PdfWriter
 
@@ -15,7 +20,7 @@ POLICY = {
 }
 
 
-def prepare(source, selected, work):
+def prepare(source: Path, selected: Sequence[int], work: Path) -> tuple[Path, list[int]]:
     reader = PdfReader(source, strict=False)
     pages = list(selected)
     if (
@@ -33,7 +38,9 @@ def prepare(source, selected, work):
     return path, pages
 
 
-def restore_pages(raw, page_map, original_page_count):
+def restore_pages(
+    raw: dict[str, Any], page_map: Sequence[int], original_page_count: int
+) -> dict[str, Any]:
     if raw.get("number of pages") != len(page_map):
         raise ValueError("LOCAL_PAGE_MAPPING_INVALID")
     mapped = deepcopy(raw)
@@ -53,7 +60,14 @@ def restore_pages(raw, page_map, original_page_count):
     return mapped
 
 
-def receipt(source, selected_pdf, page_map, raw, *, original_page_count):
+def receipt(
+    source: Path,
+    selected_pdf: Path,
+    page_map: Sequence[int],
+    raw: dict[str, Any],
+    *,
+    original_page_count: int,
+) -> dict[str, Any]:
     from proofops.domain.provenance import canonical_hash
 
     return dict(

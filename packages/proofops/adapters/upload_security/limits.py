@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import cast
 
 from proofops.application.upload_contracts import (
     PdfLimits,
@@ -90,7 +91,7 @@ def _windows_limits(limits: PdfLimits) -> int:
     if not kernel.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)):
         kernel.CloseHandle(job)
         raise UploadRejected("PDF_INVALID")
-    return job
+    return cast(int, job)
 
 
 def apply_basic_limits(limits: PdfLimits) -> None:

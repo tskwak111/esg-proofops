@@ -1,25 +1,41 @@
 """Opt-in parser execution; original source and receipt admission remain unchanged."""
 
+from __future__ import annotations
+
 import json
 import os
+from collections.abc import Callable, Iterator, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from contextvars import copy_context
 from hashlib import sha256
+from pathlib import Path
 from threading import Lock
+from types import ModuleType
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
+
+from proofops.adapters.parsing.odl_parts.common import PageResult, UpstageProbe
+
+if TYPE_CHECKING:
+    import pdfplumber
+    from proofops.application.ingest.graph_fusion import (
+        ParserProfile,
+        SourceArtifact,
+    )
+
 
 PROFILE = "spp-parse-v1"
 
 
-def enabled(profile):
+def enabled(profile: ParserProfile | dict[str, Any]) -> bool:
     value = (
         profile.get("execution_policy") if isinstance(profile, dict) else profile.execution_policy
     )
     return value == PROFILE
 
 
-def table_verifier(policy_hash):
+def table_verifier(policy_hash: str | None) -> ModuleType:
     # SPP composes v29b's v21 native/table policy, including its frozen readers.
     # Recompute that entire policy on every boundary; no cached approval/hash.
     from proofops.adapters.local import upstage_ocr_profile_v21 as reader
@@ -37,11 +53,11 @@ class LocalPageCache:
     at the child boundary. This caches page decoding, never verification results.
     """
 
-    def __init__(self):
-        self.documents = {}
+    def __init__(self) -> None:
+        self.documents: dict[str, pdfplumber.PDF] = {}
 
     @contextmanager
-    def open(self, path):
+    def open(self, path: str | Path) -> Iterator[pdfplumber.PDF]:
         import pdfplumber
 
         key = str(path)
@@ -49,7 +65,7 @@ class LocalPageCache:
             self.documents[key] = pdfplumber.open(path)
         yield self.documents[key]
 
-    def close(self):
+    def close(self) -> None:
         for document in self.documents.values():
             document.close()
 
@@ -63,13 +79,20 @@ class PageRequests:
     retry and fallback rules; never launch a speculative second wave.
     """
 
-    def __init__(self, source, profile, selected, cache_dir, probe):
+    def __init__(
+        self,
+        source: SourceArtifact,
+        profile: ParserProfile,
+        selected: Sequence[int],
+        cache_dir: Path,
+        probe: UpstageProbe,
+    ) -> None:
         self.source, self.profile, self.selected = source, profile, selected
         self.cache_dir, self.probe = cache_dir, probe
         self.lock = Lock()
-        self.prefetched = {}
+        self.prefetched: dict[int, Future[PageResult]] = {}
 
-    def _path(self, pages, mode):
+    def _path(self, pages: Sequence[int], mode: str) -> Path:
         from proofops.adapters.parsing.odl_parts.common import _json
         from proofops.adapters.parsing.upstage_document import MODEL
 
@@ -87,7 +110,7 @@ class PageRequests:
         self.cache_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         return self.cache_dir / (key + ".json")
 
-    def _cached(self, path):
+    def _cached(self, path: Path) -> PageResult | None:
         from proofops.domain.provenance import canonical_hash
 
         if not path.exists():
@@ -97,7 +120,7 @@ class PageRequests:
             raise ValueError("UPSTAGE_CACHE_INTEGRITY_MISMATCH")
         return result, True
 
-    def _send(self, path, payload, mode):
+    def _send(self, path: Path, payload: bytes, mode: str) -> PageResult:
         from proofops.adapters.parsing.odl_parts.common import _json
 
         result = self.probe.parse_async(payload, request_id=str(uuid4()), mode=mode)
@@ -106,7 +129,7 @@ class PageRequests:
         os.replace(temporary, path)
         return result, False
 
-    def execute_local(self, execute):
+    def execute_local(self, execute: Callable[[], None]) -> None:
         from proofops.adapters.parsing.h6_local_pages_v2 import subset
 
         # An evidence page may need paid OCR only after local readability is
@@ -126,7 +149,7 @@ class PageRequests:
             try:
                 payload = subset(self.source.content, (page,))
             except ValueError as error:
-                future = Future()
+                future: Future[PageResult] = Future()
                 future.set_exception(error)
                 self.prefetched[page] = future
             else:
@@ -140,7 +163,7 @@ class PageRequests:
                 )
             return execute()
 
-    def __call__(self, pages, mode):
+    def __call__(self, pages: Sequence[int], mode: str) -> PageResult:
         from proofops.adapters.parsing.h6_local_pages_v2 import subset
 
         with self.lock:

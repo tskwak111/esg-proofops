@@ -1,10 +1,21 @@
 """Existing local-page and immutable table-reader selection."""
 
+from __future__ import annotations
+
+from collections.abc import Callable
+from types import ModuleType
+from typing import TYPE_CHECKING, Any, cast
+
 from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 from proofops.adapters.parsing.odl_parts.common import ParseFailure
 
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import (
+        ParserProfile,
+    )
 
-def _table_verifier(policy_hash):
+
+def _table_verifier(policy_hash: str | None) -> ModuleType:
     from proofops.adapters.local import table_source_verification as legacy
 
     if policy_hash == legacy.policy_sha256():
@@ -20,13 +31,13 @@ def _table_verifier(policy_hash):
     from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
     for name in PAGE_OCR_PROFILES:
-        profile = page_ocr_profile(name)
+        profile = cast(Callable[[str], ModuleType], page_ocr_profile)(name)
         if policy_hash == profile.table_policy_sha256():
             return profile
     raise ParseFailure("TABLE_SOURCE_POLICY_MISMATCH")
 
 
-def _locates_auxiliary_cells(profile):
+def _locates_auxiliary_cells(profile: ParserProfile | dict[str, Any]) -> bool:
     """Only the selected-cell policy asks for ink-tight auxiliary cell boxes.
 
     Pinning that policy in the parser profile IS the new source version: existing
@@ -49,11 +60,14 @@ def _locates_auxiliary_cells(profile):
 
     return policy_hash in {
         selected.policy_sha256(),
-        *(page_ocr_profile(name).table_policy_sha256() for name in PAGE_OCR_PROFILES),
+        *(
+            cast(Callable[[str], ModuleType], page_ocr_profile)(name).table_policy_sha256()
+            for name in PAGE_OCR_PROFILES
+        ),
     }
 
 
-def _local_pages(profile):
+def _local_pages(profile: ParserProfile | dict[str, Any]) -> ModuleType:
     from proofops.adapters.parsing import h6_local_pages, h6_local_pages_v2
 
     resource = (

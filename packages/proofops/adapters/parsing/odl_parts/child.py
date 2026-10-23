@@ -4,16 +4,21 @@ from __future__ import annotations
 
 import json
 import subprocess
+from collections.abc import Callable, Sequence
 from dataclasses import asdict
 from hashlib import sha256
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from proofops.adapters.parsing.odl_parts.common import ParseFailure, _json
 from proofops.adapters.parsing.odl_parts.policies import _local_pages
 from proofops.domain.documents import PageGeometry
 
+if TYPE_CHECKING:
+    from proofops.adapters.parsing.spp_execution import LocalPageCache
 
-def run(work: Path, *, child_body) -> None:
+
+def run(work: Path, *, child_body: Callable[[Path, LocalPageCache | None], None]) -> None:
     from proofops.adapters.parsing import spp_execution
 
     profile = json.loads((work / "request.json").read_bytes())["profile"]
@@ -25,7 +30,13 @@ def run(work: Path, *, child_body) -> None:
             cache.close()
 
 
-def run_body(work: Path, page_cache=None, *, apply_limits, locates_auxiliary_cells) -> None:
+def run_body(
+    work: Path,
+    page_cache: LocalPageCache | None = None,
+    *,
+    apply_limits: Callable[[dict[str, Any]], None],
+    locates_auxiliary_cells: Callable[[dict[str, Any]], bool],
+) -> None:
     from pypdf import PdfReader
 
     request = json.loads((work / "request.json").read_bytes())
@@ -43,12 +54,16 @@ def run_body(work: Path, page_cache=None, *, apply_limits, locates_auxiliary_cel
         page = reader.pages[number - 1]
         rotation = int(page.rotation) % 360
 
-        def box_geometry(box):
+        def box_geometry(box: Sequence[float]) -> dict[str, Any]:
             x0, y0, x1, y1 = map(float, box)
             width, height = x1 - x0, y1 - y0
             if rotation in (90, 270):
                 width, height = height, width
-            return asdict(PageGeometry(width, height, rotation, (x0, y0, x1, y1)))
+            return asdict(
+                PageGeometry(
+                    width, height, cast(Literal[0, 90, 180, 270], rotation), (x0, y0, x1, y1)
+                )
+            )
 
         geometries[str(number)] = dict(
             crop=box_geometry(page.cropbox),

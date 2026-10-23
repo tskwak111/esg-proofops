@@ -10,6 +10,7 @@ from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import monotonic
+from typing import Any, cast
 
 from proofops.application.upload_contracts import (
     STRICT_PROFILES,
@@ -121,7 +122,7 @@ def verify_pdf_file(
     expected_size: int,
     expected_sha256: str,
     derived_path: Path | None = None,
-    security_metadata: dict | None = None,
+    security_metadata: dict[str, Any] | None = None,
 ) -> int:
     """Strict verification of a service-owned disk snapshot; no whole-file body copy."""
     from hashlib import file_digest
@@ -161,4 +162,4 @@ def verify_pdf_file(
         raise UploadRejected("UPLOAD_INTEGRITY_MISMATCH")
     if security_metadata is not None:
         security_metadata.update(result.get("security", {}))
-    return result["pages"]
+    return cast(int, result["pages"])

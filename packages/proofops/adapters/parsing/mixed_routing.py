@@ -1,13 +1,25 @@
 """MP1 opt-in page routing. Readability is a routing hint, never source approval."""
 
+from __future__ import annotations
+
 import io
 import re
+from collections.abc import Sequence
 from dataclasses import replace
+from typing import TYPE_CHECKING, Any
 
 from pypdf import PdfReader
 
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import (
+        CandidateBatch,
+        CanonicalDocumentGraph,
+        ParserProfile,
+        SourceArtifact,
+    )
 
-def readable(text):
+
+def readable(text: object) -> bool:
     return (
         isinstance(text, str)
         and len(re.findall(r"[a-zA-Z가-힣]", text)) >= 20
@@ -16,11 +28,17 @@ def readable(text):
     )
 
 
-def plan(source, profile, selected, candidates):
+def plan(
+    source: SourceArtifact,
+    profile: ParserProfile,
+    selected: Sequence[int],
+    candidates: Sequence[CandidateBatch],
+) -> dict[str, Any]:
     if len(selected) > 30 or not set(profile.claim_physical_pages) <= set(selected):
         raise ValueError("MIXED_PAGE_SELECTION_INVALID")
     reader = PdfReader(io.BytesIO(source.content))
-    local, rejected = [], []
+    local: list[int] = []
+    rejected: list[int] = []
     for page in sorted(set(selected) - set(profile.claim_physical_pages)):
         try:
             native = reader.pages[page - 1].extract_text()
@@ -43,7 +61,7 @@ def plan(source, profile, selected, candidates):
     )
 
 
-def keep(batch, pages):
+def keep(batch: CandidateBatch, pages: Sequence[int]) -> CandidateBatch:
     blocks = tuple(b for b in batch.blocks if b.source.physical_page in pages)
     ids = {b.source.source_native_id for b in blocks}
     return replace(
@@ -55,7 +73,7 @@ def keep(batch, pages):
     )
 
 
-def annotate(batch):
+def annotate(batch: CandidateBatch) -> CandidateBatch:
     return replace(
         batch,
         blocks=tuple(
@@ -72,7 +90,9 @@ def annotate(batch):
     )
 
 
-def provenance(routing, candidates, selected):
+def provenance(
+    routing: dict[str, Any], candidates: Sequence[CandidateBatch], selected: Sequence[int]
+) -> list[dict[str, Any]]:
     if routing["version"] == "mixed-hx6-v1":
         from proofops.adapters.parsing.hx6_upstage import provenance as hx6_provenance
 
@@ -110,7 +130,9 @@ def provenance(routing, candidates, selected):
     return records
 
 
-def with_failures(graph, failures):
+def with_failures(
+    graph: CanonicalDocumentGraph, failures: Sequence[dict[str, Any]]
+) -> CanonicalDocumentGraph:
     """Keep candidates and explicit unreadable issues, never turn failure into absence."""
     from proofops.application.ingest.graph_fusion import QualityIssue
     from proofops.domain.provenance import canonical_hash

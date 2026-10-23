@@ -6,6 +6,7 @@ import math
 import os
 import subprocess
 import sys
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -13,11 +14,27 @@ from time import monotonic, sleep
 from typing import Any
 from uuid import uuid4
 
-from proofops.adapters.parsing.odl_parts.common import ParseFailure, _output_bytes
-from proofops.adapters.parsing.windows_isolation import IsolationUnavailable
+from proofops.adapters.parsing.odl_parts.common import ParseFailure, ProcessLimits, _output_bytes
+from proofops.adapters.parsing.windows_isolation import (
+    IsolationUnavailable,
+    PosixSessionIsolation,
+    WindowsJobIsolation,
+)
 
 
-def execute(command, work, env, profile, *, isolate, check_limits, reap):
+def execute(
+    command: list[str],
+    work: Path,
+    env: dict[str, str],
+    profile: ProcessLimits,
+    *,
+    isolate: Callable[..., PosixSessionIsolation | WindowsJobIsolation],
+    check_limits: Callable[
+        [PosixSessionIsolation | WindowsJobIsolation, subprocess.Popen[bytes], Path, ProcessLimits],
+        None,
+    ],
+    reap: Callable[[subprocess.Popen[bytes]], None],
+) -> None:
     deadline = monotonic() + profile.timeout_seconds
     cpu_seconds = max(1, math.ceil(profile.timeout_seconds))
     try:
@@ -74,7 +91,9 @@ def execute(command, work, env, profile, *, isolate, check_limits, reap):
         isolation.close()
 
 
-def _cleanup_parser_work(temporary, parent: Path, *, timeout_seconds: float = 15) -> None:
+def _cleanup_parser_work(
+    temporary: TemporaryDirectory[str], parent: Path, *, timeout_seconds: float = 15
+) -> None:
     deadline = monotonic() + timeout_seconds
     parent = parent.resolve()
     while True:
@@ -94,7 +113,7 @@ def _cleanup_parser_work(temporary, parent: Path, *, timeout_seconds: float = 15
 
 
 @contextmanager
-def _parser_work_directory(parent: Path):
+def _parser_work_directory(parent: Path) -> Iterator[Path]:
     temporary = TemporaryDirectory(prefix=".parse-", dir=parent)
     try:
         yield Path(temporary.name)
@@ -102,7 +121,12 @@ def _parser_work_directory(parent: Path):
         _cleanup_parser_work(temporary, parent)
 
 
-def _check_limits(isolation, process, work: Path, profile) -> None:
+def _check_limits(
+    isolation: PosixSessionIsolation | WindowsJobIsolation,
+    process: subprocess.Popen[bytes],
+    work: Path,
+    profile: ProcessLimits,
+) -> None:
     if _output_bytes(work) > profile.max_output_bytes:
         raise ParseFailure("PARSER_OUTPUT_LIMIT")
     if isolation.memory_limit_exceeded(process):
@@ -135,7 +159,7 @@ def _child_limits(profile: dict[str, Any]) -> None:
     ctypes.WinDLL("kernel32", use_last_error=True).SetErrorMode(0x0001 | 0x0002 | 0x8000)
 
 
-def _child_environment(java: str, work: Path, profile) -> dict[str, str]:
+def _child_environment(java: str, work: Path, profile: ProcessLimits) -> dict[str, str]:
     """The minimal environment the launcher and its JVM need, and nothing else.
 
     The inherited environment is never passed through on either platform. On
