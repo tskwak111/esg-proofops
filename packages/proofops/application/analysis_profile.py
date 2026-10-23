@@ -3,18 +3,28 @@
 PC1: mechanically extracted legacy policies. Historical definitions are re-exported explicitly.
 """
 
-from argparse import Namespace
-from collections.abc import Callable, Mapping
-from typing import Any, cast
+from __future__ import annotations as _annotations
+
+import typing as _typing
 
 from proofops.application.policies.legacy import analysis_profiles as _legacy
 from proofops.application.policies.registry import (
     v2_policy_registry as _v2_policy_registry,
 )
 
+if _typing.TYPE_CHECKING:
+    from argparse import Namespace
+    from collections.abc import Callable, Mapping
+    from typing import Any
+
+    class _CertificationPolicy(_typing.TypedDict):
+        # The legacy policy is heterogeneous; only this string field is read here.
+        profile: str
+
+
 # Explicit aliases preserve historical imports and object identity.
 C3_IDENTITY = _legacy.C3_IDENTITY
-C3_POLICY = _legacy.C3_POLICY
+C3_POLICY = _typing.cast("_CertificationPolicy", _legacy.C3_POLICY)
 C3_V2_LEGACY_POLICY = _legacy.C3_V2_LEGACY_POLICY
 C3_V2_POLICY = _legacy.C3_V2_POLICY
 C4_PROFILE = _legacy.C4_PROFILE
@@ -309,17 +319,23 @@ def policy_for(profile: str | None, *, pinned_hash: str | None = None) -> dict[s
     )
 
     if profile == C3_V2_PROFILE:
-        return cast("Callable[..., dict[str, Any]]", c3_v2_policy)(profile, pinned_hash=pinned_hash)
+        return _typing.cast("Callable[..., dict[str, Any]]", c3_v2_policy)(
+            profile, pinned_hash=pinned_hash
+        )
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
     from proofops.application.tagging.fact_assembly_c4 import publication_policy_for as c4_policy
 
     if profile == C4_PROFILE:
-        return cast("Callable[..., dict[str, Any]]", c4_policy)(profile, pinned_hash=pinned_hash)
+        return _typing.cast("Callable[..., dict[str, Any]]", c4_policy)(
+            profile, pinned_hash=pinned_hash
+        )
     from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
     from proofops.application.tagging.fact_assembly_c3 import publication_policy_for as c3_policy
 
     if profile == C3_PROFILE:
-        return cast("Callable[..., dict[str, Any]]", c3_policy)(profile, pinned_hash=pinned_hash)
+        return _typing.cast("Callable[..., dict[str, Any]]", c3_policy)(
+            profile, pinned_hash=pinned_hash
+        )
     from proofops.application.tagging.fact_assembly_c2 import POLICY as C2_POLICY
     from proofops.application.tagging.fact_assembly_c2 import PROFILE as C2_PROFILE
 
@@ -353,24 +369,30 @@ def publication_policy_for(
     )
 
     if profile == C3_V2_PROFILE:
-        return cast("Callable[..., dict[str, Any]]", c3_v2_policy)(profile, pinned_hash=pinned_hash)
+        return _typing.cast("Callable[..., dict[str, Any]]", c3_v2_policy)(
+            profile, pinned_hash=pinned_hash
+        )
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
     from proofops.application.tagging.fact_assembly_c4 import publication_policy_for as c4_policy
 
     if profile == C4_PROFILE:
-        return cast("Callable[..., dict[str, Any]]", c4_policy)(profile, pinned_hash=pinned_hash)
+        return _typing.cast("Callable[..., dict[str, Any]]", c4_policy)(
+            profile, pinned_hash=pinned_hash
+        )
     from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
     from proofops.application.tagging.fact_assembly_c3 import publication_policy_for as c3_policy
 
     if profile == C3_PROFILE:
-        return cast("Callable[..., dict[str, Any]]", c3_policy)(profile, pinned_hash=pinned_hash)
+        return _typing.cast("Callable[..., dict[str, Any]]", c3_policy)(
+            profile, pinned_hash=pinned_hash
+        )
     from proofops.application.tagging.fact_assembly_c2 import PROFILE as C2_PROFILE
     from proofops.application.tagging.fact_assembly_c2 import (
         publication_policy_for as c2_publication,
     )
 
     if profile == C2_PROFILE:
-        return cast("Callable[..., dict[str, Any]]", c2_publication)(
+        return _typing.cast("Callable[..., dict[str, Any]]", c2_publication)(
             profile, pinned_hash=pinned_hash
         )
     policy = policy_for(profile, pinned_hash=pinned_hash)
@@ -506,7 +528,7 @@ def certification_profile_for(
         # Retain the legacy exact-identity lookup for existing callers; new
         # source-stable runs use prepare_case and the V2 fingerprint gate.
         return (
-            cast(str, C3_POLICY["profile"])
+            C3_POLICY["profile"]
             if all(identity.get(key) == value for key, value in C3_IDENTITY.items())
             else None
         )
@@ -515,5 +537,5 @@ def certification_profile_for(
     if policy.get("direct_certification_policy_sha256") != canonical_hash(C3_POLICY):
         raise ValueError("CERTIFICATION_POLICY_PIN_MISMATCH")
     if all(identity.get(key) == value for key, value in C3_IDENTITY.items()):
-        return cast(str, C3_POLICY["profile"])
+        return C3_POLICY["profile"]
     return None
