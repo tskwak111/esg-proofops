@@ -5,12 +5,16 @@ contains immutable tombstones/attempts. Restore only data, retain/replay ledger 
 serving. Rollback stops the worker and retains ledger; deleted payloads cannot be undone.
 """
 
+from __future__ import annotations
+
 import json
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict
 from hashlib import sha256
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 from proofops.application.retention import (
@@ -22,13 +26,13 @@ from proofops.application.retention import (
 from proofops.domain.values import _require_uuid
 
 
-def _manifest(raw):
+def _manifest(raw: str | bytes) -> DeletionManifest:
     data = json.loads(raw)
     data["targets"] = tuple(DeletionTarget(**t) for t in data["targets"])
     return DeletionManifest(**data)
 
 
-def _result(raw):
+def _result(raw: str | bytes) -> DeletionResult:
     data = json.loads(raw)
     for key in ("deleted", "remaining"):
         data[key] = tuple(DeletionTarget(**t) for t in data[key])
@@ -39,7 +43,7 @@ def _result(raw):
 class LocalSyntheticDeletionStore:
     kind = "local-synthetic-only"
 
-    def __init__(self, data_path, ledger_path):
+    def __init__(self, data_path: str | Path, ledger_path: str | Path) -> None:
         if ":memory:" in (str(data_path), str(ledger_path)):
             raise ValueError("durable files required")
         self.data_path, self.ledger_path = str(data_path), str(ledger_path)
@@ -76,7 +80,7 @@ class LocalSyntheticDeletionStore:
                     BEGIN SELECT RAISE(ABORT, 'immutable deletion history'); END""")
 
     @contextmanager
-    def _transaction(self):
+    def _transaction(self) -> Iterator[sqlite3.Connection]:
         # ponytail: one SQLite writer; distributed fences required for cloud workers.
         db = sqlite3.connect(self.ledger_path, timeout=10, isolation_level=None)
         try:
@@ -92,7 +96,7 @@ class LocalSyntheticDeletionStore:
             db.close()
 
     @staticmethod
-    def _is_deleted(db, tenant, document):
+    def _is_deleted(db: sqlite3.Connection, tenant: str, document: str) -> bool:
         return (
             db.execute(
                 "SELECT 1 FROM tombstones WHERE tenant_id=? AND document_id=?", (tenant, document)
@@ -100,7 +104,17 @@ class LocalSyntheticDeletionStore:
             is not None
         )
 
-    def put(self, tenant, document, version, kind, resource_id, payload, *, expires_at=0):
+    def put(
+        self,
+        tenant: str,
+        document: str,
+        version: str,
+        kind: str,
+        resource_id: str,
+        payload: bytes,
+        *,
+        expires_at: int = 0,
+    ) -> None:
         _require_uuid("tenant_id", tenant)
         _require_uuid("document_id", document)
         valid_time(expires_at)
@@ -113,7 +127,7 @@ class LocalSyntheticDeletionStore:
                 (tenant, document, version, kind, resource_id, payload, expires_at),
             )
 
-    def read(self, tenant, document, version, kind, resource_id):
+    def read(self, tenant: str, document: str, version: str, kind: str, resource_id: str) -> bytes:
         with self._transaction() as db:
             if self._is_deleted(db, tenant, document):
                 raise KeyError("resource not found")
@@ -124,9 +138,11 @@ class LocalSyntheticDeletionStore:
             ).fetchone()
             if row is None:
                 raise KeyError("resource not found")
-            return row[0]
+            return cast(bytes, row[0])
 
-    def request(self, tenant, document, *, requested_by, now):
+    def request(
+        self, tenant: str, document: str, *, requested_by: str, now: int
+    ) -> DeletionManifest:
         with self._transaction() as db:
             row = db.execute(
                 "SELECT manifest FROM tombstones WHERE tenant_id=? AND document_id=?",
@@ -147,7 +163,7 @@ class LocalSyntheticDeletionStore:
             return manifest
 
     @contextmanager
-    def scope(self, manifest):
+    def scope(self, manifest: DeletionManifest) -> Iterator[_Session]:
         with self._transaction() as db:
             row = db.execute(
                 "SELECT manifest FROM tombstones WHERE tenant_id=? AND document_id=?",
@@ -157,7 +173,7 @@ class LocalSyntheticDeletionStore:
                 raise ValueError("unknown or altered deletion manifest")
             yield _Session(db, manifest.tenant_id, manifest.document_id)
 
-    def tombstones(self):
+    def tombstones(self) -> tuple[DeletionManifest, ...]:
         with self._transaction() as db:
             return tuple(
                 _manifest(row[0])
@@ -166,7 +182,7 @@ class LocalSyntheticDeletionStore:
                 )
             )
 
-    def attempts(self, tenant, document):
+    def attempts(self, tenant: str, document: str) -> tuple[DeletionResult, ...]:
         with self._transaction() as db:
             return tuple(
                 _result(row[0])
@@ -179,10 +195,10 @@ class LocalSyntheticDeletionStore:
 
 
 class _Session:
-    def __init__(self, db, tenant, document):
+    def __init__(self, db: sqlite3.Connection, tenant: str, document: str) -> None:
         self.db, self.tenant, self.document = db, tenant, document
 
-    def inventory(self):
+    def inventory(self) -> tuple[DeletionTarget, ...]:
         return tuple(
             DeletionTarget(version, kind, key, sha256(payload).hexdigest())
             for version, kind, key, payload in self.db.execute(
@@ -192,7 +208,7 @@ class _Session:
             )
         )
 
-    def delete(self, target):
+    def delete(self, target: DeletionTarget) -> None:
         try:
             self.db.execute(
                 """DELETE FROM data.resources WHERE tenant_id=? AND document_id=?
@@ -208,7 +224,7 @@ class _Session:
         except sqlite3.DatabaseError:
             raise RuntimeError("DELETE_FAILED") from None
 
-    def record(self, result):
+    def record(self, result: DeletionResult) -> None:
         self.db.execute(
             "INSERT INTO attempts(tenant_id,document_id,result) VALUES (?,?,?)",
             (self.tenant, self.document, json.dumps(asdict(result))),

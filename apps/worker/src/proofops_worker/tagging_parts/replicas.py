@@ -1,13 +1,19 @@
 """Source-replica dispatch, receipt recovery and accounting; element votes stay separate."""
 
+from __future__ import annotations
+
 import json
+from collections.abc import Callable
 from contextlib import nullcontext
 from dataclasses import asdict
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid5
 
 from proofops.adapters.local.upstage import request_usage
 from proofops.application.budget import BudgetCall, BudgetExceeded, TokenUsage
+from proofops.application.claims import Claim
 from proofops.application.ports.jobs import LeaseLost
+from proofops.application.tagging.contracts import TaggingSettings
 from proofops.application.tagging.relations import (
     RelationValidationError,
 )
@@ -17,6 +23,8 @@ from proofops.domain.rulepacks import canonical_json
 from proofops_agent.upstage_tagging import (
     NEVER_SENT_ERROR_CODES,
 )
+
+from proofops_worker.tagging_parts.contracts import ReplicaOutcome, ReplicaValue, SourceTransport
 
 # The local stop conditions this module raises itself, per replica prefix. Recording
 # only these keeps a durable record free of arbitrary exception text while still
@@ -54,7 +62,11 @@ K1_PUE_PERFORMANCE_RETAG_REQUIRED K4_CONNECTIVE_GOAL_RETAG_REQUIRED""".split()
 )
 
 
-def _local_stop_code(prefix, error):
+if TYPE_CHECKING:
+    from proofops_worker.live_tagging import LiveTaggingRuntime
+
+
+def _local_stop_code(prefix: str, error: BaseException) -> str:
     """Map a local stop to a stable code; never echo an unrecognized message."""
     if isinstance(error, BudgetExceeded) or str(error) in {
         "R108_FINALS_BUDGET_EXHAUSTED",
@@ -76,31 +88,31 @@ def _local_stop_code(prefix, error):
 
 
 def source_replicas(
-    self,
-    prefix,
-    claim,
-    packet,
-    settings,
-    transport,
-    record_store,
-    validate,
+    self: LiveTaggingRuntime,
+    prefix: str,
+    claim: Claim,
+    packet: dict[str, Any],
+    settings: TaggingSettings,
+    transport: SourceTransport,
+    record_store: dict[str, list[dict[str, Any]]],
+    validate: Callable[[dict[str, Any]], tuple[ReplicaValue, dict[str, Any]]],
     *,
-    retrieval_packet_sha256=None,
-    require_consensus=True,
-    context_receipt=None,
-):
+    retrieval_packet_sha256: str | None = None,
+    require_consensus: bool = True,
+    context_receipt: dict[str, Any] | None = None,
+) -> list[ReplicaValue] | None:
     packet_hash = canonical_hash(packet)
     self.allow_packet(claim.claim_id, packet_hash)
     record_store[claim.claim_id] = []
 
-    def run_one(replica):
+    def run_one(replica: int) -> ReplicaOutcome[ReplicaValue]:
         records, results, signatures, provider_ids = [], [], [], []
         for replica in (replica,):
             self._check_heartbeat()
             request_id = str(
                 uuid5(UUID(self.lease.message.job_id), f"{prefix}:{claim.claim_id}:{replica}")
             )
-            request = dict(
+            request: dict[str, Any] = dict(
                 tenant_id=self.auth.tenant_id,
                 claim_id=claim.claim_id,
                 packet_sha256=packet_hash,
@@ -120,7 +132,7 @@ def source_replicas(
                 request["retrieval_packet_sha256"] = retrieval_packet_sha256
             from proofops.application.tagging.pb2_preliminary import enabled as pb2_enabled
 
-            if prefix == "preliminary" and pb2_enabled(
+            if prefix == "preliminary" and pb2_enabled(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                 claim, self.graph, self.snapshot.get("analysis_profile_policy", {})
             ):
                 request["preliminary_fact_fields"] = "preliminary-fact-fields-pb2-v1"
@@ -153,7 +165,9 @@ def source_replicas(
                 replica,
             )
             directory = self.receipts / prefix / request_id
-            record = dict(request_id=request_id, replicate_id=replica, status="unresolved")
+            record: dict[str, Any] = dict(
+                request_id=request_id, replicate_id=replica, status="unresolved"
+            )
             if context_receipt:
                 record.update(context_receipt)
             records.append(record)
@@ -315,7 +329,7 @@ def source_replicas(
     return results
 
 
-def account(self, request_id):
+def account(self: LiveTaggingRuntime, request_id: str) -> None:
     with self._account_lock:
         if request_id not in self.previously_accounted:
             self.request_ids.add(request_id)
@@ -323,12 +337,12 @@ def account(self, request_id):
             self._update_accounting()
 
 
-def update_accounting(self):
+def update_accounting(self: LiveTaggingRuntime) -> None:
     identifiers = sorted(self.request_ids)
     self.usage.update(request_usage(self.ledger, identifiers))
     self.usage["tag_request_ids"] = identifiers
 
 
-def flush_accounting(self):
+def flush_accounting(self: LiveTaggingRuntime) -> None:
     with self._account_lock:
         self._update_accounting()

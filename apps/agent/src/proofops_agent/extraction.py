@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from proofops.application.claims import ExtractionProfile
 from proofops.domain.provenance import canonical_hash
@@ -27,9 +28,9 @@ _DEFINITION = r"(?:이란|란)\s.+(?:의미|말한다)|\bis defined as\b"
 @dataclass(frozen=True, slots=True)
 class StructuredClaimExtractor:
     profile: ExtractionProfile
-    respond: Callable[[dict], dict]
+    respond: Callable[[dict[str, Any]], dict[str, Any]]
 
-    def extract(self, packet: dict) -> dict:
+    def extract(self, packet: dict[str, Any]) -> dict[str, Any]:
         return self.respond(packet)
 
 
@@ -41,7 +42,7 @@ class SyntheticClaimExtractor:
         synthetic=True,
     )
 
-    def extract(self, packet: dict) -> dict:
+    def extract(self, packet: dict[str, Any]) -> dict[str, Any]:
         text = packet["untrusted_document_data"]["text"]
         spans = []
         # ponytail: lexical demo only; use an approved extraction model for corpus semantics.

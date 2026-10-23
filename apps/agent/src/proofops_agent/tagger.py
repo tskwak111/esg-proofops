@@ -6,9 +6,15 @@ no evidence_grade/label handling exists on this path by construction.
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any
 
 from proofops.domain.values import LlmTags, llm_tags_from_dict
+
+if TYPE_CHECKING:
+    from proofops.application.authorization import AuthContext
+    from proofops.application.preflight import ModelInvocationPort
+    from proofops.application.tagging.service import RawTagResponse
 
 
 def validate_tags(payload: dict[str, Any]) -> LlmTags:
@@ -25,16 +31,16 @@ class BedrockMessagesTagger:
 
     def __init__(
         self,
-        invoker,
+        invoker: ModelInvocationPort,
         *,
-        auth,
-        runtime_binding,
-        consent,
-        allowed_regions,
-        document_rights,
-        checked_at,
+        auth: AuthContext,
+        runtime_binding: Mapping[str, Any],
+        consent: Mapping[str, Any],
+        allowed_regions: Sequence[str],
+        document_rights: str,
+        checked_at: str,
         synthetic: bool,
-    ):
+    ) -> None:
         import json
 
         from proofops.domain.rulepacks import canonical_json
@@ -52,7 +58,7 @@ class BedrockMessagesTagger:
         # Validate JSON snapshots eagerly without retaining mutable policy dicts.
         json.loads(self._runtime_json)
 
-    def invoke(self, request: dict[str, Any]):
+    def invoke(self, request: dict[str, Any]) -> RawTagResponse:
         import json
         from time import monotonic_ns
 

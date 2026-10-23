@@ -13,6 +13,7 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from threading import Lock
 from time import monotonic_ns
+from typing import Any, TextIO
 
 from proofops.adapters.local.openrouter import OpenRouterProbe
 from proofops.adapters.local.upstage import UPSTAGE_TRANSPORT_STOP_CODES, UpstageProbe
@@ -23,6 +24,7 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 from proofops.domain.values import _require_sha256, _require_uuid
 
+from proofops_agent.extraction_parts.contracts import DisplayCatalog
 from proofops_agent.tagging_parts.wire import (
     CONSISTENCY_PROFILE as CONSISTENCY_PROFILE,
 )
@@ -93,7 +95,7 @@ class TransportResume:
     def __init__(
         self,
         *,
-        acknowledged_failures,
+        acknowledged_failures: frozenset[str],
         max_new_requests: int,
         already_dispatched: int = 0,
         expected_root: Path | None = None,
@@ -179,15 +181,15 @@ class UpstageTaggingTransport:
 
     def __init__(
         self,
-        probe: UpstageProbe,
+        probe: UpstageProbe | OpenRouterProbe,
         receipts: Path,
         *,
         settings: TaggingSettings,
         tenant_id: str,
-        authorize: Callable[[TaggingSettings, dict], Preflight],
+        authorize: Callable[[TaggingSettings, dict[str, Any]], Preflight],
         resume: TransportResume | None = None,
-        display_catalog=None,
-    ):
+        display_catalog: DisplayCatalog | None = None,
+    ) -> None:
         _require_uuid("tenant_id", tenant_id)
         if (
             not isinstance(probe, UpstageProbe | OpenRouterProbe)
@@ -236,11 +238,11 @@ class UpstageTaggingTransport:
         self._receipts.mkdir(parents=True, exist_ok=True, mode=0o700)
         self._init_operation_state()
 
-    def _init_operation_state(self):
+    def _init_operation_state(self) -> None:
         self._operation_mutex = Lock()
         self._operation_users = 0
-        self._operation_file = None
-        self._active_requests = set()
+        self._operation_file: TextIO | None = None
+        self._active_requests: set[str] = set()
 
     def _stopped(self) -> bool:
         return (self._receipts / "transport-stop.json").exists() or any(
@@ -258,7 +260,7 @@ class UpstageTaggingTransport:
         """
         return self._resume is None or self._resume.allows(self._receipts)
 
-    def invoke(self, request: dict) -> RawTagResponse:
+    def invoke(self, request: dict[str, Any]) -> RawTagResponse:
         # Offline workers can load on Windows; paid dispatch still requires this lock.
         import fcntl
 
@@ -280,10 +282,15 @@ class UpstageTaggingTransport:
                 self._active_requests.discard(request["request_id"])
                 self._operation_users -= 1
                 if self._operation_users == 0:
+                    assert (
+                        self._operation_file is not None
+                    )  # Acquired before incrementing operation users.
                     self._operation_file.close()
                     self._operation_file = None
 
-    def count_input_tokens(self, request: dict, *, counter: Callable[[str, str], int]) -> int:
+    def count_input_tokens(
+        self, request: dict[str, Any], *, counter: Callable[[str, str], int]
+    ) -> int:
         """Count exactly the sent messages, using a caller-pinned provider counter.
 
         The counter must include model chat framing; no character/byte estimate
@@ -299,7 +306,7 @@ class UpstageTaggingTransport:
         )
         return counter(system, user)
 
-    def _authorize_request(self, request: dict) -> Preflight:
+    def _authorize_request(self, request: dict[str, Any]) -> Preflight:
         settings = self._settings
         authorization = self._authorize(settings, request)
         if (
@@ -338,7 +345,9 @@ class UpstageTaggingTransport:
             raise ValueError("UPSTAGE_TAGGING_REQUEST_INVALID")
         return authorization
 
-    def _wire_request(self, request: dict) -> tuple[str, str, dict[str, dict], Preflight, str]:
+    def _wire_request(
+        self, request: dict[str, Any]
+    ) -> tuple[str, str, dict[str, dict[str, Any]], Preflight, str]:
         settings = self._settings
         authorization = self._authorize_request(request)
         system, user, refs, schema = build_wire_request(
@@ -349,7 +358,13 @@ class UpstageTaggingTransport:
         )
         return system, user, refs, authorization, schema
 
-    def _restore_ref(self, selection, refs: dict[str, dict], *, policy=None) -> dict:
+    def _restore_ref(
+        self,
+        selection: Any,
+        refs: dict[str, dict[str, Any]],
+        *,
+        policy: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return restore_ref(
             selection,
             refs,
@@ -358,7 +373,9 @@ class UpstageTaggingTransport:
             policy=policy,
         )
 
-    def restore_payload(self, payload, refs, *, policy=None):
+    def restore_payload(
+        self, payload: dict[str, Any], refs: dict[str, Any], *, policy: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         return restore_payload(
             payload,
             refs,
@@ -370,10 +387,10 @@ class UpstageTaggingTransport:
         )
 
     @staticmethod
-    def _refine_g1_year(element: dict) -> None:
+    def _refine_g1_year(element: dict[str, Any]) -> None:
         refine_g1_year(element)
 
-    def _invoke(self, request: dict) -> RawTagResponse:
+    def _invoke(self, request: dict[str, Any]) -> RawTagResponse:
         settings = self._settings
         system = request["system_prompt"]
         wire_system, wire_user, refs, authorization, wire_schema = self._wire_request(request)
@@ -492,11 +509,13 @@ class UpstageTaggingTransport:
                 if response_policy is not None:
                     from proofops.application.tagging.k4_contract import bind_response
 
-                    payload = bind_response(payload, request, policy=response_policy)
+                    # External package helper is untyped; its annotations are outside this scope.
+                    payload = bind_response(payload, request, policy=response_policy)  # type: ignore[no-untyped-call]
                 if preliminary_policy is not None:
                     from proofops.application.tagging.k4_contract import bind_response
 
-                    payload = bind_response(payload, request, policy=preliminary_policy)
+                    # External package helper is untyped; its annotations are outside this scope.
+                    payload = bind_response(payload, request, policy=preliminary_policy)  # type: ignore[no-untyped-call]
                     payload.pop("packet_sha256")
                     payload.pop("replicate_id")
                 restore_policy = json.loads(request["user_json"])["untrusted_document_data"].get(
@@ -525,7 +544,8 @@ class UpstageTaggingTransport:
             from proofops.adapters.local.cf6_transport import authenticate
 
             try:
-                response = authenticate(
+                # External package helper is untyped; its annotations are outside this scope.
+                response = authenticate(  # type: ignore[no-untyped-call]
                     request,
                     response,
                     self._probe,
@@ -545,7 +565,7 @@ class UpstageTaggingTransport:
         write(directory / "response.json", canonical_json(asdict(response)))
         return response
 
-    def _response_metadata(self, response):
+    def _response_metadata(self, response: RawTagResponse) -> RawTagResponse:
         return response
 
     @staticmethod

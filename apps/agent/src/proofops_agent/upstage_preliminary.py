@@ -27,9 +27,11 @@ packet must pin the longer prompt hash, so the two prompts can never be swapped.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import asdict, replace
 from pathlib import Path
+from typing import Any
 
 from proofops.adapters.local.openrouter import OpenRouterProbe
 from proofops.adapters.local.upstage import UpstageProbe
@@ -63,6 +65,7 @@ from proofops.application.tagging.service import TaggingSettings
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import _require_sha256, _require_uuid
 
+from proofops_agent.extraction_parts.contracts import DisplayCatalog
 from proofops_agent.upstage_tagging import TransportResume, UpstageTaggingTransport
 
 MODEL_PROFILE = "upstage-preliminary-source-quotes-v1"
@@ -167,15 +170,15 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
 
     def __init__(
         self,
-        probe,
-        receipts,
+        probe: UpstageProbe | OpenRouterProbe,
+        receipts: Path,
         *,
-        settings,
-        tenant_id,
-        authorize,
-        resume=None,
-        display_catalog=None,
-    ):
+        settings: TaggingSettings,
+        tenant_id: str,
+        authorize: Callable[[TaggingSettings, dict[str, Any]], Preflight],
+        resume: TransportResume | None = None,
+        display_catalog: DisplayCatalog | None = None,
+    ) -> None:
         _require_uuid("tenant_id", tenant_id)
         if settings.model_profile == SENTENCE_FALLBACK_PROFILE:
             expected_prompt = SENTENCE_FALLBACK_SYSTEM_PROMPT
@@ -282,12 +285,12 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         self._init_operation_state()
 
     @staticmethod
-    def _probe_type():
+    def _probe_type() -> tuple[type[UpstageProbe], type[OpenRouterProbe]]:
         from proofops.adapters.local.openrouter import OpenRouterProbe
 
         return (UpstageProbe, OpenRouterProbe)
 
-    def bound_context(self, packet: dict) -> dict:
+    def bound_context(self, packet: dict[str, Any]) -> dict[str, Any]:
         """Fit optional whole context blocks BEFORE packet hashing/authorization.
 
         Numbered sources are never shortened. Omitted context IDs remain in the
@@ -295,7 +298,8 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         bounded input. An oversized sources-only packet still fails normally.
         """
         if self._settings.system_prompt == CF5_PRELIMINARY:
-            validate_cf5_packet(packet)
+            # External package helper is untyped; its annotations are outside this scope.
+            validate_cf5_packet(packet)  # type: ignore[no-untyped-call]
             return deepcopy(packet)
         bounded = deepcopy(packet)
         data = bounded["untrusted_document_data"]
@@ -331,7 +335,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
                 data["omitted_source_ids"].append(removed["source_id"])
         return bounded
 
-    def _wire_request(self, request: dict) -> tuple[str, str, dict[str, dict], Preflight, str]:
+    def _wire_request(
+        self, request: dict[str, Any]
+    ) -> tuple[str, str, dict[str, dict[str, Any]], Preflight, str]:
         settings = self._settings
         fallback = settings.model_profile == SENTENCE_FALLBACK_PROFILE
         # The authorized fallback profile has exactly two pinned wire branches.
@@ -436,7 +442,8 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         except (TypeError, ValueError, KeyError):
             raise ValueError("UPSTAGE_PRELIMINARY_PACKET_INVALID") from None
         if settings.system_prompt == CF5_PRELIMINARY:
-            validate_cf5_packet(user)
+            # External package helper is untyped; its annotations are outside this scope.
+            validate_cf5_packet(user)  # type: ignore[no-untyped-call]
             expected_keys = expected_keys | {"cf5_context_policy", "cf5_context_sha256"}
         if fallback_sources:
             system = replace(settings, system_prompt=SENTENCE_FALLBACK_BASE_PROMPT).rendered_system
@@ -460,14 +467,16 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         if quality_policy is not None:
             from proofops.application.tagging.q1_contract import validate_policy
 
-            validate_policy(quality_policy)
+            # External package helper is untyped; its annotations are outside this scope.
+            validate_policy(quality_policy)  # type: ignore[no-untyped-call]
             expected_keys = expected_keys | {"structural_quality_policy"}
         if catalog is not None:
             expected_keys = expected_keys | {"display_text"}
             if isinstance(user, dict) and "preliminary_recovery_policy" in user:
                 from proofops.application.tagging.k2_recovery import validate_policy
 
-                validate_policy(user["preliminary_recovery_policy"])
+                # External package helper is untyped; its annotations are outside this scope.
+                validate_policy(user["preliminary_recovery_policy"])  # type: ignore[no-untyped-call]
                 expected_keys = expected_keys | {"preliminary_recovery_policy"}
         if not isinstance(user, dict) or set(user) != expected_keys:
             raise ValueError("UPSTAGE_PRELIMINARY_PACKET_INVALID")
@@ -655,19 +664,23 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
                     if settings.system_prompt == Q1_PRELIMINARY
                     else preliminary_k9
                 )
-                system = renderer(json.loads(schema_json), quote=quote)
+                # External package helper is untyped; its annotations are outside this scope.
+                system = renderer(json.loads(schema_json), quote=quote)  # type: ignore[no-untyped-call]
             else:
                 system = renderer(json.loads(schema_json))
         if quality_policy is not None:
             from proofops.application.tagging.finals_i4 import _quality_guidance
 
-            system += _quality_guidance(quality_policy, preliminary=True)
+            # External package helper is untyped; its annotations are outside this scope.
+            system += _quality_guidance(quality_policy, preliminary=True)  # type: ignore[no-untyped-call]
             user.pop("structural_quality_policy")
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return system, wire_user, {}, authorization, schema_json
 
     @staticmethod
-    def _validate_context_shape(user: dict, data: dict, *, table: bool = False) -> None:
+    def _validate_context_shape(
+        user: dict[str, Any], data: dict[str, Any], *, table: bool = False
+    ) -> None:
         """Structural-only guard: context_blocks can never be indexed by a
         dimension's source_index (disjoint list, disjoint index namespace)."""
         policy = user.get("context_policy")

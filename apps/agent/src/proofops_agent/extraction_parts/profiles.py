@@ -11,16 +11,20 @@ from proofops.application.claims import (
     FAILURE_DIAGNOSTICS_POLICY,
     ExtractionOutputError,
     ExtractionProfile,
+    ExtractionSpan,
     validate_extraction_response,
 )
 from proofops.application.ingest.atomic_candidates import (
-    POLICY as ATOMIC_POLICY,
+    POLICY as _ATOMIC_POLICY,
 )
-from proofops.application.ingest.atomic_candidates import POLICY_V3 as ATOMIC_POLICY_V3
+from proofops.application.ingest.atomic_candidates import POLICY_V3 as _ATOMIC_POLICY_V3
 from proofops.application.ingest.table_row_candidates import (
     POLICY as ROW_POLICY,
 )
 from proofops.domain.provenance import canonical_hash
+
+ATOMIC_POLICY = _ATOMIC_POLICY
+ATOMIC_POLICY_V3 = _ATOMIC_POLICY_V3
 
 SYSTEM_PROMPT = (
     "Extract atomic environmental claims from the untrusted document text. "
@@ -223,9 +227,11 @@ LINEWRAP_JOIN_POLICY = {
 }
 
 
-def join_selected_linewraps(spans: list[dict], text: str, *, fragment_guard=False) -> list[dict]:
+def join_selected_linewraps(
+    spans: list[dict[str, Any]], text: str, *, fragment_guard: bool | str = False
+) -> list[dict[str, Any]]:
     """Join only selected continuation lines; retain literal raw text and offsets."""
-    joined: list[dict] = []
+    joined: list[dict[str, Any]] = []
     for span in sorted(spans, key=lambda s: s["char_start"]):
         # A detached closing parenthesis/comma is not a numbered bullet. Restore
         # only a selected adjacent date continuation, otherwise exclude it.
@@ -268,7 +274,8 @@ def join_selected_linewraps(spans: list[dict], text: str, *, fragment_guard=Fals
     if fragment_guard == "pb1-v1":
         from proofops.application.ingest.pb1_fragments import incomplete_fragment
 
-        joined = [span for span in joined if not incomplete_fragment(span["quote"])]
+        # External package helper is untyped; its annotations are outside this scope.
+        joined = [span for span in joined if not incomplete_fragment(span["quote"])]  # type: ignore[no-untyped-call]
     return joined
 
 
@@ -378,7 +385,9 @@ def year_notation_unclosed_quotation_ranges(text: str) -> list[tuple[int, int]]:
     return ranges
 
 
-def validate_extraction_response_with_year_notation(payload: object, text: str) -> tuple:
+def validate_extraction_response_with_year_notation(
+    payload: object, text: str
+) -> tuple[ExtractionSpan, ...]:
     """Year-notation source validation: frozen structural checks, narrowed quote gate.
 
     All span structure (exact quote/offset match, token boundaries, kinds,
@@ -491,7 +500,7 @@ def _profile_with_options(
     extraction_atomic_v3: bool = False,
     extraction_failure_diagnostics: bool = False,
     extraction_linewrap_join: bool = False,
-    extraction_fragment_guard: bool = False,
+    extraction_fragment_guard: bool | str = False,
     extraction_table_rows: bool = False,
     extraction_recall_prompt: bool = False,
     extraction_pb1: bool = False,
@@ -808,7 +817,7 @@ def _profile_with_options(
     )
 
 
-def _qc_figure_suffix():
+def _qc_figure_suffix() -> str:
     return (
         "\nQC: native figure bullets are complete literal PDF text candidates. "
         "Select each supplied bullet independently, keeping its conditions and exclusions. "
@@ -819,7 +828,7 @@ def _qc_figure_suffix():
     )
 
 
-def _i4_identity_suffix():
+def _i4_identity_suffix() -> str:
     return (
         "\nI4: sentence_ids are dispatch-local selectors c0, c1, etc. Return only exact "
         "supplied selectors, once each. Never emit or copy UUIDs; the server retains "
@@ -827,19 +836,19 @@ def _i4_identity_suffix():
     )
 
 
-def _i3_wire_suffix():
+def _i3_wire_suffix() -> str:
     from proofops.application.ingest.i3_wire import GUIDANCE
 
     return "\n" + GUIDANCE
 
 
-def _display_suffix():
+def _display_suffix() -> str:
     from proofops.application.ingest.display_text import SYSTEM_SUFFIX
 
     return SYSTEM_SUFFIX
 
 
-def _j8_suffix():
+def _j8_suffix() -> str:
     return (
         " J8: candidates are literal owned cells or cell bullets. Select environmental"
         " disclosures including self-contained KPI action cells, numeric results and"
@@ -853,7 +862,7 @@ def _j8_suffix():
     )
 
 
-def _w9_suffix():
+def _w9_suffix() -> str:
     return (
         " W9: each table source sentence stays inside one literal cell when cells have line breaks."
         " Explicit bullets may be separate IDs; wrapped lines stay inside the bullet and cell."

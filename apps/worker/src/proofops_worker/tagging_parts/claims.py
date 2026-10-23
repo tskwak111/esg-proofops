@@ -1,43 +1,70 @@
 """One claim through source, preliminary, evidence, elements and review inputs."""
 
+from __future__ import annotations
+
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from typing import Any
+from threading import Lock
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID, uuid5
 
 from proofops.adapters.local.evidence_search import (
+    LocalEvidenceSearch,
     collect_raw_candidate_review,
 )
+from proofops.adapters.local.gri_routing import LocalGRIRouting
+from proofops.application.claims import Claim
+from proofops.application.evidence.binding import ClaimContext
 from proofops.application.evidence.citations import _normalized
 from proofops.application.evidence.retrieval import (
+    EvidencePacket,
+    EvidenceSearchPort,
     freeze_track_packet,
     unattended_packet,
 )
-from proofops.application.ports.jobs import LeaseLost
+from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+from proofops.application.ports.jobs import JobLease, LeaseLost
+from proofops.application.rb1_input_isolation import InputIsolation
 from proofops.application.reviews import ReviewInputs
+from proofops.application.tagging.analysis_scope import InventoryIndex
 from proofops.application.tagging.consensus import (
+    ConsensusResult,
     reviewable_checkpoint,
 )
 from proofops.application.tagging.consensus import (
     reviewable_decision as _review_decision,
 )
+from proofops.application.tagging.contracts import TaggingSettings, TagRun
 from proofops.application.tagging.report_level_link import apply_report_level_link, strict_fallback
+from proofops.application.tagging.tracks import TrackCandidate
 from proofops.application.tagging.unattended import (
     empty_provisional,
     provisional_result,
     source_status,
 )
 from proofops.domain.provenance import canonical_hash
+from proofops.domain.rulepacks import RulePackSnapshot
 from proofops.domain.rules.engine import RuleContext, evaluate
+from proofops.domain.values import SourceRef
+
+from proofops_worker.consumer import LeaseHeartbeatState
+from proofops_worker.tag_recovery import TagRecovery
+from proofops_worker.tag_reprocess import TagReprocess
+from proofops_worker.tagging_parts.contracts import PreliminarySupplier, RelationRoles, TagTransport
+
+if TYPE_CHECKING:
+    from proofops_worker.live_tagging import LiveTaggingRuntime
+    from proofops_worker.tag_runner import LocalTagRunner
 
 
-def _unexpected_error_code(stage, error):
+def _unexpected_error_code(stage: str, error: BaseException) -> str:
     name = type(error).__name__
     if not name.isascii() or not name.isidentifier() or len(name) > 64:
         name = "Exception"
     return f"{stage.upper()}_UNEXPECTED_{name}"
 
 
-def _candidate_tokens(text):
+def _candidate_tokens(text: str) -> int:
     """Retrieval size bound for blocked claims when no tagging runtime is wired.
 
     Deterministic byte length only; it never selects or contacts a model.
@@ -45,7 +72,7 @@ def _candidate_tokens(text):
     return len(text.encode("utf-8"))
 
 
-def _consensus_review_reason(consensus):
+def _consensus_review_reason(consensus: ConsensusResult) -> str:
     return (
         "PARTIAL_FACTS_REVIEW_REQUIRED"
         if "PARTIAL_FACTS_REVIEW_REQUIRED" in consensus.reasons
@@ -53,8 +80,14 @@ def _consensus_review_reason(consensus):
     )
 
 
-def _prior_claim_record(claim_id, prior, rulepack_unapproved, *, pinned_profile=None):
-    decision, candidate_grade = _review_decision(
+def _prior_claim_record(
+    claim_id: str,
+    prior: ReviewInputs,
+    rulepack_unapproved: bool,
+    *,
+    pinned_profile: str | None = None,
+) -> dict[str, Any]:
+    decision, candidate_grade = _review_decision(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
         prior.decision, prior.fact_assembly_profile, prior.consensus.review_status
     )
     if rulepack_unapproved:
@@ -65,7 +98,7 @@ def _prior_claim_record(claim_id, prior, rulepack_unapproved, *, pinned_profile=
         reason = decision.decision_status
     else:
         reason = None
-    return reviewable_checkpoint(
+    result: dict[str, Any] = reviewable_checkpoint(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
         dict(
             claim_id=claim_id,
             status=(
@@ -81,9 +114,10 @@ def _prior_claim_record(claim_id, prior, rulepack_unapproved, *, pinned_profile=
         ),
         pinned_profile=pinned_profile,
     )
+    return result
 
 
-def _source_traceable(claim, graph):
+def _source_traceable(claim: Claim, graph: CanonicalDocumentGraph) -> bool:
     """Does every claim ref still point at the pinned parsed text of its block?
 
     This is the precondition for letting a blocked claim reach local candidate
@@ -117,7 +151,7 @@ def _source_traceable(claim, graph):
     return bool(claim.source_refs)
 
 
-def _atomic_v3_binding_enabled(snapshot, claim):
+def _atomic_v3_binding_enabled(snapshot: dict[str, Any], claim: Claim) -> bool:
     """Use the narrow source-edge rule only for the frozen atomic-v3 prompt."""
     profile = snapshot.get("extraction_profile")
     if not isinstance(profile, dict) or profile != asdict(claim.receipt.profile):
@@ -135,44 +169,44 @@ def _atomic_v3_binding_enabled(snapshot, claim):
 class ClaimProcessingContext:
     """Run-scoped inputs shared by claims; scheduling and publication stay in the runner."""
 
-    runner: Any
-    heartbeat_state: Any
-    lease: Any
-    run: dict
-    recovery: Any
-    reprocess: Any
-    snapshot: dict
-    raw_search: Any
-    graph: Any
+    runner: LocalTagRunner
+    heartbeat_state: LeaseHeartbeatState | None
+    lease: JobLease
+    run: dict[str, Any]
+    recovery: TagRecovery | None
+    reprocess: TagReprocess | None
+    snapshot: dict[str, Any]
+    raw_search: LocalEvidenceSearch | None
+    graph: CanonicalDocumentGraph
     unattended: bool
-    settings: Any
-    transport: Any
-    preliminary_supplier: Any
-    progress: dict
-    report_stage: Any
-    live: Any
-    rulepack: Any
-    gri: Any
-    search: Any
+    settings: TaggingSettings | None
+    transport: TagTransport | None
+    preliminary_supplier: PreliminarySupplier | None
+    progress: dict[str, dict[str, Any]]
+    report_stage: Callable[[Claim, str], None]
+    live: LiveTaggingRuntime | None
+    rulepack: RulePackSnapshot
+    gri: LocalGRIRouting | None
+    search: EvidenceSearchPort
     generation: str
-    sc1_index: Any
-    facility_candidates: Any
-    facility_dimensions: dict
-    semantic_policy: dict | None
+    sc1_index: InventoryIndex | None
+    facility_candidates: str | None
+    facility_dimensions: dict[str, Any]
+    semantic_policy: dict[str, Any] | None
     parallel_claims: bool
-    sc1_policy: dict | None
+    sc1_policy: dict[str, Any] | None
     hold_profile: str | None
-    deferred: Any
-    report_source_lock: Any
-    report_source_cache: dict
-    usage: dict
-    tag_replicates: Any
-    retrieve_evidence: Any
-    form_consensus: Any
-    rb1: Any
+    deferred: list[ReviewInputs] | None
+    report_source_lock: Lock
+    report_source_cache: dict[tuple[SourceRef, ...], tuple[CanonicalDocumentGraph, dict[str, Any]]]
+    usage: dict[str, Any]
+    tag_replicates: Callable[..., tuple[TagRun, ...]]
+    retrieve_evidence: Callable[..., EvidencePacket]
+    form_consensus: Callable[..., ConsensusResult]
+    rb1: InputIsolation
 
 
-def process_claim(execution, claim):
+def process_claim(execution: ClaimProcessingContext, claim: Claim) -> dict[str, Any]:
     self = execution.runner
     message = execution.lease.message
     tenant, run_id = message.tenant_id, message.run_id
@@ -227,7 +261,7 @@ def process_claim(execution, claim):
                     f"{claim.claim_id}:{1:010}",
                 )
             if prior_revision is not None:
-                prior = self.tags.load_inputs(tenant, run_id, claim.claim_id)
+                prior = self.tags.load_inputs(tenant, run_id, claim.claim_id)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                 records.append(
                     _prior_claim_record(
                         claim.claim_id,
@@ -247,7 +281,7 @@ def process_claim(execution, claim):
             claim.claim_id not in recovery.claim_ids or not recovery.can_attempt_claim()
         ):
             records.append(
-                reviewable_checkpoint(
+                reviewable_checkpoint(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                     recovery.carry_forward(claim.claim_id),
                     pinned_profile=snapshot.get("fact_assembly_profile", "strict-v1"),
                 )
@@ -263,7 +297,7 @@ def process_claim(execution, claim):
             claim.claim_id not in reprocess.claim_ids or not reprocess.can_attempt_claim()
         ):
             records.append(
-                reviewable_checkpoint(
+                reviewable_checkpoint(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                     reprocess.carry_forward(claim.claim_id),
                     pinned_profile=snapshot.get("fact_assembly_profile", "strict-v1"),
                 )
@@ -281,7 +315,7 @@ def process_claim(execution, claim):
             if preliminary_supplier is None
             else None
         )
-        item = dict(
+        item: dict[str, Any] = dict(
             claim_id=claim.claim_id,
             status="blocked",
             reason=reason,
@@ -292,15 +326,17 @@ def process_claim(execution, claim):
         )
         if unattended:
             item.update(
-                source_status=source_status(claim),
-                provisional_grade=empty_provisional(reason),
+                source_status=source_status(claim),  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                provisional_grade=empty_provisional(reason),  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                 stage="preliminary",
             )
             progress[claim.claim_id] = item
             if not _source_traceable(claim, graph):
                 item.update(reason="SOURCE_LOCATION_REQUIRED", status="failed")
                 return item
-        track = context = relation_tags = None
+        track: TrackCandidate | None = None
+        context: ClaimContext | None = None
+        relation_tags: RelationRoles | None = None
         # Paid preliminary replicas stay behind the source-quality gate; an
         # unverified source never buys model calls to make progress.
         if reason is None:
@@ -330,11 +366,11 @@ def process_claim(execution, claim):
                 # Preserve the prior blocked stage's original preliminary provenance
                 # for this claim; the reviewed classification is additive, never a
                 # replacement of what the model replicas actually recorded.
-                prior = reprocess.carry_forward(claim.claim_id)
-                if "preliminary_records" in prior:
-                    item["preliminary_records"] = prior["preliminary_records"]
-                if "preliminary_agreement" in prior:
-                    item["preliminary_agreement"] = prior["preliminary_agreement"]
+                prior_record = reprocess.carry_forward(claim.claim_id)
+                if "preliminary_records" in prior_record:
+                    item["preliminary_records"] = prior_record["preliminary_records"]
+                if "preliminary_agreement" in prior_record:
+                    item["preliminary_agreement"] = prior_record["preliminary_agreement"]
                 item["reviewed_classification"] = dict(
                     classification_id=reprocess.plan.classification_id,
                     classification_sha256=reprocess.plan.classification_sha256,
@@ -347,7 +383,7 @@ def process_claim(execution, claim):
                 if context.claim != claim or track.claim != claim:
                     raise ValueError("PRELIMINARY_CLAIM_MISMATCH")
             else:
-                preliminary = preliminary_supplier(claim, graph)
+                preliminary = cast(PreliminarySupplier, preliminary_supplier)(claim, graph)
                 report_stage(claim, "preliminary")
                 if live is not None:
                     item["preliminary_records"] = live.preliminary_records.get(claim.claim_id, [])
@@ -357,7 +393,7 @@ def process_claim(execution, claim):
                 )
                 if track is None:
                     reason = "PRELIMINARY_TAGS_UNRESOLVED"
-                elif context.claim != claim or track.claim != claim:
+                elif cast(ClaimContext, context).claim != claim or track.claim != claim:
                     raise ValueError("PRELIMINARY_CLAIM_MISMATCH")
         # Local, no-model candidate retrieval runs before the source and
         # consensus stops, so a blocked claim still reaches review with its
@@ -398,11 +434,18 @@ def process_claim(execution, claim):
                 **(
                     dict(candidate_retrieval=skipped)
                     if skipped is not None
-                    else dict(original_packet=original_packet.to_dict())
+                    else dict(original_packet=cast(EvidencePacket, original_packet).to_dict())
                 ),
             )
             records.append(item)
             continue
+        # The preceding reason/skip exits establish all tagging prerequisites.
+        original_packet = cast(EvidencePacket, original_packet)
+        track = cast(TrackCandidate, track)
+        context = cast(ClaimContext, context)
+        relation_tags = cast(RelationRoles, relation_tags)
+        transport = cast(TagTransport, transport)
+        settings = cast(TaggingSettings, settings)
         if unattended:
             item["original_packet"] = original_packet.to_dict()
             original_packet = unattended_packet(
@@ -418,7 +461,7 @@ def process_claim(execution, claim):
         ):
             from proofops.application.tagging.qt2_inventory import link_inventory
 
-            item["qt2_inventory_links"] = link_inventory(
+            item["qt2_inventory_links"] = link_inventory(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                 context,
                 sc1_index,
                 graph,
@@ -430,7 +473,7 @@ def process_claim(execution, claim):
         if facility_candidates:
             from proofops.application.tagging.k6_facilities import augment_packet
 
-            packet = augment_packet(
+            packet = augment_packet(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                 packet, facility_dimensions.get(claim.claim_id, {}), graph, tenant_id=tenant
             )
         cf6_policy = snapshot.get("analysis_profile_policy", {}).get("cf6_confirmation")
@@ -454,21 +497,23 @@ def process_claim(execution, claim):
                 from proofops.application.evidence.retrieval import freeze_packet
                 from proofops.application.tagging.qt1_baseline import (
                     POLICY,
-                    augment_packet,
                     baseline_links,
+                )
+                from proofops.application.tagging.qt1_baseline import (
+                    augment_packet as augment_baseline_packet,
                 )
 
                 if snapshot["analysis_profile_policy"]["qt1_baseline_policy"] != POLICY:
                     raise ValueError("QT1_BASELINE_POLICY_MISMATCH")
                 if sc1_index is not None and track.track == "goal":
-                    receipt = baseline_links(
+                    receipt = baseline_links(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                         context, sc1_index, graph, run_id=run_id, tenant_id=tenant
                     )
                     data = packet.to_dict()
                     data.pop("packet_sha256")
-                    data = augment_packet(data, receipt)
+                    data = augment_baseline_packet(data, receipt)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                     if live.display_catalog is not None:
-                        data["display_text"] = live.display_catalog.element_pins(data)
+                        data["display_text"] = live.display_catalog.element_pins(data)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                     packet = freeze_packet(data)
                     item["qt1_baseline_receipt"] = receipt
             live.allow_packet(claim.claim_id, packet.packet_sha256)
@@ -553,7 +598,7 @@ def process_claim(execution, claim):
             item.update(
                 status="processed",
                 stage="grade",
-                provisional_grade=provisional_result(
+                provisional_grade=provisional_result(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                     tag_runs,
                     packet,
                     rulepack,
@@ -593,10 +638,12 @@ def process_claim(execution, claim):
         link_receipts = ()
         if link_config is not None:
 
-            def attest_report_sources(refs):
+            def attest_report_sources(
+                refs: tuple[SourceRef, ...],
+            ) -> tuple[CanonicalDocumentGraph, dict[str, Any]]:
                 with report_source_lock:
                     if refs not in report_source_cache:
-                        report_source_cache[refs] = self.tags.verify_context_sources(
+                        report_source_cache[refs] = self.tags.verify_context_sources(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                             base_inputs,
                             refs,
                             pinned_run_snapshot=snapshot,
@@ -616,12 +663,12 @@ def process_claim(execution, claim):
                 relation_tags,
                 fact_assembly_profile=snapshot.get("fact_assembly_profile", "strict-v1"),
             )
-            consensus, link_receipts = apply_report_level_link(
+            consensus, link_receipts = apply_report_level_link(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                 consensus,
                 config=link_config,
                 context=context,
                 graph=graph,
-                fallback_tags=strict_fallback(
+                fallback_tags=strict_fallback(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
                     tag_runs,
                     packet,
                     rulepack,
@@ -637,7 +684,7 @@ def process_claim(execution, claim):
             if consensus.confirmed_tags and not rulepack_unapproved
             else None
         )
-        decision, candidate_grade = _review_decision(
+        decision, candidate_grade = _review_decision(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
             decision,
             snapshot.get("fact_assembly_profile", "strict-v1"),
             consensus.review_status,
@@ -673,7 +720,7 @@ def process_claim(execution, claim):
             # transaction, after its authorized lineage is rechecked, so a lineage
             # change during tagging can never leave a revision behind.
             inputs.validate()
-            deferred.append(inputs)
+            cast(list[ReviewInputs], deferred).append(inputs)
         else:
             self._publish_claim(lease, inputs, heartbeat_state)
         item.update(

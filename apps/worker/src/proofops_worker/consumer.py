@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from random import random
 from threading import Event, Lock, Thread
-from typing import Any
+from typing import Any, Protocol
 
 from proofops.application.ports.jobs import (
     JobControlSignal,
@@ -35,7 +35,11 @@ class TagHeartbeatFailed(JobControlSignal):
     """Stop tagging outside provider-error handlers after a failed renewal."""
 
 
-def heartbeat_failure(error, *, source):
+class HeartbeatRepository(JobRepository, Protocol):
+    def heartbeat(self, lease: JobLease, *, now: int, lease_seconds: int) -> JobLease: ...
+
+
+def heartbeat_failure(error: BaseException, *, source: str) -> dict[str, Any]:
     # Persist a cause even when the hosted subprocess's stderr is discarded.
     # Exception messages, SQL, paths, lease identifiers and credentials stay out.
     code = getattr(error, "sqlite_errorcode", None)
@@ -52,21 +56,28 @@ class LeaseHeartbeatState:
     last_successful_at: int
     failed: Event = field(default_factory=Event)
     lock: Any = field(default_factory=Lock)
-    failure: dict | None = None
+    failure: dict[str, Any] | None = None
     renewed_until: int = 0
 
-    def fail(self, error=None):
+    def fail(self, error: BaseException | None = None) -> None:
         with self.lock:
             if not self.failed.is_set() and error is not None:
                 self.failure = heartbeat_failure(error, source="point")
             self.failed.set()
 
-    def check(self):
+    def check(self) -> None:
         if self.failed.is_set():
             raise TagHeartbeatFailed()
 
 
-def point_heartbeat(store, lease, clock, *, state=None, lease_seconds=300):
+def point_heartbeat(
+    store: HeartbeatRepository,
+    lease: JobLease,
+    clock: Callable[[], float],
+    *,
+    state: LeaseHeartbeatState | None = None,
+    lease_seconds: int = 300,
+) -> None:
     """Defer only an exhausted BUSY renewal while persisted authority is still valid.
 
     120 seconds leaves a 30s keepalive interval, a 30s renewal budget, a 30s
@@ -102,7 +113,14 @@ def point_heartbeat(store, lease, clock, *, state=None, lease_seconds=300):
             state.check()
 
 
-def with_lease_heartbeat(store, lease, clock, operation, *, state=None):
+def with_lease_heartbeat(
+    store: HeartbeatRepository,
+    lease: JobLease,
+    clock: Callable[[], float],
+    operation: Callable[[JobLease], tuple[bytes, dict[str, Any]]],
+    *,
+    state: LeaseHeartbeatState | None = None,
+) -> tuple[bytes, dict[str, Any]]:
     """Renew only this lease for the duration of a long operation.
 
     A single heartbeat taken before an expensive step (for example claim-span
@@ -119,7 +137,7 @@ def with_lease_heartbeat(store, lease, clock, operation, *, state=None):
     stopped = Event()
     state = state or LeaseHeartbeatState(int(clock()))
 
-    def keepalive():
+    def keepalive() -> None:
         while not stopped.wait(min(30, lease_seconds / 3)):
             with state.lock:
                 if state.failed.is_set():
