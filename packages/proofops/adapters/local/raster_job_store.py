@@ -3,21 +3,34 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid5
 
 from proofops.adapters.local.job_store import LocalSQLiteJobStore
 from proofops.adapters.local.raster_ocr import validate_raster_billing
 from proofops.adapters.local.upstage_parse import PARSE_MODEL_PINNED
 from proofops.application.ports.jobs import LeaseLost
-from proofops.application.runs import validate_raster_snapshot
+from proofops.application.runs import validate_raster_snapshot as _validate_raster_snapshot
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import _require_sha256, _require_strict_int, _require_uuid
+
+if TYPE_CHECKING:
+    import sqlite3
+    from typing import Any
+
+    from proofops.application.ports.jobs import JobLease, JobMessage
+
+
+validate_raster_snapshot: Callable[..., None] = _validate_raster_snapshot
 
 _REQUEST_KIND = "raster_request"
 _RECEIPT_KIND = "raster_receipt"
 
 
-def _snapshot(store, db, message):
+def _snapshot(
+    store: LocalSQLiteJobStore, db: sqlite3.Connection, message: JobMessage
+) -> dict[str, Any]:
     row = db.execute(
         "SELECT payload FROM run_snapshots WHERE tenant_id=? AND run_id=?",
         (message.tenant_id, message.run_id),
@@ -34,10 +47,17 @@ def _snapshot(store, db, message):
     ):
         raise ValueError("RASTER_RUN_INPUT_MISMATCH")
     validate_raster_snapshot(snapshot)
-    return snapshot
+    return_value: dict[str, Any] = snapshot
+    return return_value
 
 
-def _request(store, db, lease, request, now):
+def _request(
+    store: LocalSQLiteJobStore,
+    db: sqlite3.Connection,
+    lease: JobLease,
+    request: dict[str, Any],
+    now: int,
+) -> dict[str, Any]:
     store._time(now)
     message = lease.message
     if message.stage != "parse" or store._owned(db, lease, now) is None:
@@ -135,7 +155,9 @@ def _request(store, db, lease, request, now):
     return snapshot
 
 
-def register_raster_request(store: LocalSQLiteJobStore, lease, request, *, now: int) -> bool:
+def register_raster_request(
+    store: LocalSQLiteJobStore, lease: JobLease, request: dict[str, Any], *, now: int
+) -> bool:
     """Atomically register a prepared request; an exact retry is never redispatched."""
     with store._transaction() as db:
         _request(store, db, lease, request, now)
@@ -168,7 +190,7 @@ def register_raster_request(store: LocalSQLiteJobStore, lease, request, *, now: 
         return True
 
 
-def _registered(value):
+def _registered(value: dict[str, Any]) -> dict[str, Any]:
     if (
         not isinstance(value, dict)
         or not isinstance(value.get("request"), dict)
@@ -180,7 +202,7 @@ def _registered(value):
     return value
 
 
-def raster_requests(store: LocalSQLiteJobStore, message) -> tuple[dict, ...]:
+def raster_requests(store: LocalSQLiteJobStore, message: JobMessage) -> tuple[dict[str, Any], ...]:
     with store._transaction() as db:
         store._job(db, message)
         return tuple(
@@ -193,7 +215,7 @@ def raster_requests(store: LocalSQLiteJobStore, message) -> tuple[dict, ...]:
         )
 
 
-def _receipt(request, receipt):
+def _receipt(request: dict[str, Any], receipt: dict[str, Any]) -> None:
     if (
         not isinstance(receipt, dict)
         or len(json.dumps(receipt, sort_keys=True, separators=(",", ":"), allow_nan=False).encode())
@@ -228,7 +250,7 @@ def _receipt(request, receipt):
 
 
 def finish_raster_request(
-    store: LocalSQLiteJobStore, lease, request_id: str, receipt: dict
+    store: LocalSQLiteJobStore, lease: JobLease, request_id: str, receipt: dict[str, Any]
 ) -> None:
     """Keep an exact provider return only for the lease that registered its request."""
     _require_uuid("request_id", request_id)
@@ -260,7 +282,9 @@ def finish_raster_request(
         )
 
 
-def raster_receipt(store: LocalSQLiteJobStore, message, request_id: str) -> dict | None:
+def raster_receipt(
+    store: LocalSQLiteJobStore, message: JobMessage, request_id: str
+) -> dict[str, Any] | None:
     _require_uuid("request_id", request_id)
     with store._transaction() as db:
         store._job(db, message)
@@ -278,10 +302,17 @@ def raster_receipt(store: LocalSQLiteJobStore, message, request_id: str) -> dict
         ) != canonical_hash(wrapper.get("receipt")):
             raise ValueError("RASTER_RECEIPT_INTEGRITY_MISMATCH")
         _receipt(registered["request"], wrapper["receipt"])
-        return wrapper
+        return_value: dict[str, Any] | None = wrapper
+        return return_value
 
 
-def validate_raster_checkpoint_bindings(db, store, message, snapshot, envelope):
+def validate_raster_checkpoint_bindings(
+    db: sqlite3.Connection,
+    store: LocalSQLiteJobStore,
+    message: JobMessage,
+    snapshot: dict[str, Any],
+    envelope: dict[str, Any],
+) -> None:
     """Check published pointers against scoped immutable records in one transaction."""
     from proofops.adapters.local.raster_visibility import eligible_raster_sources, raster_ocr_policy
     from proofops.adapters.local.run_artifacts import (
@@ -296,7 +327,10 @@ def validate_raster_checkpoint_bindings(db, store, message, snapshot, envelope):
     if not enabled:
         return
     validate_raster_snapshot(snapshot)
-    refs, coverage = checkpoint_raster(envelope)
+    raster = checkpoint_raster(envelope)
+    # The enabled branch requires the v5 envelope checked above.
+    assert raster is not None
+    refs, coverage = raster
     policy = snapshot["raster_ocr_policy"]
     if (
         not raster_policy_matches_accepted(policy, raster_ocr_policy)
@@ -308,7 +342,8 @@ def validate_raster_checkpoint_bindings(db, store, message, snapshot, envelope):
     eligible = eligible_raster_sources(native)
     if coverage["eligible_source_ids"] != sorted(eligible):
         raise ValueError("RASTER_CHECKPOINT_COVERAGE_MISMATCH")
-    stored_refs, requested = [], set()
+    stored_refs: list[dict[str, Any]] = []
+    requested: set[str] = set()
     for row in db.execute(
         "SELECT value FROM job_records WHERE tenant_id=? AND run_id=? AND kind=? "
         "AND json_extract(CAST(value AS TEXT), '$.request.job_id')=? ORDER BY record_id",

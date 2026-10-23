@@ -4,14 +4,18 @@ The pickle bytes below are created here and retained only in this process. No
 file, user-supplied serialization or persistent cache is ever deserialized.
 """
 
+from __future__ import annotations
+
 import os
 import pickle
 import sys
 from collections import OrderedDict
+from collections.abc import Callable
 from concurrent.futures import Future
 from dataclasses import asdict, replace
 from hashlib import sha256
 from threading import Lock
+from typing import TYPE_CHECKING, TypedDict, cast, overload
 from zlib import compress, decompress
 
 from proofops.application.analysis_profile import (
@@ -32,13 +36,32 @@ from proofops.application.analysis_profile import VERIFIED_READ_POLICY as POLICY
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 
-_results: OrderedDict[str, bytes] = OrderedDict()
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from types import ModuleType
+    from typing import Any, Unpack
+
+    from proofops.application.claims import ClaimDiscovery
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.domain.values import SourceRef
+
+
+class ParseReplayArgs(TypedDict):
+    reader_name: str
+    policy: dict[str, Any]
+    receipt: dict[str, Any]
+    graph: CanonicalDocumentGraph
+    source: bytes
+    tenant_id: str
+
+
+_results: OrderedDict[str | None, bytes] = OrderedDict()
 _inflight: dict[str, Future[bytes]] = {}
 _lock = Lock()
 _OCR_REPLAY_TAIL_SHA256 = "8d4b5caddb377ca1e9dc10998588449b85415aff6e4910372774d355db643102"
 
 
-def fresh_execution_enabled():
+def fresh_execution_enabled() -> bool:
     return os.environ.get("PROOFOPS_VERIFIED_READ_CACHE") in (
         VERIFIED_READ_V2_POLICY["profile"],
         VERIFIED_READ_V3_POLICY["profile"],
@@ -55,7 +78,7 @@ def fresh_execution_enabled():
     )
 
 
-def _execution_policy():
+def _execution_policy() -> Mapping[str, Any] | None:
     for policy in (
         POLICY,
         VERIFIED_READ_V2_POLICY,
@@ -76,7 +99,7 @@ def _execution_policy():
     return None
 
 
-def _parse_enabled():
+def _parse_enabled() -> bool:
     return _execution_policy() in (
         VERIFIED_READ_V3_POLICY,
         VERIFIED_READ_V4_POLICY,
@@ -92,13 +115,15 @@ def _parse_enabled():
     )
 
 
-def _parse_projection_pinned(reader_name, policy):
+def _parse_projection_pinned(reader_name: str, policy: dict[str, Any]) -> bool:
     from pathlib import Path
 
     from proofops.adapters.local import evidence_source_ocr_v1 as ev1
     from proofops.adapters.local import evidence_source_verification_v1 as base
     from proofops.adapters.local import upstage_ocr_profile
-    from proofops.adapters.local.claim_source_policies import page_ocr_profile
+    from proofops.adapters.local.claim_source_policies import page_ocr_profile as _page_ocr_profile
+
+    page_ocr_profile: Callable[..., ModuleType] = _page_ocr_profile
 
     if not _parse_enabled():
         return False
@@ -112,7 +137,11 @@ def _parse_projection_pinned(reader_name, policy):
             if reader_name.startswith("native:"):
                 page_ocr_profile(policy["mode"], policy=policy, native=True)
                 return True
-            from proofops.adapters.local.evidence_source_policies import evidence_source_reader
+            from proofops.adapters.local.evidence_source_policies import (
+                evidence_source_reader as _evidence_source_reader,
+            )
+
+            evidence_source_reader: Callable[..., ModuleType] = _evidence_source_reader
 
             return evidence_source_reader(policy).__name__ == reader_name
         except (ValueError, KeyError, TypeError):
@@ -122,7 +151,7 @@ def _parse_projection_pinned(reader_name, policy):
             reader = page_ocr_profile("upstage-ocr-page-v17", policy=policy, native=True)
             return (
                 policy == reader.native_policy()
-                and sha256(Path(reader.__file__).read_bytes()).hexdigest()
+                and sha256(Path(cast("str", reader.__file__)).read_bytes()).hexdigest()
                 == VERIFIED_READ_V9_POLICY["v17_replay_sha256"]
             )
         from proofops.adapters.local import evidence_source_hx3
@@ -149,9 +178,19 @@ def _parse_projection_pinned(reader_name, policy):
     )
 
 
-def _parse_key(*, reader_name, policy, receipt, graph, source, tenant_id):
+def _parse_key(
+    *,
+    reader_name: str,
+    policy: dict[str, Any],
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    tenant_id: str,
+) -> str | None:
     from proofops.adapters.local.local_raster_reader import runtime_policy
-    from proofops.adapters.local.receipt_environment_compat import read_profile
+    from proofops.adapters.local.receipt_environment_compat import read_profile as _read_profile
+
+    read_profile: Callable[..., str] = _read_profile
 
     if _execution_policy() == S3_VERIFIED_READ_V13_POLICY and receipt.get(
         "table_acquisition_holds"
@@ -178,18 +217,20 @@ def _parse_key(*, reader_name, policy, receipt, graph, source, tenant_id):
     )
 
 
-def remember_parse_attestation(**args):
+def remember_parse_attestation(**args: Unpack[ParseReplayArgs]) -> None:
     """Only the parser's freshly executed source reader can seed this entry."""
     if not _parse_enabled():
         return
     key = _parse_key(**args)
     if key is not None:
         encoded = compress(canonical_json(args["receipt"]).encode(), level=1)
-        if len(encoded) <= POLICY["max_bytes"]:
+        if len(encoded) <= cast("int", POLICY["max_bytes"]):
             _retain(key, encoded)
 
 
-def _project_parse(receipt, graph, *, native):
+def _project_parse(
+    receipt: dict[str, Any], graph: CanonicalDocumentGraph, *, native: bool
+) -> CanonicalDocumentGraph:
     if native:
         members = {r["source_id"] for r in receipt["records"] if r["status"] == "verified"}
         return replace(
@@ -244,14 +285,15 @@ def _project_parse(receipt, graph, *, native):
         for r in base["records"]
         if r["kind"] == "paragraph" and r["status"] == "verified"
     )
-    return span_verified_graph(
+    return_value: CanonicalDocumentGraph = span_verified_graph(
         checked,
         tuple(getattr(graph, "verified_spans", ()) or ()) + refs,
         receipt["artifact_sha256"] if hx3 else canonical_hash(base),
     )
+    return return_value
 
 
-def _fresh_parse_replay(**args):
+def _fresh_parse_replay(**args: Unpack[ParseReplayArgs]) -> CanonicalDocumentGraph | None:
     key = _parse_key(**args)
     with _lock:
         encoded = _results.get(key)
@@ -264,12 +306,18 @@ def _fresh_parse_replay(**args):
     )
 
 
-def _cold_evidence_replay(receipt, graph, source, tenant_id, original):
+def _cold_evidence_replay(
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    tenant_id: str,
+    original: Callable[..., CanonicalDocumentGraph | tuple[ClaimDiscovery, CanonicalDocumentGraph]],
+) -> CanonicalDocumentGraph:
     from proofops.adapters.local import evidence_source_ocr_v1 as ev1
 
     if receipt.get("policy") != ev1.policy():
         raise ValueError("EVIDENCE_SOURCE_POLICY_MISMATCH")
-    reader = ev1.Reader(ev1.v4.PageOCRStore.from_env(), run_id=receipt["run_id"])
+    reader = ev1.Reader(getattr(ev1, "v4").PageOCRStore.from_env(), run_id=receipt["run_id"])
     verifier, seen = reader._evidence_reader(
         graph, source, tenant_id, receipt.get("page_collections", [])
     )
@@ -280,28 +328,39 @@ def _cold_evidence_replay(receipt, graph, source, tenant_id, original):
     if canonical_hash(receipt) != canonical_hash(expected):
         raise ValueError("EVIDENCE_SOURCE_RECEIPT_MISMATCH")
     if _transient(expected):
-        return original(receipt, graph, source, tenant_id=tenant_id)
+        return cast("CanonicalDocumentGraph", original(receipt, graph, source, tenant_id=tenant_id))
     return _project_parse(expected, graph, native=False)
 
 
-def _retain(key, encoded):
+def _retain(key: str, encoded: bytes) -> None:
     with _lock:
         _results[key] = encoded
         _results.move_to_end(key)
-        while (
-            len(_results) > (_execution_policy() or POLICY)["max_entries"]
-            or sum(map(len, _results.values())) > POLICY["max_bytes"]
-        ):
+        while len(_results) > cast("int", (_execution_policy() or POLICY)["max_entries"]) or sum(
+            map(len, _results.values())
+        ) > cast("int", POLICY["max_bytes"]):
             _results.popitem(last=False)
 
 
-def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
+def _fresh_key(
+    reader: ModuleType,
+    policy: dict[str, Any],
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    refs: tuple[SourceRef, ...],
+    tenant_id: str,
+) -> str | None:
     from pathlib import Path
 
     from proofops.adapters.local import upstage_ocr_profile
-    from proofops.adapters.local.claim_source_policies import page_ocr_profile
+    from proofops.adapters.local.claim_source_policies import page_ocr_profile as _page_ocr_profile
+
+    page_ocr_profile: Callable[..., ModuleType] = _page_ocr_profile
     from proofops.adapters.local.local_raster_reader import runtime_policy
-    from proofops.adapters.local.receipt_environment_compat import read_profile
+    from proofops.adapters.local.receipt_environment_compat import read_profile as _read_profile
+
+    read_profile: Callable[..., str] = _read_profile
 
     profile = policy.get("profile")
     registered = False
@@ -329,7 +388,7 @@ def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
         )
         and profile == "upstage-ocr-page-v9"
         and reader is page_ocr_profile(profile)
-        and sha256(Path(reader.__file__).read_bytes()).hexdigest()
+        and sha256(Path(cast("str", reader.__file__)).read_bytes()).hexdigest()
         == VERIFIED_READ_V4_POLICY["v9_replay_sha256"]
         and receipt.get("schema") == "claim_source_pb4_extension_v1"
     )
@@ -351,7 +410,7 @@ def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
         )
         and profile == "upstage-ocr-page-v10"
         and reader is page_ocr_profile(profile)
-        and sha256(Path(reader.__file__).read_bytes()).hexdigest()
+        and sha256(Path(cast("str", reader.__file__)).read_bytes()).hexdigest()
         == VERIFIED_READ_V5_POLICY["v10_replay_sha256"]
         and receipt.get("schema") == "claim_source_pa9_extension_v1"
     )
@@ -360,7 +419,7 @@ def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
         in (VERIFIED_READ_V6_POLICY, VERIFIED_READ_V7_POLICY, VERIFIED_READ_V8_POLICY)
         and profile == "upstage-ocr-page-v11"
         and reader is page_ocr_profile(profile)
-        and sha256(Path(reader.__file__).read_bytes()).hexdigest()
+        and sha256(Path(cast("str", reader.__file__)).read_bytes()).hexdigest()
         == VERIFIED_READ_V6_POLICY["v11_replay_sha256"]
         and receipt.get("schema") == "claim_source_k3_extension_v1"
     )
@@ -369,7 +428,7 @@ def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
         in (VERIFIED_READ_V7_POLICY, VERIFIED_READ_V8_POLICY, VERIFIED_READ_V9_POLICY)
         and profile == "upstage-ocr-page-v12"
         and reader is page_ocr_profile(profile)
-        and sha256(Path(reader.__file__).read_bytes()).hexdigest()
+        and sha256(Path(cast("str", reader.__file__)).read_bytes()).hexdigest()
         == VERIFIED_READ_V7_POLICY["v12_replay_sha256"]
         and receipt.get("schema") == "claim_source_h1_extension_v1"
     )
@@ -377,7 +436,7 @@ def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
         _execution_policy() == VERIFIED_READ_V8_POLICY
         and profile == "upstage-ocr-page-v13"
         and reader is page_ocr_profile(profile)
-        and sha256(Path(reader.__file__).read_bytes()).hexdigest()
+        and sha256(Path(cast("str", reader.__file__)).read_bytes()).hexdigest()
         == VERIFIED_READ_V8_POLICY["v13_replay_sha256"]
         and receipt.get("schema") == "claim_source_k7_extension_v1"
     )
@@ -385,7 +444,7 @@ def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
         _execution_policy() == VERIFIED_READ_V9_POLICY
         and profile == "upstage-ocr-page-v17"
         and reader is page_ocr_profile(profile, policy=policy)
-        and sha256(Path(reader.__file__).read_bytes()).hexdigest()
+        and sha256(Path(cast("str", reader.__file__)).read_bytes()).hexdigest()
         == VERIFIED_READ_V9_POLICY["v17_replay_sha256"]
         and receipt.get("schema") == "claim_source_k7_extension_v1"
     )
@@ -439,7 +498,16 @@ def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
     )
 
 
-def remember_fresh_attestation(*, reader, policy, receipt, graph, source, refs, tenant_id):
+def remember_fresh_attestation(
+    *,
+    reader: ModuleType,
+    policy: dict[str, Any],
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    refs: tuple[SourceRef, ...],
+    tenant_id: str,
+) -> None:
     """Called ONLY after the trusted reader just verified these original bytes.
 
     Keep the whole receipt, never stitch records or import a persisted cache.
@@ -450,14 +518,29 @@ def remember_fresh_attestation(*, reader, policy, receipt, graph, source, refs, 
     key = _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id)
     if key is not None:
         encoded = compress(canonical_json(receipt).encode(), level=1)
-        if len(encoded) <= POLICY["max_bytes"]:
+        if len(encoded) <= cast("int", POLICY["max_bytes"]):
             _retain(key, encoded)
 
 
-def reuse_fresh_attestation(*, reader, policy, receipt, graph, source, discovery, tenant_id):
+def reuse_fresh_attestation(
+    *,
+    reader: ModuleType,
+    policy: dict[str, Any],
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    discovery: ClaimDiscovery,
+    tenant_id: str,
+) -> tuple[ClaimDiscovery, CanonicalDocumentGraph] | None:
     from proofops.adapters.local.claim_source_verification import discovery_refs
     from proofops.adapters.local.native_replay_cache import _project_whole_attestation
-    from proofops.adapters.local.receipt_environment_compat import compare_receipts, read_profile
+    from proofops.adapters.local.receipt_environment_compat import (
+        compare_receipts as _compare_receipts,
+    )
+    from proofops.adapters.local.receipt_environment_compat import read_profile as _read_profile
+
+    compare_receipts: Callable[..., dict[str, Any]] = _compare_receipts
+    read_profile: Callable[..., str] = _read_profile
 
     if not fresh_execution_enabled():
         return None
@@ -490,7 +573,12 @@ def reuse_fresh_attestation(*, reader, policy, receipt, graph, source, discovery
     return _project_whole_attestation(receipt, graph, discovery, tenant_id, refs_field="records")
 
 
-def _project_v9(checked, graph, discovery, tenant_id):
+def _project_v9(
+    checked: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    discovery: ClaimDiscovery,
+    tenant_id: str,
+) -> tuple[ClaimDiscovery, CanonicalDocumentGraph]:
     """Exact tail of the byte-pinned v9 reader after whole fresh receipt equality.
 
     Keep the explicit failed-row downgrade and independently attested cells;
@@ -499,7 +587,14 @@ def _project_v9(checked, graph, discovery, tenant_id):
     return _project_owned_cells(checked, graph, discovery, tenant_id, failed_state="unverified")
 
 
-def _project_owned_cells(checked, graph, discovery, tenant_id, *, failed_state):
+def _project_owned_cells(
+    checked: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    discovery: ClaimDiscovery,
+    tenant_id: str,
+    *,
+    failed_state: str,
+) -> tuple[ClaimDiscovery, CanonicalDocumentGraph]:
     from proofops.application.evidence.span_citations import span_verified_graph, verify_source_ref
     from proofops.domain.values import SourceRef
 
@@ -544,7 +639,11 @@ def _project_owned_cells(checked, graph, discovery, tenant_id, *, failed_state):
                     if claim.source_quality == "verified"
                     else claim.source_quality,
                     source_refs=tuple(
-                        replace(r, verification_state=failed_state)
+                        replace(
+                            r,
+                            # Historical v9 also passes "unverified"; keep its projection unchanged.
+                            verification_state=failed_state,  # type: ignore[arg-type]
+                        )
                         if r.verification_state == "verified"
                         else r
                         for r in claim.source_refs
@@ -566,7 +665,7 @@ def _project_owned_cells(checked, graph, discovery, tenant_id, *, failed_state):
     return replace(discovery, claims=tuple(claims)), scoped
 
 
-def _transient(value):
+def _transient(value: object) -> bool:
     if isinstance(value, dict):
         reason = value.get("reason") or ""
         if "error" in value or reason in {
@@ -582,7 +681,13 @@ def _transient(value):
     return isinstance(value, list | tuple) and any(_transient(item) for item in value)
 
 
-def _cold_v11_replay(receipt, graph, source, discovery, tenant_id):
+def _cold_v11_replay(
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    discovery: ClaimDiscovery,
+    tenant_id: str,
+) -> tuple[ClaimDiscovery, CanonicalDocumentGraph]:
     """Offline whole recomputation with two CPU workers; no new page OCR call."""
     from pathlib import Path
 
@@ -605,7 +710,13 @@ def _cold_v11_replay(receipt, graph, source, discovery, tenant_id):
     return _project_owned_cells(checked, graph, discovery, tenant_id, failed_state="candidate")
 
 
-def _cold_v12_replay(receipt, graph, source, discovery, tenant_id):
+def _cold_v12_replay(
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    discovery: ClaimDiscovery,
+    tenant_id: str,
+) -> tuple[ClaimDiscovery, CanonicalDocumentGraph]:
     """I5 offline whole recomputation with two CPU workers; no new page OCR call."""
     from pathlib import Path
 
@@ -628,7 +739,13 @@ def _cold_v12_replay(receipt, graph, source, discovery, tenant_id):
     return _project_owned_cells(checked, graph, discovery, tenant_id, failed_state="candidate")
 
 
-def _cold_v13_replay(receipt, graph, source, discovery, tenant_id):
+def _cold_v13_replay(
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    discovery: ClaimDiscovery,
+    tenant_id: str,
+) -> tuple[ClaimDiscovery, CanonicalDocumentGraph]:
     """S4 offline whole recomputation with two CPU workers; no new page OCR call."""
     from pathlib import Path
 
@@ -651,9 +768,47 @@ def _cold_v13_replay(receipt, graph, source, discovery, tenant_id):
     return _project_owned_cells(checked, graph, discovery, tenant_id, failed_state="candidate")
 
 
+@overload
 def replay_cached(
-    *, reader_name, policy, receipt, graph, source, tenant_id, recompute, discovery=None
-):
+    *,
+    reader_name: str,
+    policy: dict[str, Any] | None,
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    tenant_id: str,
+    recompute: Callable[..., CanonicalDocumentGraph],
+    discovery: None = None,
+) -> CanonicalDocumentGraph: ...
+
+
+@overload
+def replay_cached(
+    *,
+    reader_name: str,
+    policy: dict[str, Any] | None,
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    tenant_id: str,
+    recompute: Callable[..., tuple[ClaimDiscovery, CanonicalDocumentGraph]],
+    discovery: ClaimDiscovery,
+) -> tuple[ClaimDiscovery, CanonicalDocumentGraph]: ...
+
+
+def replay_cached(
+    *,
+    reader_name: str,
+    policy: dict[str, Any] | None,
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    tenant_id: str,
+    recompute: Callable[
+        ..., CanonicalDocumentGraph | tuple[ClaimDiscovery, CanonicalDocumentGraph]
+    ],
+    discovery: ClaimDiscovery | None = None,
+) -> CanonicalDocumentGraph | tuple[ClaimDiscovery, CanonicalDocumentGraph]:
     if (
         _execution_policy() == S3_VERIFIED_READ_V13_POLICY
         and discovery is None
@@ -663,26 +818,30 @@ def replay_cached(
         # Such failures cannot seed either a fresh projection or a whole-read cache.
         return recompute(receipt, graph, source, tenant_id=tenant_id)
 
-    def read():
+    def read() -> CanonicalDocumentGraph | tuple[ClaimDiscovery, CanonicalDocumentGraph]:
         if discovery is not None and (
             (
                 _execution_policy() == VERIFIED_READ_V11_POLICY
-                and policy.get("profile") == "upstage-ocr-page-v19"
+                and cast("dict[str, Any]", policy).get("profile") == "upstage-ocr-page-v19"
             )
             or (
                 _execution_policy() in (VERIFIED_READ_V12_POLICY, S3_VERIFIED_READ_V13_POLICY)
-                and policy.get("profile")
+                and cast("dict[str, Any]", policy).get("profile")
                 in {"upstage-ocr-page-v19", "upstage-ocr-page-v20", "upstage-ocr-page-v21"}
             )
         ):
-            from proofops.adapters.local.claim_source_policies import page_ocr_profile
+            from proofops.adapters.local.claim_source_policies import (
+                page_ocr_profile as _page_ocr_profile,
+            )
+
+            page_ocr_profile: Callable[..., ModuleType] = _page_ocr_profile
             from proofops.adapters.local.claim_source_verification import discovery_refs
             from proofops.adapters.local.s2_reader_execution import reader_scope
 
             if _execution_policy() in (VERIFIED_READ_V12_POLICY, S3_VERIFIED_READ_V13_POLICY):
                 from proofops.adapters.local.i21_reader_execution import reader_scope
 
-            reader = page_ocr_profile(policy["profile"], policy=policy)
+            reader = page_ocr_profile(cast("dict[str, Any]", policy)["profile"], policy=policy)
             with reader_scope(reader, run_id=receipt["run_id"], tenant_id=tenant_id) as instance:
                 checked = instance.recompute_claim_receipt(
                     receipt,
@@ -699,7 +858,9 @@ def replay_cached(
             in (VERIFIED_READ_V11_POLICY, VERIFIED_READ_V12_POLICY, S3_VERIFIED_READ_V13_POLICY)
             and discovery is None
         ):
-            result = _single_parse_replay(reader_name, policy, receipt, graph, source, tenant_id)
+            result = _single_parse_replay(
+                reader_name, cast("dict[str, Any]", policy), receipt, graph, source, tenant_id
+            )
             if result is not None:
                 return result
         if (
@@ -733,7 +894,7 @@ def replay_cached(
         if (
             discovery is None
             and reader_name.endswith(".evidence_source_ocr_v1")
-            and _parse_projection_pinned(reader_name, policy)
+            and _parse_projection_pinned(reader_name, cast("dict[str, Any]", policy))
         ):
             return _cold_evidence_replay(receipt, graph, source, tenant_id, recompute)
         args = (receipt, graph, source) + ((discovery,) if discovery is not None else ())
@@ -745,7 +906,7 @@ def replay_cached(
     if _parse_enabled() and discovery is None:
         fresh = _fresh_parse_replay(
             reader_name=reader_name,
-            policy=policy,
+            policy=cast("dict[str, Any]", policy),
             receipt=receipt,
             graph=graph,
             source=source,
@@ -758,20 +919,36 @@ def replay_cached(
     if reader_name.startswith("native:") and (policy or {}).get("mode", "").startswith(
         "upstage-ocr-page-"
     ):
-        from proofops.adapters.local.claim_source_policies import page_ocr_profile
+        from proofops.adapters.local.claim_source_policies import (
+            page_ocr_profile as _page_ocr_profile,
+        )
 
-        if page_ocr_profile(policy["mode"], policy=policy, native=True).native_policy() != policy:
+        page_ocr_profile: Callable[..., ModuleType] = _page_ocr_profile
+
+        if (
+            page_ocr_profile(
+                cast("dict[str, Any]", policy)["mode"], policy=policy, native=True
+            ).native_policy()
+            != policy
+        ):
             raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH")
-    from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES, page_ocr_profile
+    from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
+    from proofops.adapters.local.claim_source_policies import page_ocr_profile as _page_ocr_profile
+
+    page_ocr_profile = cast("Callable[..., ModuleType]", _page_ocr_profile)
     from proofops.adapters.local.local_raster_reader import runtime_policy
-    from proofops.adapters.local.receipt_environment_compat import read_profile
+    from proofops.adapters.local.receipt_environment_compat import read_profile as _read_profile
+
+    read_profile: Callable[..., str] = _read_profile
 
     live_claim_policy = None
     profile = (policy or {}).get("profile", "")
     if fresh_execution_enabled() and (
         profile.startswith("upstage-ocr-page-") or profile in PAGE_OCR_PROFILES
     ):
-        live_claim_policy = page_ocr_profile(policy["profile"]).claim_source_policy()
+        live_claim_policy = page_ocr_profile(
+            cast("dict[str, Any]", policy)["profile"]
+        ).claim_source_policy()
     if _parse_enabled() and reader_name.endswith(".evidence_source_ocr_v1"):
         from proofops.adapters.local import evidence_source_ocr_v1
 
@@ -780,7 +957,7 @@ def replay_cached(
         dict(
             tenant_id=tenant_id,
             reader=reader_name,
-            policy=policy,
+            policy=cast("dict[str, Any]", policy),
             receipt=receipt,
             graph=asdict(graph),
             discovery=asdict(discovery) if discovery is not None else None,
@@ -803,16 +980,22 @@ def replay_cached(
             future = Future()
             _inflight[key] = future
     if encoded is not None:
-        return pickle.loads(decompress(encoded))
+        return_value: CanonicalDocumentGraph | tuple[ClaimDiscovery, CanonicalDocumentGraph] = (
+            pickle.loads(decompress(encoded))
+        )
+        return return_value
+    # Every miss either joins an existing future or creates the owner future.
+    assert future is not None
     if not owner:
-        return pickle.loads(decompress(future.result()))
+        return_value = pickle.loads(decompress(future.result()))
+        return return_value
     try:
         result = read()  # every admission/quantity/tenant/receipt guard runs cold
         encoded = compress(pickle.dumps(result, protocol=5), level=1)
         if (
             not _transient(receipt)
             and not _transient(result)
-            and len(encoded) <= POLICY["max_bytes"]
+            and len(encoded) <= cast("int", POLICY["max_bytes"])
         ):
             _retain(key, encoded)
         future.set_result(encoded)
@@ -825,7 +1008,14 @@ def replay_cached(
             _inflight.pop(key, None)
 
 
-def _single_parse_replay(reader_name, policy, receipt, graph, source, tenant_id):
+def _single_parse_replay(
+    reader_name: str,
+    policy: dict[str, Any],
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    tenant_id: str,
+) -> CanonicalDocumentGraph | None:
     """Recompute every record once, then use the already checked projection.
 
     The v19 and I17 wrappers otherwise call their predecessor's replay after
@@ -834,7 +1024,9 @@ def _single_parse_replay(reader_name, policy, receipt, graph, source, tenant_id)
     """
     from proofops.adapters.local import authorized_ocr_execution as execution
     from proofops.adapters.local import evidence_source_i17 as evidence
-    from proofops.adapters.local.claim_source_policies import page_ocr_profile
+    from proofops.adapters.local.claim_source_policies import page_ocr_profile as _page_ocr_profile
+
+    page_ocr_profile: Callable[..., ModuleType] = _page_ocr_profile
 
     if not _parse_projection_pinned(reader_name, policy):
         return None

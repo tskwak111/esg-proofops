@@ -5,10 +5,14 @@ Rollback disables export routes/writers and retains immutable artifacts/history.
 No AWS, model calls, or production storage guarantees are implied.
 """
 
+from __future__ import annotations
+
 import json
 import secrets
+from collections.abc import Callable
 from dataclasses import asdict
 from hashlib import sha256
+from typing import TYPE_CHECKING, cast
 from uuid import uuid4
 
 from proofops.adapters.local.audit_store import append_audit_transaction, read_audit_head
@@ -19,29 +23,61 @@ from proofops.application.element_evidence_encoding import (
     ELEMENT_EVIDENCE_V1,
     TABLE_KEYS,
     ElementEvidenceExpansionLimit,
-    encode_element_evidence,
+)
+from proofops.application.element_evidence_encoding import (
+    encode_element_evidence as _encode_element_evidence,
 )
 from proofops.application.exports import (
     MAX_EXPORT_BYTES,
     REVISION_RECORDS_V2,
     SEARCH_COVERAGE_V1,
     SOURCE_RECEIPTS_V1,
-    ExportRejected,
-    encode_report_level_source_receipts,
-    encode_revision_record,
-    encode_search_coverages,
-    timestamp,
 )
+from proofops.application.exports import ExportRejected as _ExportRejected
+from proofops.application.exports import (
+    encode_report_level_source_receipts as _encode_report_level_source_receipts,
+)
+from proofops.application.exports import encode_revision_record as _encode_revision_record
+from proofops.application.exports import encode_search_coverages as _encode_search_coverages
+from proofops.application.exports import timestamp as _timestamp
 from proofops.application.reporting import _basis_refs, _tag_elements, build_report_model
 from proofops.domain.audit import ChangeSet
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 
+if TYPE_CHECKING:
+    import sqlite3
+    from typing import Any
+
+    from proofops.adapters.local.claim_store import LocalClaimStore
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops.application.authorization import AuthContext
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+
+
+encode_element_evidence: Callable[..., dict[str, Any]] = _encode_element_evidence
+
+ExportRejected: Callable[..., _ExportRejected] = _ExportRejected
+encode_report_level_source_receipts: Callable[..., tuple[dict[str, Any], dict[str, Any]]] = (
+    _encode_report_level_source_receipts
+)
+encode_revision_record: Callable[..., dict[str, Any]] = _encode_revision_record
+encode_search_coverages: Callable[..., tuple[dict[str, Any], dict[str, Any], dict[str, Any]]] = (
+    _encode_search_coverages
+)
+timestamp: Callable[..., str] = _timestamp
+
 
 class LocalExportStore:
     kind = "local-synthetic-only"
 
-    def __init__(self, runs, claims, *, element_evidence_encoding=ELEMENT_EVIDENCE_V1):
+    def __init__(
+        self,
+        runs: LocalSQLiteRunStore,
+        claims: LocalClaimStore,
+        *,
+        element_evidence_encoding: str = ELEMENT_EVIDENCE_V1,
+    ) -> None:
         if element_evidence_encoding not in (ELEMENT_EVIDENCE_INLINE, ELEMENT_EVIDENCE_V1):
             raise ValueError("unsupported element evidence writer encoding")
         self.element_evidence_encoding = element_evidence_encoding
@@ -63,7 +99,7 @@ class LocalExportStore:
                 AND kind=NEW.kind AND record_id=NEW.record_id)
                 BEGIN SELECT RAISE(ABORT, 'export artifact exists'); END""")
 
-    def _state(self, db, tenant, export_id):
+    def _state(self, db: sqlite3.Connection, tenant: str, export_id: str) -> dict[str, Any]:
         row = db.execute(
             "SELECT value FROM job_records WHERE tenant_id=? AND kind='export_state' "
             "AND record_id=?",
@@ -76,16 +112,20 @@ class LocalExportStore:
             self.jobs._get(db, tenant, state["response"]["run_id"], "run", "META")
         except KeyError:
             raise ExportRejected("RESOURCE_NOT_FOUND", 404) from None
-        return state
+        return_value: dict[str, Any] = state
+        return return_value
 
-    def state(self, tenant, export_id):
+    def state(self, tenant: str, export_id: str) -> dict[str, Any]:
         with self.jobs._transaction() as db:
             return self._state(db, tenant, export_id)
 
-    def get(self, tenant, export_id):
-        return self.state(tenant, export_id)["response"]
+    def get(self, tenant: str, export_id: str) -> dict[str, Any]:
+        return_value: dict[str, Any] = self.state(tenant, export_id)["response"]
+        return return_value
 
-    def reserve(self, actor, run_id, body, key, *, now):
+    def reserve(
+        self, actor: AuthContext, run_id: str, body: dict[str, Any], key: str, *, now: int
+    ) -> str:
         tenant = actor.tenant_id
         request_key = canonical_hash([actor.user_sub, "export_create", key])
         request_hash = canonical_hash([run_id, body])
@@ -103,7 +143,8 @@ class LocalExportStore:
                 previous = json.loads(row[0])
                 if previous["request_hash"] != request_hash:
                     raise ExportRejected("IDEMPOTENCY_CONFLICT")
-                return previous["export_id"]
+                return_value: str = previous["export_id"]
+                return return_value
             export_id = str(uuid4())
             response = dict(
                 export_id=export_id,
@@ -140,7 +181,7 @@ class LocalExportStore:
             )
             return export_id
 
-    def frozen(self, tenant, export_id):
+    def frozen(self, tenant: str, export_id: str) -> dict[str, Any] | None:
         with self.jobs._transaction() as db:
             state = self._state(db, tenant, export_id)
             raw = self.jobs._raw(
@@ -153,9 +194,10 @@ class LocalExportStore:
         # hash-checked and restored without holding SQLite's writer.
         if sha256(raw).hexdigest() != expected_hash:
             raise ExportRejected("EXPORT_INTEGRITY_FAILED")
-        return json.loads(raw)
+        return_value: dict[str, Any] | None = json.loads(raw)
+        return return_value
 
-    def capture(self, tenant, export_id):
+    def capture(self, tenant: str, export_id: str) -> dict[str, Any]:
         state = self.state(tenant, export_id)
         run_id = state["response"]["run_id"]
         initial = self.jobs.get_run(tenant, run_id)
@@ -212,8 +254,9 @@ class LocalExportStore:
             ):
                 raise ExportRejected("EXPORT_INTEGRITY_FAILED")
             refs, records, raw_records, hashes = [], {}, {}, {snapshot["rulepack"]["sha256"]}
-            source_receipts = {}
-            search_coverages, coverage_documents = {}, {}
+            source_receipts: dict[str, Any] = {}
+            search_coverages: dict[str, Any] = {}
+            coverage_documents: dict[str, Any] = {}
             element_manifest = dict(
                 tenant_id=tenant,
                 run_id=run_id,
@@ -228,6 +271,7 @@ class LocalExportStore:
             element_table_bytes = 0
             captured_bytes = 0
             for claim_id in ids:
+                graph = cast("CanonicalDocumentGraph", graph)
                 raw_head = self.jobs._raw(db, tenant, run_id, "claim_head", claim_id)
                 head = (
                     json.loads(raw_head) if raw_head else dict(tag_revision=0, decision_revision=0)
@@ -303,7 +347,7 @@ class LocalExportStore:
                     record["tag_elements"] = []
                 if head["tag_revision"]:
                     current = self.claims.current_tag(tenant, run_id, claim_id, connection=db)
-                    tag = current["tag"]
+                    tag = cast("dict[str, Any]", current)["tag"]
                     if tag["tag_revision"] != head["tag_revision"]:
                         raise ExportRejected("EXPORT_INTEGRITY_FAILED")
                     original = self.jobs._get(
@@ -510,7 +554,7 @@ class LocalExportStore:
                 manifest["sc1_inventory"] = sc1_snapshot["sc1_inventory"]
             return dict(manifest=manifest, decisions=records)
 
-    def freeze(self, tenant, export_id, captured):
+    def freeze(self, tenant: str, export_id: str, captured: dict[str, Any]) -> bool:
         # Reject an already frozen or stale capture before expensive validation.
         with self.jobs._transaction() as db:
             state = self._state(db, tenant, export_id)
@@ -563,11 +607,14 @@ class LocalExportStore:
             self.jobs._put(db, tenant, run_id, "export_state", export_id, state)
             return True
 
-    def complete(self, tenant, export_id, content, manifest_hash, partial):
+    def complete(
+        self, tenant: str, export_id: str, content: bytes, manifest_hash: str, partial: bool
+    ) -> dict[str, Any]:
         with self.jobs._transaction() as db:
             state = self._state(db, tenant, export_id)
             if state["response"]["state"] == "ready":
-                return state["response"]
+                return_value: dict[str, Any] = state["response"]
+                return return_value
             run_id = state["response"]["run_id"]
             self.jobs._put(
                 db, tenant, run_id, "export_artifact", export_id, content, immutable=True
@@ -592,9 +639,10 @@ class LocalExportStore:
                 timestamp=state["response"]["created_at"],
             )
             self.jobs._put(db, tenant, run_id, "export_state", export_id, state)
-            return state["response"]
+            return_value = state["response"]
+            return return_value
 
-    def defer(self, tenant, export_id, code, *, now):
+    def defer(self, tenant: str, export_id: str, code: str, *, now: int) -> None:
         with self.jobs._transaction() as db:
             state = self._state(db, tenant, export_id)
             if state["response"]["state"] == "ready":
@@ -605,7 +653,9 @@ class LocalExportStore:
                 db, tenant, state["response"]["run_id"], "export_state", export_id, state
             )
 
-    def _content(self, db, tenant, export_id, state):
+    def _content(
+        self, db: sqlite3.Connection, tenant: str, export_id: str, state: dict[str, Any]
+    ) -> bytes:
         if state["response"]["state"] != "ready":
             raise ExportRejected("EXPORT_NOT_READY")
         content = self.jobs._raw(
@@ -615,7 +665,7 @@ class LocalExportStore:
             raise ExportRejected("EXPORT_INTEGRITY_FAILED")
         return content
 
-    def authorize_download(self, actor, export_id, *, now):
+    def authorize_download(self, actor: AuthContext, export_id: str, *, now: int) -> dict[str, Any]:
         with self.jobs._transaction() as db:
             state = self._state(db, actor.tenant_id, export_id)
             self._content(db, actor.tenant_id, export_id, state)
@@ -641,7 +691,7 @@ class LocalExportStore:
                 sha256=ticket["sha256"],
             )
 
-    def content(self, actor, export_id, token, *, now):
+    def content(self, actor: AuthContext, export_id: str, token: str, *, now: int) -> bytes:
         with self.jobs._transaction() as db:
             state = self._state(db, actor.tenant_id, export_id)
             raw = self.jobs._raw(

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Sequence
 from dataclasses import asdict
 from hashlib import sha256
 from importlib.resources import files
+from typing import TYPE_CHECKING, cast
 from uuid import UUID, uuid5
 
 from proofops.adapters.parsing.opendataloader import ParseFailure
@@ -14,8 +16,19 @@ from proofops.application.ports.jobs import JobMessage
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import _require_sha256, _require_uuid
 
+if TYPE_CHECKING:
+    from types import ModuleType
+    from typing import Any
 
-def load_run_inputs(store, uploads, *, tenant_id: str, run_id: str):
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.uploads import UploadService
+
+
+def load_run_inputs(
+    store: LocalSQLiteRunStore, uploads: UploadService, *, tenant_id: str, run_id: str
+) -> tuple[dict[str, Any], SourceArtifact, ParserProfile]:
     snapshot = store.snapshot(tenant_id, run_id)
     frozen = {key: value for key, value in snapshot.items() if key != "input_hash"}
     if (snapshot["tenant_id"], snapshot["run_id"]) != (tenant_id, run_id) or (
@@ -56,7 +69,9 @@ def load_run_inputs(store, uploads, *, tenant_id: str, run_id: str):
     return snapshot, source, profile
 
 
-def checkpoint_raster(envelope):
+def checkpoint_raster(
+    envelope: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any]] | None:
     fields = {"raster_ocr_policy_sha256", "raster_ocr_artifacts", "raster_ocr_coverage"}
     present = {key for key in envelope if key.startswith("raster_ocr_")}
     if envelope.get("schema") != "local_parser_checkpoint_v5":
@@ -118,7 +133,7 @@ def checkpoint_raster(envelope):
     return refs, coverage
 
 
-def checkpoint_note_reviews(envelope):
+def checkpoint_note_reviews(envelope: dict[str, Any]) -> tuple[str, ...]:
     """Versioned checkpoint shape; legacy readers must never silently discard notes."""
     schema = envelope.get("schema")
     checkpoint_raster(envelope)
@@ -175,7 +190,7 @@ def checkpoint_note_reviews(envelope):
     return tuple(artifacts)
 
 
-def native_paragraph_policy():
+def native_paragraph_policy() -> dict[str, Any]:
     local = files("proofops.adapters.local")
     return dict(
         mode="paragraph_native_glyph_v2",
@@ -190,7 +205,7 @@ def native_paragraph_policy():
     )
 
 
-def accepted_native_policy_digests():
+def accepted_native_policy_digests() -> set[str]:
     """Policy hashes a stored checkpoint's `native_paragraph_policy_sha256`
     may carry: the live verifier, or any pinned historical verifier whose
     vendored source still reproduces it.
@@ -206,7 +221,10 @@ def accepted_native_policy_digests():
     present and hash-verified, so this never allowlists a bare hash.
     """
     digests = {canonical_hash(native_paragraph_policy())}
-    from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES, page_ocr_profile
+    from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
+    from proofops.adapters.local.claim_source_policies import page_ocr_profile as _page_ocr_profile
+
+    page_ocr_profile: Callable[..., ModuleType] = _page_ocr_profile
 
     for profile in PAGE_OCR_PROFILES:
         digests.add(canonical_hash(page_ocr_profile(profile).native_policy()))
@@ -222,7 +240,9 @@ def accepted_native_policy_digests():
     return digests
 
 
-def raster_policy_matches_accepted(stored_policy, live_policy_factory):
+def raster_policy_matches_accepted(
+    stored_policy: dict[str, Any], live_policy_factory: Callable[..., dict[str, Any]]
+) -> bool:
     """Compare a stored `raster_ocr_policy` dict against the live composition,
     tolerating only the embedded `native_policy_sha256` field.
 
@@ -250,7 +270,7 @@ def raster_policy_matches_accepted(stored_policy, live_policy_factory):
     return stripped_stored == stripped_live
 
 
-def checkpoint_native_attestation(envelope):
+def checkpoint_native_attestation(envelope: dict[str, Any]) -> dict[str, Any] | None:
     """Versioned native receipt shape; v1-v3 carry no native attestation.
 
     v6 additionally allows one optional key,
@@ -337,7 +357,13 @@ def checkpoint_native_attestation(envelope):
     return receipt
 
 
-def validate_automatic_note_reviews(graph, artifacts, policy, *, selected_pages=None):
+def validate_automatic_note_reviews(
+    graph: CanonicalDocumentGraph,
+    artifacts: tuple[str, ...],
+    policy: dict[str, Any],
+    *,
+    selected_pages: Sequence[int] | None = None,
+) -> None:
     if (
         not isinstance(policy, dict)
         or set(policy) != {"mode", "model", "extractor_sha256", "batch_sha256"}
@@ -374,11 +400,28 @@ def validate_automatic_note_reviews(graph, artifacts, policy, *, selected_pages=
         raise ParseFailure("NOTE_REVIEW_TABLE_COVERAGE_MISMATCH")
 
 
-def load_run_graph(store, uploads, parser, *, tenant_id: str, run_id: str):
-    return load_run_evidence(store, uploads, parser, tenant_id=tenant_id, run_id=run_id)["graph"]
+def load_run_graph(
+    store: LocalSQLiteRunStore,
+    uploads: UploadService,
+    parser: OpenDataLoaderParser,
+    *,
+    tenant_id: str,
+    run_id: str,
+) -> CanonicalDocumentGraph:
+    return_value: CanonicalDocumentGraph = load_run_evidence(
+        store, uploads, parser, tenant_id=tenant_id, run_id=run_id
+    )["graph"]
+    return return_value
 
 
-def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
+def load_run_evidence(
+    store: LocalSQLiteRunStore,
+    uploads: UploadService,
+    parser: OpenDataLoaderParser,
+    *,
+    tenant_id: str,
+    run_id: str,
+) -> dict[str, Any]:
     """Only committed pointers publish evidence; private prepared files are insufficient."""
     snapshot, source, profile = load_run_inputs(store, uploads, tenant_id=tenant_id, run_id=run_id)
     run = store.jobs.get_run(tenant_id, run_id)
@@ -521,30 +564,53 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
         except (ValueError, TypeError, KeyError):
             raise ParseFailure("RASTER_OCR_REPLAY_INVALID") from None
     elif native_receipt is not None:
-        from proofops.adapters.local.frozen_native_replay import replay_native_with_policy
+        from proofops.adapters.local.frozen_native_replay import (
+            replay_native_with_policy as _replay_native_with_policy,
+        )
+
+        replay_native_with_policy: Callable[..., CanonicalDocumentGraph] = (
+            _replay_native_with_policy
+        )
         from proofops.adapters.local.verified_read_cache import replay_cached as replay_verified
 
-        def replay_native(r, g, s, *, tenant_id):
+        def replay_native(
+            r: dict[str, Any], g: CanonicalDocumentGraph, s: bytes, *, tenant_id: str
+        ) -> CanonicalDocumentGraph:
             if (native_policy or {}).get("mode") in PAGE_OCR_PROFILES:
-                from proofops.adapters.local.claim_source_policies import page_ocr_profile
+                from proofops.adapters.local.claim_source_policies import (
+                    page_ocr_profile as _page_ocr_profile,
+                )
 
-                hx4 = page_ocr_profile(native_policy["mode"], policy=native_policy, native=True)
+                page_ocr_profile: Callable[..., ModuleType] = _page_ocr_profile
+
+                hx4 = page_ocr_profile(
+                    cast("dict[str, Any]", native_policy)["mode"], policy=native_policy, native=True
+                )
 
                 if native_policy != hx4.native_policy():
                     raise ValueError("OCR_POLICY_OR_RUN_MISMATCH")
-                return hx4.for_run(r["run_id"]).replay_native_sources(r, g, s, tenant_id=tenant_id)
+                return_value: CanonicalDocumentGraph = hx4.for_run(
+                    r["run_id"]
+                ).replay_native_sources(r, g, s, tenant_id=tenant_id)
+                return return_value
             if (native_policy or {}).get("mode") == "upstage-ocr-page-v15":
                 from proofops.adapters.local import upstage_ocr_profile_v15 as h7
 
                 if native_policy != h7.native_policy():
                     raise ValueError("OCR_POLICY_OR_RUN_MISMATCH")
-                return h7.for_run(r["run_id"]).replay_native_sources(r, g, s, tenant_id=tenant_id)
+                return_value = h7.for_run(r["run_id"]).replay_native_sources(
+                    r, g, s, tenant_id=tenant_id
+                )
+                return return_value
             if (native_policy or {}).get("mode") == "upstage-ocr-page-v14":
                 from proofops.adapters.local import upstage_ocr_profile_v14 as h6
 
                 if native_policy != h6.native_policy():
                     raise ValueError("OCR_POLICY_OR_RUN_MISMATCH")
-                return h6.for_run(r["run_id"]).replay_native_sources(r, g, s, tenant_id=tenant_id)
+                return_value = h6.for_run(r["run_id"]).replay_native_sources(
+                    r, g, s, tenant_id=tenant_id
+                )
+                return return_value
             return replay_native_with_policy(native_policy, r, g, s, tenant_id=tenant_id)
 
         try:
@@ -560,7 +626,11 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
         except (ValueError, TypeError, KeyError):
             raise ParseFailure("NATIVE_PARAGRAPH_REPLAY_INVALID") from None
     if "evidence_source_policy" in snapshot:
-        from proofops.adapters.local.evidence_source_policies import evidence_source_reader
+        from proofops.adapters.local.evidence_source_policies import (
+            evidence_source_reader as _evidence_source_reader,
+        )
+
+        evidence_source_reader: Callable[..., ModuleType] = _evidence_source_reader
 
         try:
             ev1 = evidence_source_reader(snapshot["evidence_source_policy"])
@@ -619,16 +689,23 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
             graph, note_reviews, policy, selected_pages=profile.physical_pages
         )
     from proofops.adapters.local.receipt_environment_compat import (
-        receipt_read_metadata,
-        table_read_metadata,
+        receipt_read_metadata as _receipt_read_metadata,
     )
+    from proofops.adapters.local.receipt_environment_compat import (
+        table_read_metadata as _table_read_metadata,
+    )
+
+    receipt_read_metadata: Callable[..., dict[str, Any] | None] = _receipt_read_metadata
+    table_read_metadata: Callable[..., dict[str, Any] | None] = _table_read_metadata
 
     # Parser checkpoint hashes describe the original graph. QC2 derives only a
     # new discovery graph after all original-source replay checks have passed;
     # extraction, tagging and historical claim reads must use the same projection.
     if snapshot.get("analysis_profile_policy", {}).get("native_figure_policy"):
         from proofops.adapters.local.h1_native_title import native_figure_candidates
-        from proofops.application.analysis_profile import policy_for
+        from proofops.application.analysis_profile import policy_for as _policy_for
+
+        policy_for: Callable[..., dict[str, Any]] = _policy_for
         from proofops.application.ingest.k6_coverage import FIGURE_POLICY
 
         selected = policy_for(

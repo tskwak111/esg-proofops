@@ -16,7 +16,7 @@ from contextlib import closing, contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from proofops.adapters.local.catalog_pages import initialize as initialize_catalog_pages
@@ -28,6 +28,11 @@ from proofops.application.rulepacks import (
     activate_rulepack,
 )
 from proofops.domain.rulepacks import canonical_json
+
+if TYPE_CHECKING:
+    from proofops.application.rulepacks import ActivationRecord
+    from proofops.domain.rulepacks import RulePackSnapshot
+
 
 _ROUTE = "POST /v1/rule-packs/{rule_pack_id}/activate"
 
@@ -186,7 +191,9 @@ class RulePackSqliteStore:
         with self._transaction() as connection:
             self.add_run_snapshot_transaction(connection, snapshot)
 
-    def add_run_snapshot_transaction(self, connection, snapshot: RunSnapshot) -> None:
+    def add_run_snapshot_transaction(
+        self, connection: sqlite3.Connection, snapshot: RunSnapshot
+    ) -> None:
         """Join a caller-owned run transaction without committing it."""
         if not connection.in_transaction:
             raise ValueError("active transaction required")
@@ -255,7 +262,9 @@ class RulePackSqliteStore:
         files = json.loads(row["files_json"])
         return record, files
 
-    def extraction_snapshot_transaction(self, connection, tenant_id, mode, rule_pack_id):
+    def extraction_snapshot_transaction(
+        self, connection: sqlite3.Connection, tenant_id: str, mode: str, rule_pack_id: str
+    ) -> RulePackSnapshot:
         """Pin validated content for extraction only; do not activate or approve rules."""
         from proofops.application.rulepacks import validate_rulepack
         from proofops.domain.rulepacks import snapshot_from_validated
@@ -278,7 +287,9 @@ class RulePackSqliteStore:
             raise ValueError("rule pack reference validation failed")
         return snapshot_from_validated(record, files)
 
-    def active_snapshot_transaction(self, connection, tenant_id, mode, rule_pack_id):
+    def active_snapshot_transaction(
+        self, connection: sqlite3.Connection, tenant_id: str, mode: str, rule_pack_id: str
+    ) -> RulePackSnapshot:
         """Read exact active head and retained content while creation holds its write lock."""
         from proofops.application.rulepacks import validate_rulepack
         from proofops.domain.rulepacks import snapshot_from_validated
@@ -317,7 +328,7 @@ class RulePackSqliteStore:
             ).fetchall()
         return tuple(RulePackRecord.from_dict(json.loads(row["record_json"])) for row in rows)
 
-    def list(self, tenant_id: str, *, cursor: str | None, limit: int, now: float) -> dict:
+    def list(self, tenant_id: str, *, cursor: str | None, limit: int, now: float) -> dict[str, Any]:
         if type(limit) is not int or not 1 <= limit <= 100:
             raise ValueError("limit must be 1..100")
         with self._transaction() as connection:
@@ -531,13 +542,13 @@ class RulePackSqliteStore:
 
     def _commit_activation(
         self,
-        connection,
+        connection: sqlite3.Connection,
         *,
         tenant_id: str,
         rule_pack_id: str,
         registry: RulePackRegistry,
         updated: RulePackRegistry,
-        record,
+        record: ActivationRecord,
         files_by_id: dict[str, dict[str, Any]],
         revisions: dict[str, int],
         current_revision: int,

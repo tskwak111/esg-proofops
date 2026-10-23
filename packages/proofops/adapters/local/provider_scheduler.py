@@ -1,65 +1,105 @@
 """One run's physical HTTP queue; no grading, source admission or money grants."""
 
+from __future__ import annotations
+
 from collections import deque
-from contextlib import contextmanager
+from collections.abc import Callable
+from contextlib import AbstractContextManager, contextmanager
+from contextvars import ContextVar
+from typing import TYPE_CHECKING, Any, Protocol, TypedDict, TypeVar, cast
 
 from proofops.adapters.local.provider_concurrency import ProviderCircuitOpen, ProviderConcurrency
 from proofops.application.provider_resilience import SCHEDULER_C24_POLICY, SCHEDULER_POLICY
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Mapping
+
+
+class SchedulerProbe(Protocol):
+    connection_pool: object
+    http_admission_snapshot: Callable[[], dict[str, Any]]
+    http_recent_request_counts: Callable[[], dict[str, int]]
+    http_transport_pacing: Callable[[], float]
+    http_attempt_scope: Callable[[], AbstractContextManager[None]]
+    _dispatch_context: ContextVar[dict[str, Any] | None]
+    _response_context: ContextVar[tuple[str, int] | None]
+    response_role: str
+
+
+ProbeT = TypeVar("ProbeT")
+
+
+class QueueTicket(TypedDict):
+    role: str
+    queued: float
+    bypass: int
+    sequence: int
 
 
 class ProviderAdmissionDeferred(ValueError):
     """A physical attempt rejected before broker reservation or transport."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("OPENAI_HTTP_429")
 
 
 class RoleProviderConcurrency(ProviderConcurrency):
-    def __init__(self, workers, *, requests_per_second=4, scheduler_policy=None, **kwargs):
-        self.policy = SCHEDULER_C24_POLICY if scheduler_policy is None else scheduler_policy
+    def __init__(
+        self,
+        workers: int,
+        *,
+        requests_per_second: int = 4,
+        scheduler_policy: Mapping[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        self.policy: Mapping[str, Any] = (
+            SCHEDULER_C24_POLICY if scheduler_policy is None else scheduler_policy
+        )
         if self.policy not in (SCHEDULER_POLICY, SCHEDULER_C24_POLICY):
             raise ValueError("PROVIDER_SCHEDULER_POLICY_MISMATCH")
         super().__init__(workers, **kwargs)
-        if workers > self.policy["max_workers"]:
+        if workers > cast("int", self.policy["max_workers"]):
             raise ValueError("PROVIDER_CONCURRENCY_INVALID")
         if type(requests_per_second) is not int or not (
-            1 <= requests_per_second <= self.policy["max_rps"]
+            1 <= requests_per_second <= cast("int", self.policy["max_rps"])
         ):
             raise ValueError("HOSTED_LLM_RPS_INVALID")
         self.requests_per_second = requests_per_second
-        self.queues = {role: deque() for role in self.policy["roles"]}
+        self.queues: dict[str, deque[QueueTicket]] = {
+            role: deque() for role in cast("list[str]", self.policy["roles"])
+        }
         self.physical_attempts = 0
         self.attempt_admissions = 0
         self.transport_not_before = 0.0
         self.sequence = 0
         self.queue_seconds = 0.0
         self.completed_by_role = dict.fromkeys(self.queues, 0)
-        self.transport_starts = deque()
+        self.transport_starts: deque[float] = deque()
 
-    def enqueue(self, role):
+    def enqueue(self, role: str) -> QueueTicket:
         if role not in self.queues:
             raise ValueError("PROVIDER_ROLE_INVALID")
         self.sequence += 1
-        item = dict(role=role, queued=self.clock(), bypass=0, sequence=self.sequence)
+        item: QueueTicket = dict(role=role, queued=self.clock(), bypass=0, sequence=self.sequence)
         self.queues[role].append(item)
         self.condition.notify_all()
         return item
 
-    def next_ticket(self):
+    def next_ticket(self) -> QueueTicket | None:
         heads = [q[0] for q in self.queues.values() if q]
         if not heads:
             return None
         oldest = min(heads, key=lambda item: (item["queued"], item["sequence"]))
         return oldest if oldest["bypass"] >= self.policy["max_priority_bypass"] else heads[0]
 
-    def dequeue(self, ticket):
+    def dequeue(self, ticket: QueueTicket) -> None:
         self.queues[ticket["role"]].remove(ticket)
         for queue in self.queues.values():
             for waiting in queue:
                 waiting["bypass"] += 1
 
     @contextmanager
-    def attempt(self, role, *, diagnostics=None):
+    def attempt(self, role: str, *, diagnostics: dict[str, Any] | None = None) -> Iterator[None]:
         """Acquire immediately before each broker/HTTP attempt, release after it.
 
         Retry sleeps, JSON validation and persistence do not hold physical slots.
@@ -142,7 +182,7 @@ class RoleProviderConcurrency(ProviderConcurrency):
                     self.completed_by_role[role] += 1
                     self.condition.notify_all()
 
-    def pace_transport(self, diagnostics=None):
+    def pace_transport(self, diagnostics: dict[str, Any] | None = None) -> float:
         # Broker/local reservation latency can reorder admissions. A second
         # timestamp at the transport boundary prevents HTTP starts bunching up.
         # Already admitted attempts keep their broker reservation and original
@@ -164,7 +204,7 @@ class RoleProviderConcurrency(ProviderConcurrency):
                 diagnostics["physical_attempts"][-1]["transport_started_monotonic"] = current
             return current
 
-    def recent_requests(self):
+    def recent_requests(self) -> dict[str, int]:
         """Diagnostic counts only; do not add fields to historical snapshots."""
         with self.condition:
             current = self.clock()
@@ -173,24 +213,31 @@ class RoleProviderConcurrency(ProviderConcurrency):
                 recent_requests_60s=sum(t > current - 60 for t in self.transport_starts),
             )
 
-    def bind(self, probe):
+    def bind(self, probe: ProbeT) -> ProbeT:
         # This binding is explicitly selected by the S5 execution policy. The
         # normal F1 bind/call/pace path remains unchanged for old runs.
         if not hasattr(self, "connection_pool"):
-            from proofops.adapters.local.openai_connections import OpenAIConnections
+            from proofops.adapters.local.openai_connections import (
+                OpenAIConnections as _OpenAIConnections,
+            )
+
+            OpenAIConnections: Callable[..., _OpenAIConnections] = _OpenAIConnections
 
             self.connection_pool = OpenAIConnections()
-        probe.connection_pool = self.connection_pool
-        probe.http_admission_snapshot = self.snapshot
-        probe.http_recent_request_counts = self.recent_requests
-        probe.http_transport_pacing = lambda: self.pace_transport(probe._dispatch_context.get())
-        probe.http_attempt_scope = lambda: self.attempt(
-            (probe._response_context.get() or (probe.response_role, 0))[0],
-            diagnostics=probe._dispatch_context.get(),
+        transport = cast("SchedulerProbe", probe)
+        transport.connection_pool = self.connection_pool
+        transport.http_admission_snapshot = self.snapshot
+        transport.http_recent_request_counts = self.recent_requests
+        transport.http_transport_pacing = lambda: self.pace_transport(
+            transport._dispatch_context.get()
+        )
+        transport.http_attempt_scope = lambda: self.attempt(
+            (transport._response_context.get() or (transport.response_role, 0))[0],
+            diagnostics=transport._dispatch_context.get(),
         )
         return probe
 
-    def snapshot(self):
+    def snapshot(self) -> dict[str, Any]:
         with self.condition:
             return super().snapshot() | dict(
                 scheduler=self.policy["profile"],

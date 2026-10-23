@@ -1,9 +1,20 @@
 """Bounded provider error decoding; never retain response bodies or credentials."""
 
+from __future__ import annotations
+
 import json
 import re
+from typing import Protocol
 
-MESSAGES = {
+
+class ProviderErrorResponse(Protocol):
+    @property
+    def status(self) -> int: ...
+
+    def read(self, amount: int, /) -> bytes: ...
+
+
+MESSAGES: dict[str | None, str] = {
     "PROVIDER_CREDIT_EXHAUSTED": "분석 API 크레딧이 부족합니다. 운영자의 충전 확인이 필요합니다.",
     "PROVIDER_AUTH_FAILED": "분석 API 인증에 실패했습니다. 운영자의 키 확인이 필요합니다.",
     "PROVIDER_ACCESS_DENIED": "분석 API 사용 권한이 거부되었습니다. 운영자 확인이 필요합니다.",
@@ -14,7 +25,7 @@ MESSAGES = {
 }
 
 
-def provider_error_code(provider, raw):
+def provider_error_code(provider: str, raw: str) -> str | None:
     if raw in MESSAGES:
         return raw
     if provider == "openai" and raw == "OPENAI_INSUFFICIENT_QUOTA":
@@ -37,7 +48,7 @@ def provider_error_code(provider, raw):
     return "PROVIDER_UNAVAILABLE" if 500 <= status <= 599 else None
 
 
-def upstage_http_error(response):
+def upstage_http_error(response: ProviderErrorResponse) -> ValueError:
     raw = response.read(4097)
     code = None
     if len(raw) <= 4096:
@@ -52,21 +63,25 @@ def upstage_http_error(response):
         if response.status == 403 and code == "api_key_is_not_allowed"
         else f"UPSTAGE_HTTP_{response.status}"
     )
-    result.http_status = response.status
-    result.provider_error_code = (
-        code
-        if isinstance(code, str)
-        and code
-        in {
-            "api_key_is_not_allowed",
-            "rate_limit_exceeded",
-            "invalid_api_key",
-            "invalid_request",
-            "internal_server_error",
-            "request_timeout",
-            "file_size_exceeded",
-            "page_limit_exceeded",
-        }
-        else None
+    setattr(result, "http_status", response.status)
+    setattr(
+        result,
+        "provider_error_code",
+        (
+            code
+            if isinstance(code, str)
+            and code
+            in {
+                "api_key_is_not_allowed",
+                "rate_limit_exceeded",
+                "invalid_api_key",
+                "invalid_request",
+                "internal_server_error",
+                "request_timeout",
+                "file_size_exceeded",
+                "page_limit_exceeded",
+            }
+            else None
+        ),
     )
     return result
