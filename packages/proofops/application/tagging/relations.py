@@ -1,5 +1,7 @@
 """Bounded literal source-role extraction for later cross-source binding."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import re
@@ -131,7 +133,7 @@ def ranked_occurrence_catalog(
         anchor = dimensions.get(role) or ""
         role_tokens = _anchor_tokens(anchor)
 
-        def score(c):
+        def score(c: SpanCandidate) -> tuple[int, int, int, int, int, int, int, int, str]:
             quote = c.quote.casefold()
             tokens = _anchor_tokens(c.quote)
             # Korean particles may be part of an archived literal role span.
@@ -168,10 +170,12 @@ def ranked_occurrence_catalog(
     return result
 
 
-def _windowed_source(index, identity, text, ranked):
+def _windowed_source(
+    index: int, identity: SourceIdentity, text: str, ranked: dict[str, tuple[SpanCandidate, ...]]
+) -> dict[str, Any]:
     candidates = {c.span_id: c for values in ranked.values() for c in values}
     ordered = sorted(candidates.values(), key=lambda c: (c.raw_start, c.raw_end, c.span_id))
-    ranges = []
+    ranges: list[tuple[int, int]] = []
     radius = OCCURRENCE_V3_POLICY["window_radius"]
     for c in ordered:
         start, end = max(0, c.raw_start - radius), min(len(text), c.raw_end + radius)
@@ -203,7 +207,7 @@ def bounded_occurrence_sources(
     claim_text: str,
     dimensions: Mapping[str, str | None],
     attribution_guard: bool = False,
-) -> tuple[list[dict], list[dict[str, tuple[SpanCandidate, ...]]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, tuple[SpanCandidate, ...]]]]:
     """One shared UTF-8 wire budget; deterministic per-axis tail removal."""
     ranked = [
         ranked_occurrence_catalog(i, t, claim_text=claim_text, dimensions=dimensions)
@@ -215,7 +219,9 @@ def bounded_occurrence_sources(
         ranked = [
             {
                 role: tuple(
-                    c for c in values if role_rejection(text, c.raw_start, c.raw_end, role) is None
+                    c
+                    for c in values
+                    if role_rejection(text, c.raw_start, c.raw_end, role) is None  # type: ignore[no-untyped-call]  # External untyped helper.
                 )
                 for role, values in roles.items()
             }
@@ -293,7 +299,7 @@ def _identity(source: SourceRef, graph: CanonicalDocumentGraph, graph_hash: str)
     )
 
 
-def occurrence_source_packet(index: int, identity: SourceIdentity, text: str) -> dict:
+def occurrence_source_packet(index: int, identity: SourceIdentity, text: str) -> dict[str, Any]:
     """Candidate projection, also usable for offline archived text diagnostics.
 
     This helper alone does not verify archived sources. Live callers must use
@@ -313,7 +319,7 @@ def occurrence_source_packet(index: int, identity: SourceIdentity, text: str) ->
 class RelationValidationError(DomainValidationError):
     """Safe relation stop metadata; never includes a model quote."""
 
-    def __init__(self, code: str, field: str):
+    def __init__(self, code: str, field: str) -> None:
         self.code = code
         self.field = field
         super().__init__(code)
@@ -391,7 +397,7 @@ def relation_request(
     claim_text: str = "",
     dimensions: Mapping[str, str | None] | None = None,
     attribution_guard: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     prompt = relation_prompt(profile)
     sources = _sources(sources, graph, tenant_id)
     graph_hash = canonical_hash(asdict(graph))
@@ -434,7 +440,7 @@ def relation_request(
 def validate_relations(
     sources: tuple[SourceRef, ...],
     graph: CanonicalDocumentGraph,
-    response: Mapping,
+    response: Mapping[str, Any],
     *,
     tenant_id: str,
     profile: str = LEGACY_PROFILE,

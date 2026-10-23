@@ -4,13 +4,19 @@ Restored records pass the original source, period and structure guards.
 DEC-125 separately opts in to two whole-scope absence votes with a contrary veto.
 """
 
+from __future__ import annotations
+
 from copy import deepcopy
+from typing import TYPE_CHECKING
 
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 
+if TYPE_CHECKING:
+    from typing import Any
 
-def _schema():
+
+def _schema() -> dict[str, Any]:
     from proofops.application.tagging.i24_inventory import SCHEMA as OFFSET_SCHEMA
 
     schema = deepcopy(OFFSET_SCHEMA)
@@ -48,7 +54,7 @@ PROMPT = (
     "not_applicable. Retain relevant evidence without lexical cues too. "
     "Do not repeat an element/evidence pair. Preserve conflicts and future-vs-actual roles."
 )
-POLICY = dict(
+POLICY: dict[str, Any] = dict(
     profile="cf1_inventory_exact_quotes_v1",
     prompt_sha256=canonical_hash(PROMPT),
     schema_sha256=canonical_hash(SCHEMA),
@@ -71,20 +77,20 @@ ABSENCE_AGREEMENT = dict(
 MAJORITY_POLICY = POLICY | dict(absence_agreement=ABSENCE_AGREEMENT)
 
 
-def absence_policy(selection):
+def absence_policy(selection: dict[str, Any]) -> dict[str, Any] | None:
     return (
         selection.get("cf1_inventory", {}).get("absence_agreement") if enabled(selection) else None
     )
 
 
-def enabled(selection):
+def enabled(selection: dict[str, Any]) -> bool:
     value = selection.get("cf1_inventory")
     if value is not None and value not in (POLICY, MAJORITY_POLICY):
         raise ValueError("CF1_INVENTORY_POLICY_MISMATCH")
     return value is not None
 
 
-def wire_request(original):
+def wire_request(original: dict[str, Any]) -> tuple[str, str, str]:
     from proofops.application.tagging.element_inventory import POLICY as INVENTORY_POLICY
     from proofops.application.tagging.element_inventory import _cues
 
@@ -129,7 +135,7 @@ def wire_request(original):
     return system, canonical_json(wire), canonical_json(SCHEMA)
 
 
-def restore_response(payload, chunk):
+def restore_response(payload: dict[str, Any], chunk: dict[str, Any]) -> dict[str, Any]:
     from jsonschema import Draft202012Validator
 
     if not Draft202012Validator(SCHEMA).is_valid(payload):
@@ -142,7 +148,7 @@ def restore_response(payload, chunk):
         if ref is None:
             raise ValueError("CF1_UNKNOWN_SPAN_ID")
 
-        def restore(quote):
+        def restore(quote: str | None) -> dict[str, Any] | None:
             if quote is None:
                 return None
             text = ref["quote"]

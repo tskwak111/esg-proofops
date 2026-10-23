@@ -5,19 +5,32 @@ The reader recomputes everything from the trusted graph and frozen packet. No
 statement union, GRI-page credit, unknown-to-absence, or external I/O exists here.
 """
 
+from __future__ import annotations
+
 import json
 import re
 from dataclasses import asdict, dataclass
+from typing import TYPE_CHECKING, Unpack, cast
 
 from jsonschema import Draft202012Validator
 from proofops.application.evidence.binding import accept_binding
 from proofops.application.evidence.span_citations import verify_source_ref
+from proofops.application.tagging.contracts import C2AssemblyInputs
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rules.engine import ConfirmedFact, ConfirmedTags, RuleContext, evaluate
 from proofops.domain.values import SourceRef, _require_sha256
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Any
 
-def vote_schema():
+    from proofops.application.evidence.binding import ClaimContext
+    from proofops.application.evidence.retrieval import EvidencePacket
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.domain.rulepacks import RulePackSnapshot
+
+
+def vote_schema() -> dict[str, Any]:
     selection = dict(
         type="object",
         additionalProperties=False,
@@ -104,19 +117,29 @@ class FactAssemblyReceiptV1:
     payload_json: str
     receipt_sha256: str
 
-    def to_dict(self):
-        return json.loads(self.payload_json) | dict(receipt_sha256=self.receipt_sha256)
+    def to_dict(self) -> dict[str, Any]:
+        return cast(
+            "dict[str, Any]",
+            json.loads(self.payload_json) | dict(receipt_sha256=self.receipt_sha256),
+        )
 
 
-def _receipt(data):
+def _receipt(data: dict[str, Any]) -> FactAssemblyReceiptV1:
     return FactAssemblyReceiptV1(
         json.dumps(data, ensure_ascii=False, sort_keys=True), canonical_hash(data)
     )
 
 
 def assemble(
-    votes, *, context, graph, packet, rulepack, tag_revision=1, source_scoped_quotes=False
-):
+    votes: Sequence[dict[str, Any]],
+    *,
+    context: ClaimContext,
+    graph: CanonicalDocumentGraph,
+    packet: EvidencePacket,
+    rulepack: RulePackSnapshot,
+    tag_revision: int = 1,
+    source_scoped_quotes: bool = False,
+) -> FactAssemblyReceiptV1:
     claim = context.claim
     data = packet.to_dict()
     identity = dict(
@@ -206,7 +229,7 @@ def assemble(
     )
     results, facts_by_replica = [], []
 
-    def ref_for(selection):
+    def ref_for(selection: dict[str, Any]) -> SourceRef | None:
         if not isinstance(selection, dict) or set(selection) != {"source_index", "quote"}:
             return None
         source = refs.get(str(selection["source_index"]))
@@ -305,6 +328,7 @@ def assemble(
             )
             state = "present" if ref and binding == "accepted" else "unknown"
             if eid == "M3" and state == "present":
+                ref = cast("SourceRef", ref)
                 # Direct cert clause must name this system, rather than a provider,
                 # a policy on the same page, a GRI locator or a report-wide opinion.
                 if not (
@@ -327,11 +351,13 @@ def assemble(
                 primitive=primitive,
                 state=state,
                 authority="raw_guarded",
-                source_refs=[asdict(ref)] if state == "present" else [],
+                source_refs=[asdict(cast("SourceRef", ref))] if state == "present" else [],
                 binding=binding if state == "present" else "undetermined",
             )
             facts.append(
-                ConfirmedFact(primitive, "present", (ref,), claim.tenant_id, True, True)
+                ConfirmedFact(
+                    primitive, "present", (cast("SourceRef", ref),), claim.tenant_id, True, True
+                )
                 if state == "present"
                 else ConfirmedFact(primitive, "unknown")
             )
@@ -366,7 +392,7 @@ def assemble(
         # Quote extents may differ while the verified literal dimensions agree.
         # Keep each complete result hash separately from its agreement tuple.
         m2_ref = ref_for(raw.get("elements", {}).get("M2", {}).get("evidence"))
-        boundary_value = None
+        boundary_value: str | list[str] | None = None
         if m2_ref and dims["boundary"] and elements["M2"]["state"] == "present":
             hint = dims["boundary"]
             if (
@@ -379,7 +405,9 @@ def assemble(
         else:
             reasons.append("BOUNDARY_SOURCE_UNRESOLVED")
         if boundary_value and "국내 전 생산 사업장" in boundary_value:
-            counts = re.search(r"총\s*(\d+)개 생산 사업장 중\s*(\d+)개 사업장", boundary_value)
+            counts = re.search(
+                r"총\s*(\d+)개 생산 사업장 중\s*(\d+)개 사업장", cast(str, boundary_value)
+            )
             if counts and "글로벌 사업장" in boundary_value:
                 boundary_value = [
                     "국내 전 생산 사업장",
@@ -480,7 +508,7 @@ def assemble(
     )
 
 
-def replay(receipt, **inputs):
+def replay(receipt: dict[str, Any], **inputs: Unpack[C2AssemblyInputs]) -> FactAssemblyReceiptV1:
     if (
         not isinstance(receipt, dict)
         or receipt.get("schema") != SCHEMA
@@ -495,7 +523,7 @@ def replay(receipt, **inputs):
     return result
 
 
-def publication_policy_for(profile, *, pinned_hash=None):
+def publication_policy_for(profile: str, *, pinned_hash: str | None = None) -> dict[str, Any]:
     if profile != PROFILE or pinned_hash not in (None, POLICY_HASH):
         raise ValueError("C2_PUBLICATION_PROFILE_MISMATCH")
     raise ValueError("C2_PUBLICATION_DISABLED_COORDINATOR_ACTIVATION_REQUIRED")

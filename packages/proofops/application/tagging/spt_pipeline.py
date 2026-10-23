@@ -1,5 +1,13 @@
 """Opt-in scheduling contract; no changes to votes, source checks or admission."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Any
+
+
 POLICY = dict(
     profile="spt_claim_pipeline_v1",
     ready_claims_per_http_slot=2,
@@ -11,7 +19,7 @@ POLICY = dict(
 )
 
 
-def configured(policy):
+def configured(policy: dict[str, Any]) -> bool:
     if "spt_claim_pipeline" not in policy:
         return False
     if policy["spt_claim_pipeline"] != POLICY:

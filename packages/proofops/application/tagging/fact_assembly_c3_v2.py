@@ -1,7 +1,10 @@
 """DEC-68 C3 continuity by exact, source-stable fingerprint for the reviewed LG claim."""
 
+from __future__ import annotations
+
 import unicodedata
 from dataclasses import asdict
+from typing import TYPE_CHECKING, Unpack, cast
 
 from proofops.application.tagging import fact_assembly_c2 as c2
 from proofops.application.tagging import fact_assembly_c3 as c3
@@ -13,19 +16,31 @@ from proofops.application.tagging.c3_request_binding import (
     response_binding_policy,
 )
 from proofops.application.tagging.c3_request_binding import POLICY as RESPONSE_BINDING_POLICY
+from proofops.application.tagging.contracts import AssemblyInputs
 from proofops.domain.provenance import canonical_hash
-from proofops.domain.rules.engine import evaluate
+from proofops.domain.rules.engine import ConfirmedTags, evaluate
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Any
+
+    from proofops.application.review_parts.inputs import ReviewInputs
+    from proofops.application.tagging.consensus import ConsensusResult
+    from proofops.application.tagging.fact_assembly_c2 import FactAssemblyReceiptV1
+    from proofops.domain.rulepacks import RulePackSnapshot
+    from proofops.domain.rules.engine import Decision
+
 
 PROFILE = "management-direct-certification-c3-v2"
 DISPLAY = c3.DISPLAY
 _PREVIOUS_POLICY = {key: value for key, value in c3.POLICY.items() if key != "reviewed_identity"}
 
 
-def _normalize(value):
+def _normalize(value: str) -> str:
     return " ".join(unicodedata.normalize("NFC", value).split())
 
 
-def _span_identity(ref):
+def _span_identity(ref: dict[str, Any]) -> dict[str, Any]:
     if ref.get("verification_state") != "verified":
         raise ValueError("C3_SOURCE_FINGERPRINT_UNVERIFIED")
     page = ref.get("page_num")
@@ -46,7 +61,7 @@ def _span_identity(ref):
     )
 
 
-def source_fingerprint_payload(assembly):
+def source_fingerprint_payload(assembly: dict[str, Any]) -> dict[str, Any]:
     """Build continuity identity without run, packet, graph, or claim UUID pins."""
     identity = assembly["identity"]
     statement = sorted(
@@ -107,7 +122,7 @@ _SCOPE = (
 )
 
 
-def _reviewed_ref(start, end, quote):
+def _reviewed_ref(start: int, end: int, quote: str) -> dict[str, Any]:
     return dict(
         page_num=36,
         char_start=start,
@@ -146,7 +161,12 @@ POLICY = _PREVIOUS_POLICY | dict(
 POLICY_HASH = canonical_hash(POLICY)
 
 
-def assemble(votes, *, analysis_policy=None, **inputs):
+def assemble(
+    votes: Sequence[dict[str, Any]],
+    *,
+    analysis_policy: dict[str, Any] | None = None,
+    **inputs: Unpack[AssemblyInputs],
+) -> FactAssemblyReceiptV1:
     """Recompute candidates; only authenticated current responses can publish."""
     cf2 = bool(analysis_policy and response_binding_policy(analysis_policy) == CF2_POLICY)
     result = c3.assemble(votes, source_scoped_quotes=cf2, **inputs).to_dict()
@@ -180,7 +200,7 @@ def assemble(votes, *, analysis_policy=None, **inputs):
 
         try:
             current_policy = (
-                policy_for(V2_PROFILE, pinned_hash=canonical_hash(analysis_policy))
+                policy_for(V2_PROFILE, pinned_hash=canonical_hash(analysis_policy))  # type: ignore[no-untyped-call]  # External untyped helper.
                 == analysis_policy
             )
         except ValueError:
@@ -192,7 +212,7 @@ def assemble(votes, *, analysis_policy=None, **inputs):
                 identity,
                 inputs["context"].claim.quote,
                 inputs["packet"].to_dict()["c2_sources"],
-                analysis_policy,
+                cast("dict[str, Any]", analysis_policy),
                 vote["replicate_id"],
             ),
         )
@@ -222,9 +242,9 @@ def assemble(votes, *, analysis_policy=None, **inputs):
     return c2._receipt(result)
 
 
-def replay(receipt, **inputs):
+def replay(receipt: dict[str, Any], **inputs: Unpack[AssemblyInputs]) -> FactAssemblyReceiptV1:
     if receipt.get("policy_sha256") == legacy.POLICY_HASH:
-        return legacy.replay(receipt, **inputs)
+        return cast("FactAssemblyReceiptV1", legacy.replay(receipt, **inputs))
     if receipt.get("policy_sha256") != POLICY_HASH:
         raise ValueError("C3_V2_POLICY_MISMATCH")
     result = assemble(
@@ -235,18 +255,29 @@ def replay(receipt, **inputs):
     return result
 
 
-def publication_policy_for(profile, *, pinned_hash=None):
+def publication_policy_for(profile: str, *, pinned_hash: str | None = None) -> dict[str, Any]:
     if pinned_hash == legacy.POLICY_HASH:
-        return legacy.publication_policy_for(profile, pinned_hash=pinned_hash)
+        return cast(
+            "dict[str, Any]", legacy.publication_policy_for(profile, pinned_hash=pinned_hash)
+        )
     if profile != PROFILE or pinned_hash not in (None, POLICY_HASH):
         raise ValueError("C3_V2_PUBLICATION_PROFILE_MISMATCH")
     return dict(POLICY)
 
 
-def publication_values(receipt, *, rulepack, tag_revision, require_public=True):
+def publication_values(
+    receipt: dict[str, Any],
+    *,
+    rulepack: RulePackSnapshot,
+    tag_revision: int,
+    require_public: bool = True,
+) -> tuple[ConsensusResult, Decision]:
     if receipt.get("policy_sha256") == legacy.POLICY_HASH:
-        return legacy.publication_values(
-            receipt, rulepack=rulepack, tag_revision=tag_revision, require_public=require_public
+        return cast(
+            "tuple[ConsensusResult, Decision]",
+            legacy.publication_values(
+                receipt, rulepack=rulepack, tag_revision=tag_revision, require_public=require_public
+            ),
         )
     if receipt.get("policy_sha256") != POLICY_HASH:
         raise ValueError("C3_V2_POLICY_MISMATCH")
@@ -259,11 +290,11 @@ def publication_values(receipt, *, rulepack, tag_revision, require_public=True):
     )
 
 
-def validate_publication(inputs):
+def validate_publication(inputs: ReviewInputs) -> None:
     if inputs.fact_assembly_receipt is None:
         raise ValueError("C3_V2_PUBLICATION_RECEIPT_REQUIRED")
     if inputs.fact_assembly_receipt.to_dict().get("policy_sha256") == legacy.POLICY_HASH:
-        return legacy.validate_publication(inputs)
+        return cast(None, legacy.validate_publication(inputs))
     receipt = replay(
         inputs.fact_assembly_receipt.to_dict(),
         context=inputs.context,
@@ -287,7 +318,9 @@ def validate_publication(inputs):
         != inputs.original_packet.packet_sha256
     ):
         raise ValueError("C3_V2_PUBLICATION_INPUT_MISMATCH")
-    if asdict(evaluate(consensus.confirmed_tags, inputs.rule_context, inputs.rulepack)) != asdict(
-        decision
-    ):
+    if asdict(
+        evaluate(
+            cast("ConfirmedTags", consensus.confirmed_tags), inputs.rule_context, inputs.rulepack
+        )
+    ) != asdict(decision):
         raise ValueError("C3_V2_PUBLICATION_DECISION_MISMATCH")

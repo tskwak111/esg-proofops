@@ -5,8 +5,12 @@ receipts, the actual boundary text, and the claim/evidence role spans. This is a
 new opt-in reader; historical QT2, SC1 and rulepack content remain unchanged.
 """
 
+from __future__ import annotations
+
 import re
+from collections.abc import Mapping
 from dataclasses import asdict, replace
+from typing import TYPE_CHECKING, cast
 from uuid import UUID, uuid5
 
 from proofops.application.evidence.binding import _axis_cues
@@ -19,6 +23,15 @@ from proofops.application.tagging.semantic_admission import guard_element
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import pack_content_hash, snapshot_from_validated
 from proofops.domain.values import LlmElement, SourceRef
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from proofops.application.evidence.binding import ClaimContext
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.domain.rulepacks import RulePackSnapshot
+    from proofops.domain.rules.engine import Decision
+
 
 _AXES = dict(subject="entity", metric="metric", site="facility", period="reporting_period")
 _STRUCTURAL = {"section_parent", "table_parent", "same_statement"}
@@ -53,12 +66,12 @@ POLICY = dict(
 POLICY_HASH = canonical_hash(POLICY)
 
 
-def validate_policy(policy):
+def validate_policy(policy: Mapping[str, Any]) -> None:
     if policy != POLICY:
         raise ValueError("V1_ACTIVITY_POLICY_MISMATCH")
 
 
-def policy_from_profile(profile):
+def policy_from_profile(profile: dict[str, Any]) -> dict[str, Any] | None:
     policy = profile.get("v1_activity_links")
     if policy is not None:
         validate_policy(policy)
@@ -67,7 +80,7 @@ def policy_from_profile(profile):
     return policy
 
 
-def effective_rulepack(rulepack):
+def effective_rulepack(rulepack: RulePackSnapshot) -> RulePackSnapshot:
     """Versioned AP-06 scope contract; retain base pack and derived hash in receipt."""
     from proofops.application.rulepacks import validate_rulepack
 
@@ -93,7 +106,7 @@ def effective_rulepack(rulepack):
     return snapshot_from_validated(manifest, files)
 
 
-def confirmed_decision(base, scope, receipt_hash):
+def confirmed_decision(base: Decision, scope: dict[str, Any], receipt_hash: str) -> Decision:
     """Wrap a fully decided positive ladder; no absent fact or new ladder rule."""
     from proofops.domain.rules.analysis_scope import ScopeDecision
 
@@ -114,11 +127,11 @@ def confirmed_decision(base, scope, receipt_hash):
     )
 
 
-def _checked(ref, graph, tenant):
+def _checked(ref: SourceRef, graph: CanonicalDocumentGraph, tenant: str) -> bool:
     return verify_source_ref(ref, graph, tenant_id=tenant).verification_state == "verified"
 
 
-def _attributed(ref, evidence, graph):
+def _attributed(ref: SourceRef, evidence: SourceRef, graph: CanonicalDocumentGraph) -> bool:
     if _contains(evidence, ref):
         return True
     # SC1 accepts structural attributes; only a semantic parent/header edge is
@@ -131,7 +144,14 @@ def _attributed(ref, evidence, graph):
     )
 
 
-def _candidate(candidate, context, graph, *, tenant_id, rulepack):
+def _candidate(
+    candidate: dict[str, Any],
+    context: ClaimContext,
+    graph: CanonicalDocumentGraph,
+    *,
+    tenant_id: str,
+    rulepack: RulePackSnapshot,
+) -> dict[str, Any] | None:
     eid = candidate["element_id"]
     if eid not in POLICY["elements"]:
         return None
@@ -148,7 +168,7 @@ def _candidate(candidate, context, graph, *, tenant_id, rulepack):
     attrs = next(iter(votes.values()))["attributes"]
     roles = {k: SourceRef(**v) if v else None for k, v in attrs.items()}
 
-    def attributed(name, value):
+    def attributed(name: str, value: SourceRef) -> bool:
         if _attributed(value, evidence, graph):
             return True
         # Existing same-paragraph explicit actor continuation. Activity, target
@@ -168,7 +188,7 @@ def _candidate(candidate, context, graph, *, tenant_id, rulepack):
         for name, value in roles.items()
     ):
         return None
-    if scope_rejection_reason(eid, (evidence,), rulepack=rulepack, original=graph):
+    if scope_rejection_reason(eid, (evidence,), rulepack=rulepack, original=graph):  # type: ignore[no-untyped-call]  # External untyped helper.
         return None
     # Context qualifiers are never silently discarded, including unresolved axes.
     for axis, value in context.dimensions.items():
@@ -260,7 +280,16 @@ def _candidate(candidate, context, graph, *, tenant_id, rulepack):
     )
 
 
-def link_inventory(context, inventory, graph, *, run_id, tenant_id, rulepack, policy):
+def link_inventory(
+    context: ClaimContext,
+    inventory: dict[str, Any] | InventoryIndex,
+    graph: CanonicalDocumentGraph,
+    *,
+    run_id: str,
+    tenant_id: str,
+    rulepack: RulePackSnapshot,
+    policy: dict[str, Any],
+) -> dict[str, Any]:
     validate_policy(policy)
     index = inventory if isinstance(inventory, InventoryIndex) else InventoryIndex(inventory, graph)
     if index.graph is not graph:
@@ -295,7 +324,7 @@ def link_inventory(context, inventory, graph, *, run_id, tenant_id, rulepack, po
                 all(
                     context.dimensions.get(_AXES[attr]) is None
                     or vote["attributes"].get(attr) is None
-                    or _key(context.dimensions[_AXES[attr]].quote)
+                    or _key(cast("SourceRef", context.dimensions[_AXES[attr]]).quote)
                     == _key(vote["attributes"][attr]["quote"])
                     for attr in ("subject", "metric")
                 )

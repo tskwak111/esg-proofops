@@ -4,12 +4,23 @@ No source promotion, new dimension source, track assignment, or grade rule.
 Historical K5 packets and V3 prompts remain byte-identical.
 """
 
+from __future__ import annotations
+
 from copy import deepcopy
 from dataclasses import asdict
+from typing import TYPE_CHECKING
 
 from proofops.application.ingest.k5_context import _check
 from proofops.application.tagging.v3_dec92 import PRELIMINARY as V3_PRELIMINARY
 from proofops.domain.provenance import canonical_hash
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Any
+
+    from proofops.application.claims import Claim
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+
 
 PROFILE = "cf5_complete_local_context_v1"
 GUIDANCE = """
@@ -55,7 +66,7 @@ class PreliminaryContextTooLarge(ValueError):
     """The focal block itself cannot fit the frozen bound; leave it for review."""
 
 
-def enabled(configured):
+def enabled(configured: dict[str, Any]) -> bool:
     policy = configured.get("cf5_context_policy")
     if policy is None:
         return False
@@ -64,7 +75,7 @@ def enabled(configured):
     return True
 
 
-def header_agreed(headers):
+def header_agreed(headers: Sequence[tuple[str | None, str | None]]) -> bool:
     return (
         len(headers) == 3
         and headers[0][0] is not None
@@ -72,7 +83,13 @@ def header_agreed(headers):
     )
 
 
-def preserve_context(packet, claim, graph, *, receipt=None):
+def preserve_context(
+    packet: dict[str, Any],
+    claim: Claim,
+    graph: CanonicalDocumentGraph,
+    *,
+    receipt: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Widen only interpretation of the focal block; never numbered sources.
 
     The full table retains literal row/header/footnote text without fabricating an
@@ -86,10 +103,10 @@ def preserve_context(packet, claim, graph, *, receipt=None):
     data = result["untrusted_document_data"]
     by_id = {b.source_id: b for b in graph.blocks}
     own_ids = {r.source_id for r in claim.source_refs}
-    entries = []
+    entries: list[dict[str, Any]] = []
     for source_id in dict.fromkeys(r.source_id for r in claim.source_refs):
         block = by_id[source_id]
-        checked = _check(block.source_ref(), graph)
+        checked = _check(block.source_ref(), graph)  # type: ignore[no-untyped-call]  # External untyped helper.
         if checked.verification_state == "rejected":
             raise ValueError("CF5_CONTEXT_SOURCE_REJECTED")
         entries.append(
@@ -119,7 +136,7 @@ def preserve_context(packet, claim, graph, *, receipt=None):
         if limits["max_context_blocks"] < 1 or len(focal["text"]) > limits["max_context_chars"]:
             raise PreliminaryContextTooLarge("CF5_CONTEXT_TOO_LARGE")
 
-        def distance(entry):
+        def distance(entry: dict[str, Any]) -> tuple[int, float, str, int, int, str]:
             box, origin = entry["source_ref"].get("bbox"), focal["source_ref"]["bbox"]
             squared = (
                 ((box[0] + box[2] - origin[0] - origin[2]) / 2) ** 2
@@ -168,7 +185,7 @@ def preserve_context(packet, claim, graph, *, receipt=None):
     return result
 
 
-def validate_packet(packet):
+def validate_packet(packet: dict[str, Any]) -> None:
     if (
         packet.get("cf5_context_policy") != POLICY
         or packet.get("prompt_sha256") != canonical_hash(PRELIMINARY)
@@ -178,7 +195,7 @@ def validate_packet(packet):
         raise ValueError("CF5_CONTEXT_PACKET_MISMATCH")
 
 
-def preliminary(schema, *, quote=None):
+def preliminary(schema: dict[str, Any], *, quote: str | None = None) -> str:
     from proofops.application.tagging.finals_i4 import _require_k4_schema
     from proofops.domain.rulepacks import canonical_json
 

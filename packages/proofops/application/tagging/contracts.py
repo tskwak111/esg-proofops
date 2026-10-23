@@ -1,8 +1,10 @@
 """Pure settings, results and retained TagRun decoding shared by tagging callers."""
 
+from __future__ import annotations
+
 import json
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, Protocol, TypedDict
 
 from proofops.application.budget import TokenUsage
 from proofops.application.evidence.binding import ClaimContext
@@ -12,7 +14,76 @@ from proofops.application.tagging.tracks import TrackCandidate
 from proofops.domain.errors import DomainValidationError
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
-from proofops.domain.values import LlmTags, llm_tags_from_dict
+from proofops.domain.values import ElementState, LlmTags, SourceRef, llm_tags_from_dict
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from proofops.application.evidence.retrieval import EvidencePacket
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.tagging.analysis_scope import InventoryIndex
+    from proofops.domain.rulepacks import RulePackSnapshot
+    from proofops.domain.rules.engine import RuleContext
+
+
+FactState = ElementState | Literal["absent_in_scope"]
+
+
+class ContextAdmission(Protocol):
+    def __call__(
+        self,
+        context: ClaimContext,
+        ref: SourceRef,
+        graph: CanonicalDocumentGraph,
+        *,
+        tenant_id: str,
+        element_id: str,
+        relation_tags: Mapping[str, SourceRef | None] | None = None,
+    ) -> bool: ...
+
+
+class CellSpec(TypedDict):
+    column: int
+    start: int
+    end: int
+    ref: SourceRef
+
+
+class CacheSignatureOptions(TypedDict):
+    namespace: CacheNamespace
+    temperature: float
+    model_id: str
+    model_profile: str
+    prompt_sha256: str
+    schema_sha256: str
+    packet_sha256: str
+    tools: list[dict[str, Any]]
+    max_tokens: int
+    replicate_id: int
+    extraction_epoch: int
+
+
+class AssemblyInputs(TypedDict):
+    context: ClaimContext
+    graph: CanonicalDocumentGraph
+    packet: EvidencePacket
+    rulepack: RulePackSnapshot
+    tag_revision: NotRequired[int]
+
+
+class C2AssemblyInputs(AssemblyInputs):
+    source_scoped_quotes: NotRequired[bool]
+
+
+class ScopeInputs(TypedDict):
+    runs: tuple[TagRun, ...]
+    packet: EvidencePacket
+    context: ClaimContext
+    graph: CanonicalDocumentGraph
+    rulepack: RulePackSnapshot
+    rule_context: RuleContext
+    inventory: InventoryIndex | dict[str, Any]
+    prior_projection: NotRequired[dict[str, Any] | None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,7 +100,7 @@ class TaggingSettings:
     max_response_bytes: int = 1_048_576
     wire_policy_version: int = 1
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not isinstance(self.binding, ModelBinding) or self.binding.role != "tagger":
             raise DomainValidationError("tagger binding required")
         if type(self.binding.synthetic) is not bool:
@@ -85,7 +156,7 @@ class RawTagResponse:
     synthetic: bool
     provider_response_json: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if type(self.synthetic) is not bool or not isinstance(self.usage, TokenUsage):
             raise DomainValidationError("typed usage and synthetic provenance required")
         if any(
@@ -150,7 +221,7 @@ class PreliminaryClassification:
     safe_harbor_category: str | None
 
 
-def read_runs(values):
+def read_runs(values: Sequence[dict[str, Any]]) -> tuple[TagRun, ...]:
     """Decode retained TagRuns without relabeling responses or request identities."""
 
     return tuple(

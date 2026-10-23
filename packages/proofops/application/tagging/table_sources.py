@@ -190,9 +190,9 @@ def _focal_cell(
         if "h1-origin-context-v1" in block.candidates[cast(int, block.winner)].context:
             from proofops.application.ingest.w9_tables import observations_for
 
-            rows = observations_for(block, graph)
+            rows = observations_for(block, graph)  # type: ignore[no-untyped-call]  # External untyped helper.
         else:
-            rows = observations(
+            rows = observations(  # type: ignore[no-untyped-call]  # External untyped helper.
                 block.normalized_text,
                 context=" ".join(block.candidates[cast(int, block.winner)].context),
             )

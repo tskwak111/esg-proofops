@@ -4,8 +4,11 @@ Inventory votes only nominate source facts. Each final G2/G3 vote must select it
 own literal value/year/unit bundle. No reduction, deadline or absence is inferred.
 """
 
+from __future__ import annotations
+
 import re
 from dataclasses import asdict, replace
+from typing import TYPE_CHECKING, cast
 from unicodedata import normalize
 
 from proofops.application.evidence.binding import _axis_cues
@@ -16,6 +19,14 @@ from proofops.application.tagging.qt1_tuples import add_sources, contains, tuple
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rules.qt1_baseline import SOURCE_SCOPE
 from proofops.domain.values import SourceRef
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from proofops.application.evidence.binding import ClaimContext
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.domain.values import LlmElement
+
 
 GUIDANCE = (
     "DEC-93 AP-03 overrides DEC-24's same-sentence restriction ONLY for supplied "
@@ -52,11 +63,11 @@ POLICY.update(
 )
 
 
-def _key(text):
+def _key(text: str) -> str:
     return " ".join(normalize("NFC", text).casefold().split())
 
 
-def _part(ref, start, end):
+def _part(ref: dict[str, Any], start: int, end: int) -> dict[str, Any]:
     return ref | dict(
         char_start=ref["char_start"] + start,
         char_end=ref["char_start"] + end,
@@ -64,14 +75,14 @@ def _part(ref, start, end):
     )
 
 
-def _verified(ref, graph, tenant):
+def _verified(ref: dict[str, Any], graph: CanonicalDocumentGraph, tenant: str) -> bool:
     return (
         verify_source_ref(SourceRef(**ref), graph, tenant_id=tenant).verification_state
         == "verified"
     )
 
 
-def _target(context, graph):
+def _target(context: ClaimContext, graph: CanonicalDocumentGraph) -> dict[str, Any] | None:
     claim = context.claim
     if claim.source_quality != "verified" or len(claim.source_refs) != 1:
         return None
@@ -98,7 +109,9 @@ def _target(context, graph):
             or not _verified(asdict(ref), graph, claim.tenant_id)
         ):
             return None
-    if not re.search(r"배출량|emissions", context.dimensions["metric"].quote, re.I):
+    if not re.search(
+        r"배출량|emissions", cast("SourceRef", context.dimensions["metric"]).quote, re.I
+    ):
         return None
     return dict(
         year=matches[0][1],
@@ -107,7 +120,9 @@ def _target(context, graph):
     )
 
 
-def _source_tuples(candidate, graph):
+def _source_tuples(
+    candidate: dict[str, Any], graph: CanonicalDocumentGraph
+) -> list[dict[str, Any]]:
     ref = candidate["evidence_ref"]
     block = next(b for b in graph.blocks if b.source_id == ref["source_id"])
     if block.kind == "table":
@@ -132,7 +147,12 @@ def _source_tuples(candidate, graph):
     ]
 
 
-def _matches(candidate, context, target, graph):
+def _matches(
+    candidate: dict[str, Any],
+    context: ClaimContext,
+    target: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+) -> bool:
     evidence = candidate["evidence_ref"]
     votes = candidate["votes"]
     if set(votes) != {"1", "2", "3"} or any(v["state"] != "present" for v in votes.values()):
@@ -146,7 +166,7 @@ def _matches(candidate, context, target, graph):
                 ref is None
                 or not _verified(ref, graph, context.claim.tenant_id)
                 or not contains(evidence, ref)
-                or _key(ref["quote"]) != _key(context.dimensions[axis].quote)
+                or _key(ref["quote"]) != _key(cast("SourceRef", context.dimensions[axis]).quote)
             ):
                 return False
         period = vote["attributes"]["period"]
@@ -166,7 +186,14 @@ def _matches(candidate, context, target, graph):
     return True
 
 
-def baseline_links(context, inventory, graph, *, run_id, tenant_id):
+def baseline_links(
+    context: ClaimContext,
+    inventory: dict[str, Any] | InventoryIndex,
+    graph: CanonicalDocumentGraph,
+    *,
+    run_id: str,
+    tenant_id: str,
+) -> dict[str, Any]:
     if isinstance(inventory, InventoryIndex):
         if inventory.graph is not graph:
             raise ValueError("QT1_BASELINE_GRAPH_MISMATCH")
@@ -205,7 +232,7 @@ def baseline_links(context, inventory, graph, *, run_id, tenant_id):
             # Query the frozen inventory; unrelated metrics/years cannot block or
             # satisfy this baseline. Ambiguous matching candidates still veto it.
             if not all(
-                context.dimensions[k].quote in evidence["quote"]
+                cast("SourceRef", context.dimensions[k]).quote in evidence["quote"]
                 for k in ("entity", "metric", "facility")
             ):
                 continue
@@ -254,7 +281,7 @@ def baseline_links(context, inventory, graph, *, run_id, tenant_id):
     return body | dict(receipt_sha256=canonical_hash(body))
 
 
-def augment_packet(data, receipt):
+def augment_packet(data: dict[str, Any], receipt: dict[str, Any]) -> dict[str, Any]:
     data["qt1_baseline_receipt"] = receipt
     for link in receipt["links"]:
         add_sources(
@@ -263,14 +290,21 @@ def augment_packet(data, receipt):
     return data
 
 
-def validate_packet(data, context, inventory, graph, *, tenant_id):
+def validate_packet(
+    data: dict[str, Any],
+    context: ClaimContext,
+    inventory: dict[str, Any] | InventoryIndex,
+    graph: CanonicalDocumentGraph,
+    *,
+    tenant_id: str,
+) -> list[dict[str, Any]]:
     expected = baseline_links(context, inventory, graph, run_id=data["run_id"], tenant_id=tenant_id)
     if canonical_hash(data.get("qt1_baseline_receipt")) != canonical_hash(expected):
         raise ValueError("QT1_BASELINE_REPLAY_MISMATCH")
-    return expected["links"]
+    return cast("list[dict[str, Any]]", expected["links"])
 
 
-def prepare_element(element, links):
+def prepare_element(element: LlmElement, links: list[dict[str, Any]]) -> tuple[LlmElement, bool]:
     if element.state != "present" or element.element_id not in ("G2", "G3"):
         return element, False
     refs = [asdict(r) for r in element.evidence_refs]

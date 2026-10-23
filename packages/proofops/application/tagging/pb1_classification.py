@@ -1,5 +1,7 @@
 """GAP-002 candidate admission, never a grade or legal-effect calculation."""
 
+from __future__ import annotations
+
 import re
 
 PROFILE = "upstage-preliminary-source-quotes-actor-role-v3-pb1"
@@ -21,7 +23,7 @@ BASIS = re.compile(
 )
 
 
-def forward_candidate(text):
+def forward_candidate(text: str) -> tuple[str | None, str | None]:
     if not PREDICTION.search(text):
         return None, "ordinary_target"
     if not BASIS.search(text):

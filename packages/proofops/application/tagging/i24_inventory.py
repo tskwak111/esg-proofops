@@ -1,6 +1,8 @@
 """V24 inventory dispatch limits. Existing grants and dollar ceilings still apply."""
 
-from typing import Any, cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
 
 from proofops.application.tagging.element_inventory import POLICY as INVENTORY_POLICY
 from proofops.application.tagging.element_inventory import (
@@ -12,6 +14,10 @@ from proofops.application.tagging.element_inventory import (
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 
+if TYPE_CHECKING:
+    from proofops.application.tagging.contracts import TaggingSettings
+
+
 SPAN = dict(
     type="object",
     additionalProperties=False,
@@ -22,7 +28,7 @@ SPAN = dict(
         char_end=dict(type="integer"),
     ),
 )
-SCHEMA = dict(
+SCHEMA: dict[str, Any] = dict(
     type="object",
     additionalProperties=False,
     required=["complete", "records", "packet_sha256", "replicate_id"],
@@ -38,7 +44,8 @@ SCHEMA = dict(
                 required=["element_id", "state", "evidence", "attributes"],
                 properties=dict(
                     element_id=dict(
-                        type="string", enum=sorted(cast(dict[str, Any], INVENTORY_POLICY["terms"]))
+                        type="string",
+                        enum=sorted(cast("dict[str, Any]", INVENTORY_POLICY["terms"])),
                     ),
                     state=dict(type="string", enum=sorted(STATES)),
                     evidence=SPAN,
@@ -66,7 +73,7 @@ WIRE_PROMPT = (
     + canonical_json(INVENTORY_POLICY["terms"])
 )
 
-POLICY = dict(
+POLICY: dict[str, Any] = dict(
     profile="sc1_hosted_inventory_i24_v1",
     inventory_policy_sha256=POLICY_HASH,
     prompt_sha256=canonical_hash(PROMPT),
@@ -83,7 +90,7 @@ POLICY = dict(
 )
 
 
-def transport_request(request, settings):
+def transport_request(request: dict[str, Any], settings: TaggingSettings) -> dict[str, Any]:
     """Wrap the SC1 packet without changing its independent request identity."""
     from dataclasses import asdict
 

@@ -4,8 +4,16 @@ This is selection restoration only. Source, table ownership, binding, replica
 and rule guards still run afterwards. No value is inferred or rewritten.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from proofops.application.tagging.pb2_citation_restore import POLICY as TABLE_POLICY
 from proofops.domain.provenance import canonical_hash
+
+if TYPE_CHECKING:
+    from typing import Any
+
 
 POLICY = TABLE_POLICY | dict(
     profile="citation-selected-value-pb6-v1",
@@ -14,7 +22,7 @@ POLICY = TABLE_POLICY | dict(
 POLICY_HASH = canonical_hash(POLICY)
 
 
-def refine_selected_value(element):
+def refine_selected_value(element: dict[str, Any]) -> None:
     if element.get("state") != "present" or element.get("element_id") not in (
         "G2",
         "G3",

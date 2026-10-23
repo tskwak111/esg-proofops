@@ -1,15 +1,30 @@
 """Read-only PT1 projections. These inputs never become a confirmed revision."""
 
+from __future__ import annotations
+
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import asdict
+from typing import TYPE_CHECKING
 
 from proofops.application.tagging.consensus import form_consensus
 from proofops.domain.rules.engine import MAPPINGS, ConfirmedFact, ConfirmedTags, evaluate
 
+if TYPE_CHECKING:
+    from typing import Any
+
+    from proofops.application.claims import Claim
+    from proofops.application.evidence.retrieval import EvidencePacket
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.tagging.contracts import TagRun
+    from proofops.domain.rulepacks import RulePackSnapshot
+    from proofops.domain.rules.engine import Decision, RuleContext
+
+
 PROFILE = "unattended-v1"
 
 
-def source_status(claim):
+def source_status(claim: Claim) -> dict[str, Any]:
     verified = claim.source_quality == "verified"
     return dict(
         status="verified" if verified else "unverified",
@@ -18,7 +33,7 @@ def source_status(claim):
     )
 
 
-def empty_provisional(reason):
+def empty_provisional(reason: str | None) -> dict[str, Any]:
     return dict(
         evidence_grade=None,
         label=None,
@@ -30,7 +45,9 @@ def empty_provisional(reason):
     )
 
 
-def project_decision(decision, *, elements=(), profile=None):
+def project_decision(
+    decision: Decision, *, elements: Sequence[dict[str, Any]] = (), profile: str | None = None
+) -> dict[str, Any]:
     """A reachable floor is a lower bound with open elements, not an absence vote."""
     result = decision.to_api_dict()
     grade = decision.evidence_grade or decision.grade_floor
@@ -58,16 +75,16 @@ def project_decision(decision, *, elements=(), profile=None):
 
 
 def provisional_result(
-    runs,
-    packet,
-    rulepack,
-    context,
+    runs: tuple[TagRun, ...],
+    packet: EvidencePacket,
+    rulepack: RulePackSnapshot,
+    context: RuleContext,
     *,
-    range_profile=False,
-    profile=None,
-    semantic_policy=None,
-    original=None,
-):
+    range_profile: bool = False,
+    profile: str | None = None,
+    semantic_policy: dict[str, Any] | None = None,
+    original: CanonicalDocumentGraph | None = None,
+) -> dict[str, Any]:
     if semantic_policy is not None:
         from proofops.application.tagging.semantic_admission import guard_runs, validate_policy
 
@@ -315,7 +332,7 @@ def provisional_result(
                 tenant_id=data["tenant_id"],
                 source_refs=tuple(SourceRef(**r) for r in data["claim_source_refs"]),
             )
-            if goal_requires_retag(claim_view, original):
+            if goal_requires_retag(claim_view, original):  # type: ignore[no-untyped-call]  # External untyped helper.
                 result.update(
                     evidence_grade=None,
                     label=None,
@@ -357,7 +374,13 @@ def provisional_result(
     return ensure_range(result, rulepack, tags=tags, context=context) if range_profile else result
 
 
-def ensure_range(result, rulepack, *, tags=None, context=None):
+def ensure_range(
+    result: dict[str, Any],
+    rulepack: RulePackSnapshot,
+    *,
+    tags: ConfirmedTags | None = None,
+    context: RuleContext | None = None,
+) -> dict[str, Any]:
     """Only the integrated profile fills an empty display slot; confirmed data stays null."""
     if result.get("grade_basis") in {"estimate_hold", "retag_required", "scope3_calculation_hold"}:
         return result

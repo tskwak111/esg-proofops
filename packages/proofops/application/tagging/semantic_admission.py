@@ -7,15 +7,19 @@ classifier. Raw votes/citations stay intact. Unknown expressions require review.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import LlmElement
 
 if TYPE_CHECKING:
+    from typing import Any
+
     from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
     from proofops.application.tagging.service import TagRun
+
 
 DEFINITIONS = """
 W8 guidance, original v2 §4.4/4.5 and DEC-24; no new ladder thresholds.
@@ -61,7 +65,7 @@ POLICY = dict(
 POLICY_HASH = canonical_hash(POLICY)
 
 
-def validate_policy(policy: dict) -> None:
+def validate_policy(policy: Mapping[str, Any]) -> None:
     from proofops.application.tagging.k1_semantics import POLICY as K1_POLICY
     from proofops.application.tagging.k4_contract import SEMANTIC_POLICY
     from proofops.application.tagging.k10_contract import SEMANTIC_POLICY as K10_POLICY
@@ -72,7 +76,9 @@ def validate_policy(policy: dict) -> None:
         raise ValueError("SEMANTIC_ADMISSION_POLICY_UNKNOWN")
 
 
-def guard_element(element: LlmElement, *, policy=None, claim_quote="") -> LlmElement:
+def guard_element(
+    element: LlmElement, *, policy: dict[str, Any] | None = None, claim_quote: str = ""
+) -> LlmElement:
     if policy is not None and policy != POLICY:
         validate_policy(policy)
         from proofops.application.tagging.k1_semantics import guard
@@ -113,7 +119,9 @@ def guard_element(element: LlmElement, *, policy=None, claim_quote="") -> LlmEle
     )
 
 
-def guard_runs(runs: tuple[TagRun, ...], *, policy=None, claim_quote="") -> tuple[TagRun, ...]:
+def guard_runs(
+    runs: tuple[TagRun, ...], *, policy: dict[str, Any] | None = None, claim_quote: str = ""
+) -> tuple[TagRun, ...]:
     """Reprocess saved guarded votes into new candidates, preserving raw receipts."""
     results = []
     for run in runs:
@@ -142,8 +150,11 @@ def guard_runs(runs: tuple[TagRun, ...], *, policy=None, claim_quote="") -> tupl
 
 
 def estimate_refs(
-    data: dict, original: CanonicalDocumentGraph | None = None, *, policy=None
-) -> list[dict]:
+    data: dict[str, Any],
+    original: CanonicalDocumentGraph | None = None,
+    *,
+    policy: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     """DEC-24 hold eligibility; only local numeric rows or their exact parent table.
 
     No nearby table, other page, document-wide Scope3 mention or model paraphrase
@@ -160,16 +171,18 @@ def estimate_refs(
             from proofops.application.tagging.k4_contract import estimate_evidence
 
             return estimate_evidence(data, original)
-        from proofops.application.tagging.k1_semantics import estimate_evidence
+        from proofops.application.tagging.k1_semantics import (
+            estimate_evidence as k1_estimate_evidence,
+        )
 
-        return estimate_evidence(data, original)
+        return k1_estimate_evidence(data, original)
     refs = data.get("claim_source_refs", [])
     if data.get("safe_harbor_category") == "emissions_estimate":
-        return refs
+        return cast("list[dict[str, Any]]", refs)
     if data.get("track") != "performance" or not data.get("table_observation_evidence"):
         return []
     if any(re.search(_SCOPE3, ref["quote"], re.I) for ref in refs):
-        return refs
+        return cast("list[dict[str, Any]]", refs)
     if original is None or (original.tenant_id, original.document_version_id) != (
         data["tenant_id"],
         data["document_version_id"],
@@ -184,5 +197,5 @@ def estimate_refs(
         if re.search(_SCOPE3, text, re.I) and not re.search(
             r"scope\s*[12]|스코프\s*[12]", text, re.I
         ):
-            return refs
+            return cast("list[dict[str, Any]]", refs)
     return []
