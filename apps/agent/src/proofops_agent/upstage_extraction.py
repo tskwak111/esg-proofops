@@ -11,31 +11,36 @@ never invented here.
 
 from __future__ import annotations
 
-import json
+import json as json
 
 # Retain historical module-level imports as compatibility aliases.
 import re as re
 from collections.abc import Callable as Callable
-from dataclasses import asdict
+from dataclasses import asdict as asdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NoReturn, cast
+from typing import TYPE_CHECKING as TYPE_CHECKING
+from typing import Any
+from typing import NoReturn as NoReturn
+from typing import cast as cast
 from uuid import UUID, uuid5
 
 from proofops.adapters.local.upstage import MODEL as UPSTAGE_MODEL
 from proofops.adapters.local.upstage import MODEL_PRO4 as MODEL_PRO4
-from proofops.adapters.local.upstage import UPSTAGE_TRANSPORT_STOP_CODES
+from proofops.adapters.local.upstage import (
+    UPSTAGE_TRANSPORT_STOP_CODES as UPSTAGE_TRANSPORT_STOP_CODES,
+)
 from proofops.adapters.local.upstage import request_usage as _shared_request_usage
 from proofops.application.claims import FAILURE_DIAGNOSTICS_POLICY as FAILURE_DIAGNOSTICS_POLICY
+from proofops.application.claims import ExtractionOutputError as ExtractionOutputError
 from proofops.application.claims import (
-    ExtractionOutputError,
     ExtractionProfile,
     ExtractionSpan,
     validate_extraction_response,
 )
 from proofops.application.ingest.atomic_candidates import atomic_candidates as atomic_candidates
 from proofops.application.ingest.table_row_candidates import row_candidates as row_candidates
-from proofops.domain.provenance import canonical_hash
-from proofops.domain.rulepacks import canonical_json
+from proofops.domain.provenance import canonical_hash as canonical_hash
+from proofops.domain.rulepacks import canonical_json as canonical_json
 from proofops.domain.sentences import sentence_spans as sentence_spans
 from proofops.domain.values import _require_sha256 as _require_sha256
 from proofops.domain.values import _require_uuid as _require_uuid
@@ -46,9 +51,13 @@ from proofops_agent.extraction_parts.contracts import (
 )
 from proofops_agent.extraction_parts.contracts import (
     DisplayCatalog,
-    DisplayCatalogOption,
     TitleCatalog,
-    TitleCatalogOption,
+)
+from proofops_agent.extraction_parts.contracts import (
+    DisplayCatalogOption as DisplayCatalogOption,
+)
+from proofops_agent.extraction_parts.contracts import (
+    TitleCatalogOption as TitleCatalogOption,
 )
 from proofops_agent.extraction_parts.profiles import (
     _ASCII_DIGITS as _ASCII_DIGITS,
@@ -176,10 +185,8 @@ from proofops_agent.extraction_parts.wire import ATOMIC_PROFILE as ATOMIC_PROFIL
 from proofops_agent.extraction_parts.wire import ATOMIC_PROFILE_V3 as ATOMIC_PROFILE_V3
 from proofops_agent.extraction_parts.wire import ROW_POLICY as ROW_POLICY
 from proofops_agent.extraction_parts.wire import ROW_PROFILE as ROW_PROFILE
-
-if TYPE_CHECKING:
-    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
-    from proofops.application.rb1_input_isolation import InputIsolation
+from proofops_agent.upstage_extraction_parts import receipts, tables
+from proofops_agent.upstage_extraction_parts.graph import GraphBoundExtractor as GraphBoundExtractor
 
 
 class UpstageClaimExtractor:
@@ -425,44 +432,7 @@ class UpstageClaimExtractor:
         )
         if not self._qt1 or packet["untrusted_document_data"]["kind"] != "table":
             return result
-        self._validate_context_graph(packet, context_graph)
-        from proofops.application.ingest.qt1_tables import candidates_for, reconcile
-
-        data = packet["untrusted_document_data"]
-        block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
-        candidates = candidates_for(block, context_graph)
-        spans, coverage = reconcile(data["text"], candidates, result["spans"])
-        try:
-            self._validate_spans({"spans": spans}, data["text"])
-        except ValueError:
-            # Recovered table spans pass the same quote/offset guards as model
-            # spans. A rejected table remains unknown without losing siblings.
-            # Identity, grid and immutable receipt checks stay outside this catch.
-            raise ExtractionOutputError(
-                "TABLE_QT1_SPAN_INVALID", failure_code="TABLE_QT1_SPAN_INVALID"
-            ) from None
-        record = dict(
-            packet=packet,
-            profile=asdict(self.profile),
-            candidates=candidates,
-            coverage=coverage,
-            before=result,
-            after=dict(spans=spans),
-        )
-        path = self._receipts / (
-            "qt1-"
-            + canonical_hash(
-                dict(packet=packet, profile=asdict(self.profile), candidates=candidates)
-            )
-            + ".json"
-        )
-        encoded = canonical_json(record)
-        if path.exists():
-            if path.read_text() != encoded:
-                raise ValueError("QT1_EXTRACTION_REPLAY_MISMATCH")
-        else:
-            self._write(path, encoded)
-        return {"spans": spans}
+        return tables.reconcile_qt1(self, packet, context_graph, result)
 
     def _extract(
         self,
@@ -513,78 +483,9 @@ class UpstageClaimExtractor:
         if self._w9 and packet["untrusted_document_data"]["kind"] == "figure":
             return {"spans": []}
         if self._pb1 and packet["untrusted_document_data"]["kind"] == "table":
-            self._require_graph(packet, context_graph)
-            from proofops.application.ingest.pb1_tables import observations
-
-            data = packet["untrusted_document_data"]
-            block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
-            context = " ".join(block.candidates[block.winner].context)
-            if self._w9:
-                from proofops.application.ingest.w9_tables import observations_for
-
-                if self._j8:
-                    from proofops.application.ingest.j8_cells import observations_for
-
-                if self._k6:
-                    from proofops.application.ingest.k6_coverage import observations_for
-
-                raw_rows = observations_for(block, context_graph)
-            else:
-                raw_rows = observations(text, context=context)
-            rows = raw_rows
-            if self._table_footnotes:
-                from proofops.application.tagging.dec24 import table_footnote
-
-                rows = [r for r in raw_rows if not table_footnote(r["quote"], kind="table")]
-            result: dict[str, Any] = {
-                "spans": [
-                    dict(
-                        char_start=r["start"],
-                        char_end=r["end"],
-                        quote=r["quote"],
-                        kind="claim",
-                        reason=None,
-                        topic_ids=["environment"],
-                    )
-                    for r in rows
-                ]
-            }
-            boundary_records: list[dict[str, Any]] = []
-            if self._k1:
-                from proofops.application.ingest.k1_boundaries import trim_table_labels
-
-                result["spans"], boundary_records = trim_table_labels(
-                    result["spans"], text, kind="table"
-                )
-            self._validate_spans(result, text)
-            directory = self._receipts / (
-                "pb1-" + canonical_hash({"packet": packet, "policy": self._profile.rule_sha256})
-                if self._w9
-                else "pb1-" + canonical_hash(packet)
-            )
-            if not directory.exists():
-                directory.mkdir(mode=0o700)
-                self._write(directory / "packet.json", canonical_json(packet))
-                self._write(directory / "observations.json", canonical_json(raw_rows))
-                if self._k1:
-                    self._write(directory / "k1-boundaries.json", canonical_json(boundary_records))
-                if self._table_footnotes:
-                    self._write(
-                        directory / "table-context-exclusions.json",
-                        canonical_json([r for r in raw_rows if r not in rows]),
-                    )
-                self._write(directory / "result.json", canonical_json(result))
-            elif json.loads((directory / "result.json").read_text()) != result:
-                raise ValueError("EXTRACTION_PB1_REPLAY_MISMATCH")
-            if rows or any(
-                "\t" in line
-                and any(
-                    __import__("re").fullmatch(r"20\d{2}(?:년)?", c.strip())
-                    for c in line.split("\t")
-                )
-                for line in text.split("\n")[:4]
-            ):
-                return result
+            table_result = tables.extract_pb1(self, packet, text, context_graph)
+            if table_result is not None:
+                return table_result
         if self._display_text_profile:
             if display_catalog is None:
                 raise ValueError("DISPLAY_CATALOG_REQUIRED")
@@ -844,228 +745,6 @@ class UpstageClaimExtractor:
         )
         return {"spans": resolved}
 
-    def _replay_receipt(
-        self,
-        directory: Path,
-        packet: dict[str, Any],
-        packet_sha: str,
-        request_id: str,
-        context_graph: Any = None,
-        display_catalog: DisplayCatalog | None = None,
-        expected_body: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Reuse an existing receipt for this exact packet; never re-issue its call.
-
-        A retained receipt means the provider request for this packet was already
-        made, so repeating it could be charged twice. The stored packet must be
-        byte-identical to this one and its profile must match before anything is
-        reused; otherwise the old refusal stands. In order:
-
-        * ``failure.json`` -- the stored failure is raised again, deterministically;
-        * ``raw_response.json`` -- required for any model result (missing raw cannot
-          claim a model result); quotes are always reconstructed and validated from
-          raw provider content;
-        * ``result.json`` -- if present, must match identity and equal the
-          reconstructed validated spans identically; a forged or mismatched result
-          is refused;
-        * nothing retained -- raises ``EXTRACTION_RECEIPT_UNSETTLED`` and leaves
-          reconciliation to the ledger instead of guessing.
-
-        No provider call, reservation or usage entry is created on this path.
-        In context mode the graph is required again and the stored request is
-        byte-compared against the recomputed wire first: a changed context
-        addresses a different receipt directory already, and any tampering
-        with the stored request fails closed here.
-        """
-        text = self._packet_text(packet)
-        if self._display_text_profile:
-            request_path = directory / "request.json"
-            if (
-                expected_body is None
-                or not request_path.is_file()
-                or request_path.read_text(encoding="utf-8") != canonical_json(expected_body)
-            ):
-                raise ValueError("EXTRACTION_RECEIPT_EXISTS")
-        if self._source_ids:
-            self._require_graph(packet, context_graph)
-            system_prompt, user_data, recomputed_id = self._source_id_wire(
-                packet, text, packet_sha, context_graph, display_catalog
-            )
-            if recomputed_id != request_id:
-                raise ValueError("EXTRACTION_RECEIPT_EXISTS")
-            user_json = json.dumps(
-                user_data, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-            )
-            expected_body = self._context_request_body(system_prompt, user_json, request_id)
-            request_path = directory / "request.json"
-            if not request_path.is_file() or request_path.read_text(
-                encoding="utf-8"
-            ) != canonical_json(expected_body):
-                raise ValueError("EXTRACTION_RECEIPT_EXISTS")
-        elif self._context:
-            if context_graph is None:
-                raise ValueError("EXTRACTION_CONTEXT_REQUIRED")
-            self._validate_context_graph(packet, context_graph)
-            system_prompt, user_data, recomputed_id = self._context_wire(
-                packet, text, packet_sha, context_graph, display_catalog
-            )
-            if recomputed_id != request_id:
-                raise ValueError("EXTRACTION_RECEIPT_EXISTS")
-            user_json = json.dumps(
-                user_data, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-            )
-            expected_body = self._context_request_body(system_prompt, user_json, request_id)
-            request_path = directory / "request.json"
-            if not request_path.is_file() or request_path.read_text(
-                encoding="utf-8"
-            ) != canonical_json(expected_body):
-                raise ValueError("EXTRACTION_RECEIPT_EXISTS")
-        elif context_graph is not None and not self._display_text_profile:
-            raise ValueError("EXTRACTION_CONTEXT_UNEXPECTED")
-        failure_path = directory / "failure.json"
-        if failure_path.is_file():
-            stored = json.loads(failure_path.read_text(encoding="utf-8"))
-            if stored.get("packet_sha256") != packet_sha or (
-                (self._context or self._source_ids) and stored.get("request_id") != request_id
-            ):
-                raise ValueError("EXTRACTION_RECEIPT_EXISTS")
-            error = stored.get("error")
-            from proofops.application.provider_resilience import ISOLATED_CODES
-
-            if getattr(self._probe, "provider_resilience", None) and error in ISOLATED_CODES:
-                raise ExtractionOutputError(error)
-            if error in {"UPSTAGE_REQUEST_FAILED", "UPSTREAM_UNAVAILABLE"}:
-                # A fresh network failure still stops its batch in _fail. On an
-                # explicit continuation, retain this source as failed/unknown
-                # without repeating its possibly billed call or halting every
-                # later source. Budget/auth/integrity stops remain unchanged.
-                raise ExtractionOutputError(
-                    "PREVIOUS_TRANSPORT_FAILED",
-                    failure_code=(
-                        stored.get("reason_code") or error if self._failure_diagnostics else None
-                    ),
-                )
-            if error in UPSTAGE_TRANSPORT_STOP_CODES:
-                if self._recorded_truncation(directory, request_id, error):
-                    raise ExtractionOutputError("MODEL_OUTPUT_TRUNCATED")
-                raise ValueError(error)
-            raise ExtractionOutputError(
-                error or "MODEL_SPAN_OR_SCHEMA_INVALID",
-                failure_code=(stored.get("reason_code") if self._failure_diagnostics else None),
-            )
-
-        # Missing raw cannot claim model result
-        raw_path = directory / "raw_response.json"
-        if not raw_path.is_file():
-            raise ValueError("EXTRACTION_RECEIPT_UNSETTLED")
-
-        # Validate packet and request identity in both raw/result paths
-        stored_packet = directory / "packet.json"
-        if not stored_packet.is_file() or stored_packet.read_text(
-            encoding="utf-8"
-        ) != canonical_json(packet):
-            raise ValueError("EXTRACTION_RECEIPT_EXISTS")
-
-        request_path = directory / "request.json"
-        if not request_path.is_file():
-            raise ValueError("EXTRACTION_RECEIPT_UNSETTLED")
-        try:
-            stored_req = json.loads(request_path.read_text(encoding="utf-8"))
-            if stored_req.get("request_id") != request_id:
-                raise ValueError("EXTRACTION_RECEIPT_EXISTS")
-        except (ValueError, UnicodeDecodeError):
-            raise ValueError("EXTRACTION_RECEIPT_UNSETTLED")
-
-        try:
-            metadata = json.loads(raw_path.read_text(encoding="utf-8"))
-        except (ValueError, UnicodeDecodeError):
-            raise ValueError("EXTRACTION_RECEIPT_UNSETTLED")
-        if not isinstance(metadata, dict) or not isinstance(metadata.get("content"), str):
-            raise ValueError("EXTRACTION_RECEIPT_UNSETTLED")
-
-        # Reconstruct and validate spans strictly from the raw model response
-        text = self._packet_text(packet)
-        try:
-            payload = json.loads(metadata["content"])
-            spans, rejected = self._resolve_payload(
-                payload,
-                text,
-                packet["untrusted_document_data"]["source_id"],
-                packet.get("display_text"),
-                packet=packet,
-                context_graph=context_graph,
-            )
-        except (ValueError, TypeError, KeyError, json.JSONDecodeError):
-            raise ExtractionOutputError("MODEL_SPAN_OR_SCHEMA_INVALID") from None
-
-        resolved = [
-            {
-                "char_start": span.char_start,
-                "char_end": span.char_end,
-                "quote": span.quote,
-                "kind": span.kind,
-                "reason": span.reason,
-                "topic_ids": list(span.topic_ids),
-            }
-            for span in spans
-        ]
-
-        result_path = directory / "result.json"
-        if result_path.is_file():
-            try:
-                stored_result = json.loads(result_path.read_text(encoding="utf-8"))
-            except (ValueError, UnicodeDecodeError):
-                raise ValueError("EXTRACTION_RECEIPT_EXISTS")
-            if (
-                stored_result.get("request_id") != request_id
-                or stored_result.get("packet_sha256") != packet_sha
-                or stored_result.get("profile") != asdict(self._profile)
-                or (
-                    self._position_order
-                    and stored_result.get("context_ordering") != self._context_order_policy()
-                )
-                or (
-                    self._j3
-                    and any(
-                        stored_result.get(key) != rejected.get(key)
-                        for key in (
-                            ("j7_refinements", "j7_refinement_rejected")
-                            if self._j7
-                            else ("j3_refinements", "j3_refinement_rejected")
-                        )
-                    )
-                )
-                or not isinstance(stored_result.get("spans"), list)
-                or stored_result.get("spans") != resolved
-            ):
-                raise ValueError("EXTRACTION_RECEIPT_EXISTS")
-            return {"spans": resolved}
-
-        try:
-            self._write(
-                directory / "result.json",
-                canonical_json(
-                    {
-                        "request_id": request_id,
-                        "packet_sha256": packet_sha,
-                        "profile": asdict(self._profile),
-                        "provider_model": metadata.get("provider_model"),
-                        "response_sha256": metadata.get("response_sha256"),
-                        "content_sha256": canonical_hash(metadata["content"]),
-                        "spans": resolved,
-                        **rejected,
-                        **(
-                            {"context_ordering": self._context_order_policy()}
-                            if self._position_order
-                            else {}
-                        ),
-                    }
-                ),
-            )
-        except FileExistsError:
-            pass
-        return {"spans": resolved}
-
     # Keep the public method surface while sharing one pure wire/resolver implementation.
     _require_graph = wire._require_graph
     _resolve_payload = wire._resolve_payload
@@ -1084,204 +763,8 @@ class UpstageClaimExtractor:
     _quotes = staticmethod(wire._quotes)
     _locate = staticmethod(wire._locate)
 
-    @staticmethod
-    def _write(path: Path, content: str) -> None:
-        with path.open("x", encoding="utf-8") as stream:
-            stream.write(content)
-        path.chmod(0o400)
-
-    def _fail(
-        self,
-        directory: Path,
-        packet_sha: str,
-        request_id: str,
-        code: str,
-        *,
-        transport: bool = False,
-    ) -> NoReturn:
-        if transport:
-            error = code if code in UPSTAGE_TRANSPORT_STOP_CODES else "UPSTREAM_UNAVAILABLE"
-            from proofops.application.provider_resilience import ISOLATED_CODES
-
-            if getattr(self._probe, "provider_resilience", None) and code in ISOLATED_CODES:
-                error = code
-        else:
-            error = "MODEL_SPAN_OR_SCHEMA_INVALID"
-        self._write(
-            directory / "failure.json",
-            canonical_json(
-                {"request_id": request_id, "packet_sha256": packet_sha, "error": error}
-                | (
-                    {"reason_code": code}
-                    if (self._located_table_context or self._failure_diagnostics)
-                    and not transport
-                    and code
-                    in {
-                        "MODEL_JSON_INVALID",
-                        "MODEL_SCHEMA_INVALID",
-                        "MODEL_SELECTOR_INVALID",
-                        "MODEL_SPAN_INVALID",
-                    }
-                    else {}
-                )
-            ),
-        )
-        if transport:
-            if getattr(self._probe, "provider_resilience", None) and code in ISOLATED_CODES:
-                raise ExtractionOutputError(
-                    error, failure_code=code if self._failure_diagnostics else None
-                )
-            if self._recorded_truncation(directory, request_id, error):
-                raise ExtractionOutputError(
-                    "MODEL_OUTPUT_TRUNCATED",
-                    failure_code=code if self._failure_diagnostics else None,
-                )
-            raise ValueError(error)
-        raise ExtractionOutputError(error, failure_code=code if self._failure_diagnostics else None)
-
-    def _recorded_truncation(self, directory: Path, request_id: str, error: str) -> bool:
-        if error != "UPSTAGE_RECEIPT_INVALID_RESERVATION_RETAINED":
-            return False
-        check = getattr(self._probe, "is_recorded_output_truncation", None)
-        if check is None:
-            return False
-        try:
-            request = json.loads((directory / "request.json").read_text())
-            return check(request, request_id=request_id) is True
-        except (OSError, ValueError, TypeError):
-            return False
-
-
-class GraphBoundExtractor:
-    """Thin ClaimExtractorPort adapter binding one graph to a context extractor.
-
-    Discovery loops (``discover_atomic_claims``) call ``extract(packet)`` with
-    no room for per-call context, so the runner wraps its context-mode
-    extractor with the run's own graph once. Only a context-mode
-    ``UpstageClaimExtractor`` can be wrapped — anything else fails closed at
-    construction, never silently at call time. Profile and usage surface are
-    the inner extractor's own.
-    """
-
-    def __init__(
-        self,
-        inner: UpstageClaimExtractor,
-        graph: CanonicalDocumentGraph,
-        source: bytes | None = None,
-        *,
-        display_prefetch_workers: int = 1,
-        rb1: InputIsolation | None = None,
-    ) -> None:
-        if not (
-            getattr(inner, "_context", False) or getattr(inner, "_display_text_profile", None)
-        ) or not callable(getattr(inner, "extract", None)):
-            raise ValueError("UPSTAGE_CONTEXT_EXTRACTOR_REQUIRED")
-        if type(display_prefetch_workers) is not int or not 1 <= display_prefetch_workers <= 4:
-            raise ValueError("DISPLAY_PREFETCH_WORKERS_INVALID")
-        self._display_prefetch_workers = display_prefetch_workers
-        self._rb1 = rb1
-        self._inner = inner
-        self._graph = graph
-        self.native_figure_receipt = None
-        if getattr(inner, "_qc_native_figures", False):
-            if source is None:
-                raise ValueError("QC_NATIVE_FIGURE_SOURCE_REQUIRED")
-            from proofops.adapters.local.h1_native_title import native_figure_candidates
-
-            self._graph, self.native_figure_receipt = native_figure_candidates(graph, source)
-            graph = self._graph
-        self._display_catalog: DisplayCatalog | None = None
-        self._h1_title_catalog: TitleCatalog | None = None
-        if getattr(inner, "_h1", False) and source is not None:
-            from proofops.adapters.local.h1_native_title import NativeTitleCatalog
-
-            self._h1_title_catalog = NativeTitleCatalog(graph, source)
-        if getattr(inner, "_display_text_profile", None) and source is not None:
-            from proofops.adapters.local.glyph_display_text import GlyphDisplayCatalog
-
-            self._display_catalog = GlyphDisplayCatalog(graph, source)
-
-    def prefetch(self, packets: list[dict[str, Any]]) -> None:
-        if self._display_catalog is None or self._display_prefetch_workers == 1:
-            return
-        blocks = {b.source_id: b for b in self._graph.blocks}
-        selected: set[str] = set()
-        for packet in packets:
-            # Keep packet and focal identity checks before the optional CPU work.
-            self._inner._packet_text(packet)
-            self._inner._validate_context_graph(packet, self._graph)
-            sid = packet["untrusted_document_data"]["source_id"]
-            if self._rb1 is not None and sid in self._rb1.failures:
-                continue
-            if self._inner._context:
-                try:
-                    context, _ = self._inner._context_for(packet, self._graph)
-                except ValueError as error:
-                    if self._rb1 is None or not self._rb1.capture(sid, error):
-                        raise
-                    continue
-                selected.update(b["source_id"] for b in context)
-            selected.add(sid)
-        pages = {
-            blocks[sid].page_num
-            for sid in selected
-            if blocks[sid].winner is not None
-            and blocks[sid].bbox is not None
-            and " " in blocks[sid].raw_text
-        }
-        self._display_catalog.prefetch_pages(pages, max_workers=self._display_prefetch_workers)
-
-    @property
-    def graph(self) -> CanonicalDocumentGraph:
-        """Use this derived graph for discovery under the explicit QC profile."""
-        return self._graph
-
-    @property
-    def profile(self) -> ExtractionProfile:  # ClaimExtractorPort: frozen discovery reads this.
-        return self._inner.profile
-
-    def extract(self, packet: dict[str, Any]) -> dict[str, Any]:
-        if self._rb1 is not None and self._rb1.active:
-            sid = packet["untrusted_document_data"]["source_id"]
-            if sid in self._rb1.failures:
-                self._inner._packet_text(packet)
-                self._inner._validate_context_graph(packet, self._graph)
-                self._rb1.check(sid)
-        if getattr(self._inner, "_display_text_profile", None) and self._display_catalog is None:
-            raise ExtractionOutputError("DISPLAY_SOURCE_UNAVAILABLE")
-        try:
-            return self._inner.extract(
-                packet,
-                context_graph=self._graph,
-                **cast(
-                    TitleCatalogOption,
-                    (
-                        {"h1_title_catalog": self._h1_title_catalog}
-                        if self._h1_title_catalog is not None
-                        else {}
-                    ),
-                ),
-                **cast(
-                    DisplayCatalogOption,
-                    (
-                        {"display_catalog": self._display_catalog}
-                        if self._display_catalog is not None
-                        else {}
-                    ),
-                ),
-            )
-        except ValueError as error:
-            if self._rb1 is not None and self._rb1.capture(
-                packet["untrusted_document_data"]["source_id"], error
-            ):
-                self._rb1.check(packet["untrusted_document_data"]["source_id"])
-            if (
-                getattr(self._inner, "_i5_tables", False)
-                and getattr(self._inner, "_j8", False)
-                and packet.get("untrusted_document_data", {}).get("kind") == "table"
-                and str(error) in {"J8_GRID_MISSING", "J8_GRID_INVALID", "J8_GRID_OVERLAP"}
-            ):
-                # ClaimDiscovery records a failed source and an unknown exclusion;
-                # no empty/non-claim result or invented cell/evidence is admitted.
-                raise ExtractionOutputError("TABLE_GRID_UNREADABLE") from None
-            raise
+    # Preserve the historical hooks used by callers and receipt replay.
+    _replay_receipt = receipts._replay_receipt
+    _write = staticmethod(receipts._write)
+    _fail = receipts._fail
+    _recorded_truncation = receipts._recorded_truncation
