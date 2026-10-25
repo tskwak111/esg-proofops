@@ -6,38 +6,42 @@ file, user-supplied serialization or persistent cache is ever deserialized.
 
 from __future__ import annotations
 
-import os
+import os as os
 import pickle
-import sys
+import sys as sys
 from collections import OrderedDict
 from collections.abc import Callable
 from concurrent.futures import Future
-from dataclasses import asdict, replace
-from hashlib import sha256
+from dataclasses import asdict as asdict
+from dataclasses import replace
+from hashlib import sha256 as sha256
 from threading import Lock
 from typing import TYPE_CHECKING, TypedDict, cast, overload
 from zlib import compress, decompress
 
-from proofops.application.analysis_profile import (
-    S3_VERIFIED_READ_V13_POLICY,
-    VERIFIED_READ_V2_POLICY,
-    VERIFIED_READ_V3_POLICY,
-    VERIFIED_READ_V4_POLICY,
-    VERIFIED_READ_V5_POLICY,
-    VERIFIED_READ_V6_POLICY,
-    VERIFIED_READ_V7_POLICY,
-    VERIFIED_READ_V8_POLICY,
-    VERIFIED_READ_V9_POLICY,
-    VERIFIED_READ_V10_POLICY,
-    VERIFIED_READ_V11_POLICY,
-    VERIFIED_READ_V12_POLICY,
+from proofops.adapters.local.verified_read_cache_keys import (
+    _execution_policy as _execution_policy,
 )
-from proofops.application.analysis_profile import VERIFIED_READ_POLICY as POLICY
-from proofops.domain.provenance import canonical_hash
+from proofops.adapters.local.verified_read_cache_keys import (
+    _fresh_key as _fresh_key,
+)
+from proofops.adapters.local.verified_read_cache_keys import (
+    _parse_enabled as _parse_enabled,
+)
+from proofops.adapters.local.verified_read_cache_keys import (
+    _parse_key as _parse_key,
+)
+from proofops.adapters.local.verified_read_cache_keys import (
+    _parse_projection_pinned as _parse_projection_pinned,
+)
+from proofops.adapters.local.verified_read_cache_keys import (
+    fresh_execution_enabled as fresh_execution_enabled,
+)
+from proofops.application import analysis_profile as _profiles
+from proofops.domain.provenance import canonical_hash as canonical_hash
 from proofops.domain.rulepacks import canonical_json
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
     from types import ModuleType
     from typing import Any, Unpack
 
@@ -55,166 +59,25 @@ class ParseReplayArgs(TypedDict):
     tenant_id: str
 
 
+# Keep policy objects on the original module for callers and runtime patch hooks.
+POLICY = _profiles.VERIFIED_READ_POLICY
+S3_VERIFIED_READ_V13_POLICY = _profiles.S3_VERIFIED_READ_V13_POLICY
+VERIFIED_READ_V2_POLICY = _profiles.VERIFIED_READ_V2_POLICY
+VERIFIED_READ_V3_POLICY = _profiles.VERIFIED_READ_V3_POLICY
+VERIFIED_READ_V4_POLICY = _profiles.VERIFIED_READ_V4_POLICY
+VERIFIED_READ_V5_POLICY = _profiles.VERIFIED_READ_V5_POLICY
+VERIFIED_READ_V6_POLICY = _profiles.VERIFIED_READ_V6_POLICY
+VERIFIED_READ_V7_POLICY = _profiles.VERIFIED_READ_V7_POLICY
+VERIFIED_READ_V8_POLICY = _profiles.VERIFIED_READ_V8_POLICY
+VERIFIED_READ_V9_POLICY = _profiles.VERIFIED_READ_V9_POLICY
+VERIFIED_READ_V10_POLICY = _profiles.VERIFIED_READ_V10_POLICY
+VERIFIED_READ_V11_POLICY = _profiles.VERIFIED_READ_V11_POLICY
+VERIFIED_READ_V12_POLICY = _profiles.VERIFIED_READ_V12_POLICY
+
 _results: OrderedDict[str | None, bytes] = OrderedDict()
 _inflight: dict[str, Future[bytes]] = {}
 _lock = Lock()
 _OCR_REPLAY_TAIL_SHA256 = "8d4b5caddb377ca1e9dc10998588449b85415aff6e4910372774d355db643102"
-
-
-def fresh_execution_enabled() -> bool:
-    return os.environ.get("PROOFOPS_VERIFIED_READ_CACHE") in (
-        VERIFIED_READ_V2_POLICY["profile"],
-        VERIFIED_READ_V3_POLICY["profile"],
-        VERIFIED_READ_V4_POLICY["profile"],
-        VERIFIED_READ_V5_POLICY["profile"],
-        VERIFIED_READ_V6_POLICY["profile"],
-        VERIFIED_READ_V7_POLICY["profile"],
-        VERIFIED_READ_V8_POLICY["profile"],
-        VERIFIED_READ_V9_POLICY["profile"],
-        VERIFIED_READ_V10_POLICY["profile"],
-        VERIFIED_READ_V11_POLICY["profile"],
-        VERIFIED_READ_V12_POLICY["profile"],
-        S3_VERIFIED_READ_V13_POLICY["profile"],
-    )
-
-
-def _execution_policy() -> Mapping[str, Any] | None:
-    for policy in (
-        POLICY,
-        VERIFIED_READ_V2_POLICY,
-        VERIFIED_READ_V3_POLICY,
-        VERIFIED_READ_V4_POLICY,
-        VERIFIED_READ_V5_POLICY,
-        VERIFIED_READ_V6_POLICY,
-        VERIFIED_READ_V7_POLICY,
-        VERIFIED_READ_V8_POLICY,
-        VERIFIED_READ_V9_POLICY,
-        VERIFIED_READ_V10_POLICY,
-        VERIFIED_READ_V11_POLICY,
-        VERIFIED_READ_V12_POLICY,
-        S3_VERIFIED_READ_V13_POLICY,
-    ):
-        if os.environ.get("PROOFOPS_VERIFIED_READ_CACHE") == policy["profile"]:
-            return policy
-    return None
-
-
-def _parse_enabled() -> bool:
-    return _execution_policy() in (
-        VERIFIED_READ_V3_POLICY,
-        VERIFIED_READ_V4_POLICY,
-        VERIFIED_READ_V5_POLICY,
-        VERIFIED_READ_V6_POLICY,
-        VERIFIED_READ_V7_POLICY,
-        VERIFIED_READ_V8_POLICY,
-        VERIFIED_READ_V9_POLICY,
-        VERIFIED_READ_V10_POLICY,
-        VERIFIED_READ_V11_POLICY,
-        VERIFIED_READ_V12_POLICY,
-        S3_VERIFIED_READ_V13_POLICY,
-    )
-
-
-def _parse_projection_pinned(reader_name: str, policy: dict[str, Any]) -> bool:
-    from pathlib import Path
-
-    from proofops.adapters.local import evidence_source_ocr_v1 as ev1
-    from proofops.adapters.local import evidence_source_verification_v1 as base
-    from proofops.adapters.local import upstage_ocr_profile
-    from proofops.adapters.local.claim_source_policies import page_ocr_profile as _page_ocr_profile
-
-    page_ocr_profile: Callable[..., ModuleType] = _page_ocr_profile
-
-    if not _parse_enabled():
-        return False
-    if _execution_policy() in (
-        VERIFIED_READ_V10_POLICY,
-        VERIFIED_READ_V11_POLICY,
-        VERIFIED_READ_V12_POLICY,
-        S3_VERIFIED_READ_V13_POLICY,
-    ):
-        try:
-            if reader_name.startswith("native:"):
-                page_ocr_profile(policy["mode"], policy=policy, native=True)
-                return True
-            from proofops.adapters.local.evidence_source_policies import (
-                evidence_source_reader as _evidence_source_reader,
-            )
-
-            evidence_source_reader: Callable[..., ModuleType] = _evidence_source_reader
-
-            return evidence_source_reader(policy).__name__ == reader_name
-        except (ValueError, KeyError, TypeError):
-            return False
-    if _execution_policy() == VERIFIED_READ_V9_POLICY:
-        if reader_name == "native:upstage-ocr-page-v17":
-            reader = page_ocr_profile("upstage-ocr-page-v17", policy=policy, native=True)
-            return (
-                policy == reader.native_policy()
-                and sha256(Path(cast("str", reader.__file__)).read_bytes()).hexdigest()
-                == VERIFIED_READ_V9_POLICY["v17_replay_sha256"]
-            )
-        from proofops.adapters.local import evidence_source_hx3
-
-        if reader_name == evidence_source_hx3.__name__:
-            return (
-                policy == evidence_source_hx3.policy()
-                and sha256(Path(base.__file__).read_bytes()).hexdigest()
-                == "d006dd1f3534080ad947b28fbfbedd57e97580b67ea3bb397dbb403ce01b01f6"
-            )
-    if reader_name == "native:upstage-ocr-page-v6":
-        return (
-            policy == page_ocr_profile("upstage-ocr-page-v6").native_policy()
-            and sha256(Path(upstage_ocr_profile.__file__).read_bytes()).hexdigest()
-            == _OCR_REPLAY_TAIL_SHA256
-        )
-    return (
-        reader_name == ev1.__name__
-        and policy == ev1.policy()
-        and sha256(Path(base.__file__).read_bytes()).hexdigest()
-        == "d006dd1f3534080ad947b28fbfbedd57e97580b67ea3bb397dbb403ce01b01f6"
-        and sha256(Path(ev1.__file__).read_bytes()).hexdigest()
-        == "542c02413931bea2cb20e697664b5dcd504bc411b4dbcfcc1b9b4210695ade56"
-    )
-
-
-def _parse_key(
-    *,
-    reader_name: str,
-    policy: dict[str, Any],
-    receipt: dict[str, Any],
-    graph: CanonicalDocumentGraph,
-    source: bytes,
-    tenant_id: str,
-) -> str | None:
-    from proofops.adapters.local.local_raster_reader import runtime_policy
-    from proofops.adapters.local.receipt_environment_compat import read_profile as _read_profile
-
-    read_profile: Callable[..., str] = _read_profile
-
-    if _execution_policy() == S3_VERIFIED_READ_V13_POLICY and receipt.get(
-        "table_acquisition_holds"
-    ):
-        return None
-    if not _parse_projection_pinned(reader_name, policy) or _transient(receipt):
-        return None
-    if receipt.get("reader_policy" if reader_name.startswith("native:") else "policy") != policy:
-        return None
-    return "parse:" + canonical_hash(
-        dict(
-            reader=reader_name,
-            policy=policy,
-            receipt=receipt,
-            graph=asdict(graph),
-            source_sha256=sha256(source).hexdigest(),
-            tenant_id=tenant_id,
-            runtime=runtime_policy(),
-            read_profile=read_profile(),
-            platform=sys.platform,
-            toolchain=os.environ.get("DEVELOPER_DIR"),
-            execution=_execution_policy(),
-        )
-    )
 
 
 def remember_parse_attestation(**args: Unpack[ParseReplayArgs]) -> None:
@@ -340,162 +203,6 @@ def _retain(key: str, encoded: bytes) -> None:
             map(len, _results.values())
         ) > cast("int", POLICY["max_bytes"]):
             _results.popitem(last=False)
-
-
-def _fresh_key(
-    reader: ModuleType,
-    policy: dict[str, Any],
-    receipt: dict[str, Any],
-    graph: CanonicalDocumentGraph,
-    source: bytes,
-    refs: tuple[SourceRef, ...],
-    tenant_id: str,
-) -> str | None:
-    from pathlib import Path
-
-    from proofops.adapters.local import upstage_ocr_profile
-    from proofops.adapters.local.claim_source_policies import page_ocr_profile as _page_ocr_profile
-
-    page_ocr_profile: Callable[..., ModuleType] = _page_ocr_profile
-    from proofops.adapters.local.local_raster_reader import runtime_policy
-    from proofops.adapters.local.receipt_environment_compat import read_profile as _read_profile
-
-    read_profile: Callable[..., str] = _read_profile
-
-    profile = policy.get("profile")
-    registered = False
-    if _execution_policy() in (
-        VERIFIED_READ_V10_POLICY,
-        VERIFIED_READ_V11_POLICY,
-        VERIFIED_READ_V12_POLICY,
-        S3_VERIFIED_READ_V13_POLICY,
-    ):
-        try:
-            registered = reader is page_ocr_profile(profile, policy=policy)
-        except ValueError:
-            pass
-
-    pinned_v9 = (
-        _execution_policy()
-        in (
-            VERIFIED_READ_V4_POLICY,
-            VERIFIED_READ_V5_POLICY,
-            VERIFIED_READ_V6_POLICY,
-            VERIFIED_READ_V7_POLICY,
-            VERIFIED_READ_V8_POLICY,
-            VERIFIED_READ_V9_POLICY,
-            VERIFIED_READ_V10_POLICY,
-        )
-        and profile == "upstage-ocr-page-v9"
-        and reader is page_ocr_profile(profile)
-        and sha256(Path(cast("str", reader.__file__)).read_bytes()).hexdigest()
-        == VERIFIED_READ_V4_POLICY["v9_replay_sha256"]
-        and receipt.get("schema") == "claim_source_pb4_extension_v1"
-    )
-    pinned_v6 = (
-        profile == "upstage-ocr-page-v6"
-        and reader is page_ocr_profile(profile)
-        and sha256(Path(upstage_ocr_profile.__file__).read_bytes()).hexdigest()
-        == _OCR_REPLAY_TAIL_SHA256
-    )
-    pinned_v10 = (
-        _execution_policy()
-        in (
-            VERIFIED_READ_V5_POLICY,
-            VERIFIED_READ_V6_POLICY,
-            VERIFIED_READ_V7_POLICY,
-            VERIFIED_READ_V8_POLICY,
-            VERIFIED_READ_V9_POLICY,
-            VERIFIED_READ_V10_POLICY,
-        )
-        and profile == "upstage-ocr-page-v10"
-        and reader is page_ocr_profile(profile)
-        and sha256(Path(cast("str", reader.__file__)).read_bytes()).hexdigest()
-        == VERIFIED_READ_V5_POLICY["v10_replay_sha256"]
-        and receipt.get("schema") == "claim_source_pa9_extension_v1"
-    )
-    pinned_v11 = (
-        _execution_policy()
-        in (VERIFIED_READ_V6_POLICY, VERIFIED_READ_V7_POLICY, VERIFIED_READ_V8_POLICY)
-        and profile == "upstage-ocr-page-v11"
-        and reader is page_ocr_profile(profile)
-        and sha256(Path(cast("str", reader.__file__)).read_bytes()).hexdigest()
-        == VERIFIED_READ_V6_POLICY["v11_replay_sha256"]
-        and receipt.get("schema") == "claim_source_k3_extension_v1"
-    )
-    pinned_v12 = (
-        _execution_policy()
-        in (VERIFIED_READ_V7_POLICY, VERIFIED_READ_V8_POLICY, VERIFIED_READ_V9_POLICY)
-        and profile == "upstage-ocr-page-v12"
-        and reader is page_ocr_profile(profile)
-        and sha256(Path(cast("str", reader.__file__)).read_bytes()).hexdigest()
-        == VERIFIED_READ_V7_POLICY["v12_replay_sha256"]
-        and receipt.get("schema") == "claim_source_h1_extension_v1"
-    )
-    pinned_v13 = (
-        _execution_policy() == VERIFIED_READ_V8_POLICY
-        and profile == "upstage-ocr-page-v13"
-        and reader is page_ocr_profile(profile)
-        and sha256(Path(cast("str", reader.__file__)).read_bytes()).hexdigest()
-        == VERIFIED_READ_V8_POLICY["v13_replay_sha256"]
-        and receipt.get("schema") == "claim_source_k7_extension_v1"
-    )
-    pinned_v17 = (
-        _execution_policy() == VERIFIED_READ_V9_POLICY
-        and profile == "upstage-ocr-page-v17"
-        and reader is page_ocr_profile(profile, policy=policy)
-        and sha256(Path(cast("str", reader.__file__)).read_bytes()).hexdigest()
-        == VERIFIED_READ_V9_POLICY["v17_replay_sha256"]
-        and receipt.get("schema") == "claim_source_k7_extension_v1"
-    )
-    if (registered or pinned_v13 or pinned_v17) and (
-        receipt.get("tenant_id") != tenant_id
-        or graph.tenant_id != tenant_id
-        or receipt.get("document_version_id") != graph.document_version_id
-        or receipt.get("parse_manifest_id") != graph.parse_manifest_id
-        or receipt.get("source_sha256") != sha256(source).hexdigest()
-        or graph.source_sha256 != sha256(source).hexdigest()
-        or receipt.get("graph_sha256") != canonical_hash(asdict(graph))
-        or receipt.get("artifact_sha256")
-        != canonical_hash({k: v for k, v in receipt.items() if k != "artifact_sha256"})
-    ):
-        return None
-    if (
-        not fresh_execution_enabled()
-        or not (
-            registered
-            or pinned_v6
-            or pinned_v9
-            or pinned_v10
-            or pinned_v11
-            or pinned_v12
-            or pinned_v13
-            or pinned_v17
-        )
-        or reader.claim_source_policy() != policy
-        or receipt.get("policy") != policy
-        or not receipt.get("run_id")
-        or _transient(receipt)
-        or canonical_hash([r["ref"] for r in receipt.get("records", [])])
-        != canonical_hash([asdict(r) for r in refs])
-    ):
-        return None
-    return "fresh:" + canonical_hash(
-        dict(
-            reader=reader.__name__,
-            tenant_id=tenant_id,
-            source_sha256=sha256(source).hexdigest(),
-            graph=asdict(graph),
-            receipt=receipt,
-            refs=[asdict(r) for r in refs],
-            policy=policy,
-            runtime=runtime_policy(),
-            read_profile=read_profile(),
-            platform=sys.platform,
-            toolchain=os.environ.get("DEVELOPER_DIR"),
-            execution=_execution_policy(),
-        )
-    )
 
 
 def remember_fresh_attestation(
