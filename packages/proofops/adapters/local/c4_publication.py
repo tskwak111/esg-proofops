@@ -203,10 +203,11 @@ class LocalC4Publication:
             {k: v for k, v in raw["original_packet"].items() if k != "packet_sha256"}
         )
         pack = RulePackSnapshot(**frozen["rulepack"])
-        # Legacy null receipts still fail at to_dict; preserve that failure (S_INT report).
-        receipt = _fact_assembly_reader(raw["fact_assembly_receipt"])
+        receipt = _fact_assembly_reader(raw.get("fact_assembly_receipt"))
+        if receipt is None:
+            raise ValueError("C4_PUBLICATION_RECEIPT_REQUIRED")
         consensus, decision = publication_values(
-            receipt.to_dict(),  # type: ignore[union-attr]  # Null legacy receipt still fails here.
+            receipt.to_dict(),
             rulepack=pack,
             tag_revision=raw["tag_revision"],
         )

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from proofops.adapters.local.catalog_pages import initialize, page
 from proofops.adapters.local.run_artifacts import load_run_graph
@@ -164,7 +164,7 @@ class LocalAnalysisStore:
             else None
         )
 
-        def _claim_context(claim: Claim) -> ClaimContext | None:
+        def _claim_context(claim: Claim) -> ClaimContext:
             try:
                 review_inputs = (
                     self.tags.load_inputs(tenant_id, run_id, claim.claim_id)
@@ -174,14 +174,14 @@ class LocalAnalysisStore:
             except Exception:
                 review_inputs = None
             try:
-                return claim_context_from_review_inputs(
+                context = claim_context_from_review_inputs(
                     review_inputs,
                     tenant_id=claim.tenant_id,
                     document_version_id=claim.document_version_id,
                     claim_id=claim.claim_id,
                 )
             except Exception:
-                return ClaimContext(
+                context = ClaimContext(
                     tenant_id,
                     claim.document_version_id,
                     claim.claim_id,
@@ -190,12 +190,11 @@ class LocalAnalysisStore:
                     (),
                     (),
                 )
+            if context is None:
+                raise ValueError("invalid assurance claim identity")
+            return context
 
-        # Invalid claim identity may yield None; retain the existing matcher failure.
-        matches = [
-            match_assurance(statement, cast(ClaimContext, _claim_context(claim))).to_dict()
-            for claim in claims
-        ]
+        matches = [match_assurance(statement, _claim_context(claim)).to_dict() for claim in claims]
         return self._first_page(
             tenant_id,
             run_id,
