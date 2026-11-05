@@ -5,12 +5,20 @@ source replay, in-flight work and publication; they never extend the hard cap.
 No saved result or environment flag can enable this policy on a historical run.
 """
 
+from __future__ import annotations
+
 import math
 import os
 import time
+from collections.abc import Callable, Mapping
 from threading import Lock
+from typing import TYPE_CHECKING, Any, cast
 
-POLICY = dict(
+if TYPE_CHECKING:
+    from proofops.application.claims import Claim
+
+
+POLICY: dict[str, Any] = dict(
     profile="rb3_deadline_v1",
     hard_cap_seconds=1800,
     extract_reserve_seconds=1000,
@@ -29,29 +37,35 @@ DEADLINE_ENV = "PROOFOPS_RB3_HARD_DEADLINE"
 
 
 class Deadline:
-    def __init__(self, hard_deadline, *, policy=POLICY, clock=time.monotonic):
+    def __init__(
+        self,
+        hard_deadline: float,
+        *,
+        policy: Mapping[str, Any] = POLICY,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         configured(dict(rb3_deadline=policy))
         if not math.isfinite(hard_deadline) or hard_deadline < 0:
             raise ValueError("RB3_DEADLINE_INVALID")
         self.clock = clock
         self.policy = dict(policy)
         self.hard_deadline = min(hard_deadline, clock() + self.policy["hard_cap_seconds"])
-        self.stopped = set()
+        self.stopped: set[str] = set()
         self.lock = Lock()
 
-    def admit(self, stage):
+    def admit(self, stage: str) -> bool:
         reserve = self.policy[stage + "_reserve_seconds"]
         with self.lock:
             if self.clock() >= self.hard_deadline - reserve:
                 self.stopped.add(stage)
             return stage not in self.stopped
 
-    def summary(self):
+    def summary(self) -> dict[str, Any]:
         with self.lock:
             return dict(policy=dict(self.policy), stopped_stages=sorted(self.stopped))
 
 
-def configured(policy):
+def configured(policy: Mapping[str, Any]) -> bool:
     if "rb3_deadline" not in policy:
         return False
     if policy["rb3_deadline"] not in (POLICY, POLICY_V2):
@@ -59,7 +73,7 @@ def configured(policy):
     return True
 
 
-def from_parent(policy):
+def from_parent(policy: Mapping[str, Any]) -> Deadline | None:
     if not configured(policy):
         return None
     try:
@@ -68,7 +82,7 @@ def from_parent(policy):
         raise ValueError("RB3_DEADLINE_REQUIRED") from None
 
 
-def admit(runner, snapshot, stage):
+def admit(runner: object, snapshot: Mapping[str, Any], stage: str) -> bool:
     if not configured(snapshot.get("analysis_profile_policy", {})):
         return True
     budget = getattr(runner, "rb3_deadline", None)
@@ -79,7 +93,7 @@ def admit(runner, snapshot, stage):
     return budget.admit(stage)
 
 
-def held_claim(claim):
+def held_claim(claim: Claim) -> dict[str, Any]:
     from proofops.application.tagging.unattended import empty_provisional, source_status
 
     return dict(
@@ -88,11 +102,11 @@ def held_claim(claim):
         stage="preliminary",
         reason="TIME_BUDGET",
         reason_display="처리 시간 한도로 미분석 · 판정 보류",
-        source_status=source_status(claim),
+        source_status=cast("Callable[..., dict[str, Any]]", source_status)(claim),
         tag_runs=[],
         decision=None,
         review_inputs=None,
-        provisional_grade=empty_provisional("TIME_BUDGET")
+        provisional_grade=cast("Callable[..., dict[str, Any]]", empty_provisional)("TIME_BUDGET")
         | dict(
             display_type="hold",
             display="처리 시간 한도 · 판정 보류",

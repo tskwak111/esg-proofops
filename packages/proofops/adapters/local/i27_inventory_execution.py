@@ -1,16 +1,20 @@
 """Request-local SC1 failure attribution, shared only inside one hosted run."""
 
+from __future__ import annotations
+
 import re
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from threading import Lock
+from typing import Any
 
 from proofops.application.i27_inventory import POLICY
 
-current = ContextVar("i27_sc1_request", default=None)
+current: ContextVar[dict[str, Any] | None] = ContextVar("i27_sc1_request", default=None)
 
 
-def transient_code(error):
+def transient_code(error: BaseException) -> str | None:
     if getattr(error, "provider_error_code", None) == "billing_not_active":
         return None
     if re.fullmatch(r"OPENAI_HTTP_5\d\d", str(error)):
@@ -19,16 +23,16 @@ def transient_code(error):
 
 
 class Failures:
-    def __init__(self):
+    def __init__(self) -> None:
         self.lock = Lock()
-        self.requests = {}
+        self.requests: dict[str, dict[str, Any]] = {}
 
-    def record(self, request):
+    def record(self, request: dict[str, Any]) -> None:
         if request["attempts"]:
             with self.lock:
                 self.requests[request["request_id"]] = request.copy()
 
-    def summary(self):
+    def summary(self) -> dict[str, Any]:
         with self.lock:
             requests = sorted(self.requests.values(), key=lambda r: r["request_id"])
             return dict(
@@ -39,7 +43,9 @@ class Failures:
 
 
 @contextmanager
-def request_scope(policy, original, failures):
+def request_scope(
+    policy: dict[str, Any], original: dict[str, Any], failures: Failures
+) -> Iterator[dict[str, Any]]:
     if policy != POLICY or not isinstance(failures, Failures):
         raise ValueError("I27_SC1_FAILURE_POLICY_MISMATCH")
     request = dict(

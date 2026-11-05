@@ -1,10 +1,17 @@
 """PB2 selection recovery: explicit display separators map only to raw table tabs."""
 
+from __future__ import annotations
+
 import re
+from typing import TYPE_CHECKING
 
 from proofops.application.tagging.citation_restore import POLICY as LEGACY_POLICY
 from proofops.application.tagging.citation_restore import restore_whitespace
 from proofops.domain.provenance import canonical_hash
+
+if TYPE_CHECKING:
+    from typing import Any
+
 
 POLICY = LEGACY_POLICY | dict(
     profile="citation-table-separators-pb2-v1",
@@ -13,7 +20,7 @@ POLICY = LEGACY_POLICY | dict(
 POLICY_HASH = canonical_hash(POLICY)
 
 
-def restore_table(selection, original):
+def restore_table(selection: str, original: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(selection, str) or not selection.strip():
         raise ValueError("non-empty source quote required")
     if "\t" not in original["quote"] or "|" not in selection:

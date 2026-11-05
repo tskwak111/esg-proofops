@@ -6,8 +6,11 @@ axes (.69/.58). Those must remain reviewable despite semantic agreement.
 See lab/sprint6/MB/results.json; independent human threshold calibration pending.
 """
 
+from __future__ import annotations
+
 from collections.abc import Mapping
 from math import isfinite
+from typing import TYPE_CHECKING, cast
 
 from proofops.application.tagging.preliminary import (
     ACTOR_ROLE_SYSTEM_SUFFIX,
@@ -19,7 +22,12 @@ from proofops.application.tagging.preliminary import (
     TABLE_SYSTEM_SUFFIX,
 )
 from proofops.domain.provenance import canonical_hash
-from proofops.domain.values import _require_uuid
+from proofops.domain.values import SourceRef, _require_uuid
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Any
+
 
 PRELIMINARY_PROFILE = "preliminary-decision-v1"
 RELATION_PROFILE = "relation-decision-gate-v1"
@@ -66,7 +74,7 @@ MODELS = {
 }
 
 
-def preliminary_questions():
+def preliminary_questions() -> dict[str, Any]:
     questions = {
         "track": dict(
             type="choice",
@@ -95,7 +103,7 @@ def preliminary_questions():
     return questions
 
 
-def relation_questions():
+def relation_questions() -> dict[str, Any]:
     return {
         "relation": dict(
             type="choice",
@@ -110,7 +118,7 @@ def relation_questions():
     }
 
 
-POLICY = dict(
+POLICY: dict[str, Any] = dict(
     schema="decision-policy-v1",
     models=MODELS,
     threshold=PROBABILITY_THRESHOLD,
@@ -132,7 +140,7 @@ POLICY = dict(
 )
 
 
-def validate_decision_settings(settings):
+def validate_decision_settings(settings: Mapping[str, Any]) -> Mapping[str, Any]:
     if (
         not isinstance(settings, Mapping)
         or set(settings) != {"policy", "binding_ids"}
@@ -148,13 +156,15 @@ def validate_decision_settings(settings):
     return settings
 
 
-def _probability(value):
+def _probability(value: float) -> float:
     if type(value) not in (int, float) or not isfinite(value) or not 0 <= value <= 1:
         raise ValueError("DECISION_ANSWERS_INVALID")
     return value
 
 
-def validate_answers(response, questions):
+def validate_answers(
+    response: dict[str, Any], questions: dict[str, Any]
+) -> dict[str, dict[str, Any] | None]:
     """Strict normalization of saved OpenAI arrays/JEV maps; refusal stays unknown."""
     try:
         raw = response["answers"]
@@ -165,7 +175,7 @@ def validate_answers(response, questions):
             raw = dict(zip(names, raw, strict=True))
         if not isinstance(raw, Mapping) or set(raw) != set(questions):
             raise ValueError
-        result = {}
+        result: dict[str, dict[str, Any] | None] = {}
         for name, question in questions.items():
             row = raw[name]
             if row["type"] == "refusal":
@@ -200,16 +210,26 @@ def validate_answers(response, questions):
         raise ValueError("DECISION_ANSWERS_INVALID") from None
 
 
-def resolve_preliminary(openai, jev, quotes):
+def resolve_preliminary(
+    openai: dict[str, Any], jev: dict[str, Any], quotes: dict[str, Any]
+) -> dict[str, Any]:
     fields = {}
     for field in ("track", *AXES):
         name = field if field == "track" else "axis_" + field
         pair = [openai.get(name), jev.get(name)]
-        if not all(pair) or pair[0]["choice"] != pair[1]["choice"]:
+        if (
+            not all(pair)
+            or cast("dict[str, Any]", pair[0])["choice"]
+            != cast("dict[str, Any]", pair[1])["choice"]
+        ):
             diagnostic = "DECISION_DISAGREEMENT_OR_MISSING"
-        elif pair[0]["choice"] == "unknown":
+        elif cast("dict[str, Any]", pair[0])["choice"] == "unknown":
             diagnostic = "DECISION_BOTH_UNKNOWN"
-        elif any(a["probabilities"][a["choice"]] < PROBABILITY_THRESHOLD for a in pair):
+        elif any(
+            cast("dict[str, Any]", a)["probabilities"][cast("dict[str, Any]", a)["choice"]]
+            < PROBABILITY_THRESHOLD
+            for a in pair
+        ):
             diagnostic = "DECISION_LOW_PROBABILITY"
         elif field != "track" and quotes.get(field) is None:
             diagnostic = "DECISION_NO_USABLE_QUOTE"
@@ -217,7 +237,7 @@ def resolve_preliminary(openai, jev, quotes):
             diagnostic = "DECISION_ADOPTED"
         value = None
         if diagnostic == "DECISION_ADOPTED":
-            value = pair[0]["choice"] if field == "track" else quotes[field]
+            value = cast("dict[str, Any]", pair[0])["choice"] if field == "track" else quotes[field]
         fields[field] = dict(
             state="agreed" if value is not None else "unresolved",
             value=value,
@@ -229,7 +249,9 @@ def resolve_preliminary(openai, jev, quotes):
     return fields
 
 
-def preliminary_dimensions(fields, replica_dimensions):
+def preliminary_dimensions(
+    fields: dict[str, Any], replica_dimensions: Sequence[Mapping[str, SourceRef | None]]
+) -> dict[str, Any]:
     """Preserve Luna's optional-axis applicability keys, including explicit nulls.
 
     Decision unknown/present answers never establish applicability or N/A. Values
@@ -239,7 +261,7 @@ def preliminary_dimensions(fields, replica_dimensions):
     return {axis: fields[axis]["value"] for axis in AXES if axis in included}
 
 
-def resolve_relation(openai, jev):
+def resolve_relation(openai: str | None, jev: str | None) -> str:
     if openai == jev == "supports":
         return "supports"
     if "partial" in (openai, jev) and all(v in ("supports", "partial") for v in (openai, jev)):
@@ -247,7 +269,7 @@ def resolve_relation(openai, jev):
     return "unknown"
 
 
-def validate_decision_snapshot(snapshot):
+def validate_decision_snapshot(snapshot: dict[str, Any]) -> None:
     """Additive read contract: old snapshots have no decision group."""
     preliminary = (
         snapshot.get("preliminary_settings", {}).get("model_profile") == PRELIMINARY_PROFILE
@@ -288,7 +310,7 @@ def validate_decision_snapshot(snapshot):
             raise ValueError("DECISION_SNAPSHOT_MISMATCH")
 
 
-def preliminary_state(packet):
+def preliminary_state(packet: dict[str, Any]) -> dict[str, Any]:
     """Use the same proven display strings as Luna, preserving raw/map pins."""
     import json
 
@@ -305,4 +327,4 @@ def preliminary_state(packet):
                 raise ValueError("DISPLAY_PACKET_MISMATCH")
             entry["text"] = pin["text"]
     state["classification_policy"] = QUOTE_PROMPT
-    return state
+    return cast("dict[str, Any]", state)

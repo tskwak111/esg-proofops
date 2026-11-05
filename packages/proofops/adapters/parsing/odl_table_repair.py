@@ -16,6 +16,7 @@ from __future__ import annotations
 import copy
 import math
 import unicodedata
+from collections.abc import Sequence
 from typing import Any, cast
 
 _EPS = 0.001  # ODL coordinates round to three decimal places.
@@ -26,7 +27,7 @@ def _squash(text: Any) -> str:
     return " ".join(unicodedata.normalize("NFC", str(text)).split())
 
 
-def _owns(slot: list | tuple, box: list | tuple) -> bool:
+def _owns(slot: Sequence[float], box: Sequence[float]) -> bool:
     """pdfplumber's own assignment rule: the midpoint of the ink is in the slot."""
     horizontal = (box[0] + box[2]) / 2
     vertical = (box[1] + box[3]) / 2
@@ -34,8 +35,8 @@ def _owns(slot: list | tuple, box: list | tuple) -> bool:
 
 
 def locate_auxiliary_cells(
-    nodes: list, words_by_page: dict, *, source: bytes | None = None
-) -> tuple[list, list]:
+    nodes: list[dict[str, Any]], words_by_page: dict[str, Any], *, source: bytes | None = None
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Snap auxiliary (pdfplumber) table slots onto the ink of the words they own.
 
     pdfplumber assigns a cell's text by ink MIDPOINT containment, so a detected
@@ -57,7 +58,7 @@ def locate_auxiliary_cells(
     Returns ``(nodes, receipts)``; the input is not mutated.
     """
     repaired = copy.deepcopy(nodes)
-    receipts: list[dict] = []
+    receipts: list[dict[str, Any]] = []
     for table in repaired:
         if not isinstance(table, dict) or table.get("type") != "table":
             continue
@@ -97,7 +98,7 @@ def locate_auxiliary_cells(
         if not cells or not all(_is_finite_box(cell.get("bounding box")) for cell in cells):
             receipt["reason"] = "cell_geometry_unusable"
             continue
-        owners: dict[int, list[dict]] = {}
+        owners: dict[int, list[dict[str, Any]]] = {}
         claimed: dict[int, int] = {}
         conflict = None
         for index, cell in enumerate(cells):
@@ -202,7 +203,7 @@ def _is_finite_box(box: Any) -> bool:
     )
 
 
-def _contains(outer: list | tuple, inner: list | tuple, eps: float = _EPS) -> bool:
+def _contains(outer: Sequence[float], inner: Sequence[float], eps: float = _EPS) -> bool:
     return (
         outer[0] - eps <= inner[0]
         and outer[1] - eps <= inner[1]
@@ -211,7 +212,7 @@ def _contains(outer: list | tuple, inner: list | tuple, eps: float = _EPS) -> bo
     )
 
 
-def _union(boxes: list[list | tuple]) -> list:
+def _union(boxes: Sequence[Sequence[float]]) -> list[float]:
     return [
         min(b[0] for b in boxes),
         min(b[1] for b in boxes),
@@ -220,7 +221,7 @@ def _union(boxes: list[list | tuple]) -> list:
     ]
 
 
-def _norm_words(words_by_page: Any, page: Any) -> list[dict] | None:
+def _norm_words(words_by_page: Any, page: Any) -> list[dict[str, Any]] | None:
     if not isinstance(words_by_page, dict):
         return None
     words = words_by_page.get(page)
@@ -233,7 +234,7 @@ def _norm_words(words_by_page: Any, page: Any) -> list[dict] | None:
                 break
     if not isinstance(words, list) or not words:
         return None
-    norm: list[dict] = []
+    norm: list[dict[str, Any]] = []
     for w in words:
         if not isinstance(w, dict):
             return None
@@ -255,7 +256,7 @@ def _norm_words(words_by_page: Any, page: Any) -> list[dict] | None:
     return norm or None
 
 
-def _max_id(raw: dict) -> int:
+def _max_id(raw: dict[str, Any]) -> int:
     best = 0
     stack = [raw]
     while stack:
@@ -274,8 +275,8 @@ def _max_id(raw: dict) -> int:
 
 
 def repair_stacked_headers(
-    raw: dict, words_by_page: dict, *, locate_rows: bool = False
-) -> tuple[dict, list[dict]]:
+    raw: dict[str, Any], words_by_page: dict[str, Any], *, locate_rows: bool = False
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Split stacked first-row header/value cells where geometry proves a gap.
 
     Args:
@@ -293,8 +294,8 @@ def repair_stacked_headers(
         raise ValueError("raw must be an ODL source dict with a kids list")
     if not isinstance(words_by_page, dict):
         raise ValueError("words_by_page must be a dict")
-    new_raw: dict = copy.deepcopy(raw)
-    receipts: list[dict] = []
+    new_raw: dict[str, Any] = copy.deepcopy(raw)
+    receipts: list[dict[str, Any]] = []
     next_id = _max_id(new_raw) + 1
 
     for table_index, original_table in enumerate(new_raw.get("kids", [])):
@@ -313,7 +314,7 @@ def repair_stacked_headers(
         first_cells = first.get("cells")
         if not isinstance(first_cells, list) or not first_cells:
             continue
-        stacked: list[dict] = []
+        stacked: list[dict[str, Any]] = []
         for cell in first_cells:
             if not isinstance(cell, dict):
                 continue
@@ -410,7 +411,7 @@ def repair_stacked_headers(
                     key=lambda w: (-w["bbox"][3], w["bbox"][0]),
                 )
 
-                def normalize(text):
+                def normalize(text: str) -> str:
                     return "".join(unicodedata.normalize("NFC", text).split())
 
                 content = kid.get("content")
@@ -432,9 +433,9 @@ def repair_stacked_headers(
         if not valid:
             continue
         # Build split rows. Bboxes reuse exact kid unions (no invention).
-        header_cells: list[dict] = []
-        data_cells: list[dict] = []
-        cell_map: list[dict] = []
+        header_cells: list[dict[str, Any]] = []
+        data_cells: list[dict[str, Any]] = []
+        cell_map: list[dict[str, Any]] = []
         for s in stacked:
             cell = s["cell"]
             orig_id = cell.get("id")

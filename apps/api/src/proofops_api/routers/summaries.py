@@ -4,16 +4,19 @@ from __future__ import annotations
 
 import sqlite3
 import time
+from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Request, Security
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyCookie
+from proofops.adapters.local.summary_store import LocalSummaryStore
 from proofops.application.runs import RunRejected
 from proofops.domain.errors import DomainValidationError
 from proofops_api.auth import (
     SESSION_COOKIE_NAME,
+    AuthStore,
     _authorize,
     _error_response,
     _request_limit_response,
@@ -53,7 +56,9 @@ class Summary(StrictDTO):
     undetermined_applicability_count: Annotated[int, Field(ge=0)] | None = None
 
 
-def build_summaries_router(store, auth_store, *, clock=time.time) -> APIRouter:
+def build_summaries_router(
+    store: LocalSummaryStore, auth_store: AuthStore, *, clock: Callable[[], float] = time.time
+) -> APIRouter:
     router = APIRouter(
         responses=_ERROR_RESPONSES,
         dependencies=[
@@ -77,7 +82,7 @@ def build_summaries_router(store, auth_store, *, clock=time.time) -> APIRouter:
             "x-rate-limit": "120/min/user",
         },
     )
-    def get_summary(request: Request, run_id: UUID):
+    def get_summary(request: Request, run_id: UUID) -> JSONResponse:
         now = clock()
         auth = _authorize(request, auth_store, now, "viewer")
         if isinstance(auth, JSONResponse):

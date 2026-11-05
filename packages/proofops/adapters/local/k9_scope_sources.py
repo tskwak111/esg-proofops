@@ -1,5 +1,13 @@
 """Supplemental same-paragraph scope spans using the pinned v13 source verifier."""
 
+from __future__ import annotations
+
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from proofops.application.claims import Claim
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from dataclasses import asdict, replace
 from hashlib import sha256
 
@@ -18,7 +26,15 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import SourceRef
 
 
-def scope_graph(graph, source, claims, *, tenant_id, run_id, policy):
+def scope_graph(
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    claims: Iterable[Claim],
+    *,
+    tenant_id: str,
+    run_id: str,
+    policy: dict[str, Any],
+) -> tuple[CanonicalDocumentGraph, dict[str, Any]]:
     if policy.get("local_implementation_binding_policy") not in (
         BINDING_V1_POLICY,
         BINDING_V2_POLICY,
@@ -113,7 +129,7 @@ def scope_graph(graph, source, claims, *, tenant_id, run_id, policy):
         else graph
     )
     by_key = {(r.source_id, r.char_start, r.char_end): r for r in approved}
-    records = {
+    claim_records = {
         claim_id: dict(
             source_refs=[
                 asdict(by_key[(r.source_id, r.char_start, r.char_end)])
@@ -127,4 +143,4 @@ def scope_graph(graph, source, claims, *, tenant_id, run_id, policy):
         for claim_id, values in candidates.items()
         if values
     }
-    return scoped, records
+    return scoped, claim_records

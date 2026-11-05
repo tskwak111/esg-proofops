@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from proofops.application.tagging.dec24 import INTEGRATED_V2_DEFINITIONS
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
@@ -12,7 +12,10 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import LlmElement
 
 if TYPE_CHECKING:
+    from typing import Any
+
     from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+
 
 GUIDANCE = " ".join(
     """
@@ -90,10 +93,12 @@ def masked_pue(quote: str) -> bool:
     return bool(re.search(r"\bPUE\b", quote, re.I) and re.search(BAND, quote))
 
 
-def estimate_evidence(data: dict, original: CanonicalDocumentGraph | None) -> list[dict]:
+def estimate_evidence(
+    data: dict[str, Any], original: CanonicalDocumentGraph | None
+) -> list[dict[str, Any]]:
     refs = data.get("claim_source_refs", [])
     if data.get("safe_harbor_category") == "emissions_estimate":
-        return refs
+        return cast("list[dict[str, Any]]", refs)
     if data.get("track") != "performance" or not data.get("table_observation_evidence"):
         return []
     if original is None or (original.tenant_id, original.document_version_id) != (
@@ -116,5 +121,5 @@ def estimate_evidence(data: dict, original: CanonicalDocumentGraph | None) -> li
         if re.search(r"scope\s*3|스코프\s*3", text, re.I) and not re.search(
             r"scope\s*[12]|스코프\s*[12]", text, re.I
         ):
-            return refs
+            return cast("list[dict[str, Any]]", refs)
     return []

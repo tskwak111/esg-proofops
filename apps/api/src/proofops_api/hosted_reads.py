@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, cast
+
+from proofops_api.hosted_contracts import HostedReadStore
+
+if TYPE_CHECKING:
+    pass
 import base64
 import fcntl
 import hmac
@@ -10,6 +16,7 @@ import math
 import sqlite3
 import time
 from collections import OrderedDict
+from collections.abc import Iterator
 from contextlib import ExitStack, closing, contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,25 +25,29 @@ from threading import Lock
 from uuid import UUID, uuid5
 
 from proofops.adapters.local.job_store import LocalSQLiteJobStore
+from proofops.application.authorization import AuthContext
 from proofops.domain.documents import PageGeometry
 from proofops.domain.provenance import canonical_hash
 
-from proofops_api.hosted_page_render import render
-from proofops_api.hosted_store import (
+from proofops_api.hosted_contracts import (
     HostedError,
+    HostedRow,
+    SourceAnchor,
     copy_verified_file,
     digest,
     file_sha256,
     identifier,
 )
+from proofops_api.hosted_page_render import render
+from proofops_api.hosted_snapshots import pilot_bytes, pilot_text, tenant_snapshot
 
 _CACHE_LIMIT = 32 * 1024 * 1024
-_cache: OrderedDict[tuple, tuple[float, bytes, dict]] = OrderedDict()
+_cache: OrderedDict[tuple[object, ...], tuple[float, bytes, dict[str, Any]]] = OrderedDict()
 _cache_lock = Lock()
 _render_lock = Lock()
 
 
-def _ops2_fit_page(options):
+def _ops2_fit_page(options: dict[str, Any]) -> bool:
     from proofops.application.analysis_profile import policy_for
 
     # Read the persisted pin; never apply today's default to an older run.
@@ -44,7 +55,7 @@ def _ops2_fit_page(options):
     if pin is None:
         return False
     try:
-        policy = policy_for(options.get("analysis_profile"), pinned_hash=pin)
+        policy: dict[str, Any] = policy_for(options.get("analysis_profile"), pinned_hash=pin)
     except ValueError:
         return False
     return policy.get("ops2_page_render") == "ops2_fit_page_v1"
@@ -55,7 +66,12 @@ def clear_source_cache() -> None:
         _cache.clear()
 
 
-def _cached(key, expires, now, value=None):
+def _cached(
+    key: tuple[object, ...],
+    expires: float,
+    now: float,
+    value: tuple[bytes, dict[str, Any]] | None = None,
+) -> tuple[bytes, dict[str, Any]] | None:
     with _cache_lock:
         for expired in [k for k, v in _cache.items() if v[0] <= now]:
             del _cache[expired]
@@ -72,12 +88,12 @@ def _cached(key, expires, now, value=None):
     return None
 
 
-def _iso(timestamp):
+def _iso(timestamp: float) -> str:
     return datetime.fromtimestamp(timestamp, UTC).isoformat().replace("+00:00", "Z")
 
 
 @contextmanager
-def _source_slot(root):
+def _source_slot(root: Path) -> Iterator[None]:
     # Admission precedes copying/hash work and stays held through child cleanup.
     if not _render_lock.acquire(blocking=False):
         raise HostedError("SOURCE_RENDER_BUSY", 429)
@@ -93,10 +109,17 @@ def _source_slot(root):
 
 
 class HostedReads:
-    def __init__(self, store):
+    def __init__(self, store: HostedReadStore) -> None:
         self.store = store
 
-    def _cursor(self, auth, kind, document, cursor=None, position=None):
+    def _cursor(
+        self,
+        auth: AuthContext,
+        kind: str,
+        document: str | None,
+        cursor: str | None = None,
+        position: tuple[float, str] | None = None,
+    ) -> str | tuple[float, str] | None:
         from proofops_api.hosted_guest import ShowcaseReader
 
         if isinstance(auth, ShowcaseReader):
@@ -128,7 +151,16 @@ class HostedReads:
         except (ValueError, TypeError, HostedError):
             raise HostedError("CURSOR_INVALID", 400) from None
 
-    def collection(self, auth, kind, *, limit=20, cursor=None, document=None, now=None):
+    def collection(
+        self,
+        auth: AuthContext,
+        kind: str,
+        *,
+        limit: int = 20,
+        cursor: str | None = None,
+        document: str | None = None,
+        now: float | None = None,
+    ) -> dict[str, Any]:
         now = time.time() if now is None else now
         if not auth.has_capability("viewer"):
             raise HostedError("FORBIDDEN", 403)
@@ -250,7 +282,9 @@ class HostedReads:
             self.store.get_run(auth.tenant_id, run)
         return dict(items=items, next_cursor=next_cursor)
 
-    def _live_run(self, db, auth, run, now):
+    def _live_run(
+        self, db: sqlite3.Connection, auth: AuthContext, run: str, now: float
+    ) -> tuple[sqlite3.Row, sqlite3.Row]:
         identity = db.execute(
             "SELECT * FROM deletion.source_retention WHERE tenant_id=? AND run_id=?",
             (auth.tenant_id, run),
@@ -263,9 +297,9 @@ class HostedReads:
             raise HostedError("SOURCE_EXPIRED", 410)
         return row, document
 
-    def _anchor(self, path, row, prepared_page):
+    def _anchor(self, path: Path, row: HostedRow, prepared_page: int) -> SourceAnchor:
         """Read old immutable publications directly, without initializing/mutating local stores."""
-        pilot = json.loads((path / "pilot.json").read_bytes())
+        pilot = pilot_bytes(path)
         tenant = row["tenant_id"]
         local_run = identifier(pilot["run_id"])
         if pilot["tenant_id"] != tenant:
@@ -277,6 +311,7 @@ class HostedReads:
         from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
         from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
+        publication: LocalC3Publication | LocalC4Publication
         if pilot.get("publication_profile") == C4_PROFILE:
             from proofops.adapters.local.c4_publication import LocalC4Publication
 
@@ -295,7 +330,7 @@ class HostedReads:
                 graph.document_version_id,
                 graph.parse_manifest_id,
                 publication.runs.snapshot(tenant, local_run)["c4_evidence_sha256"],
-                block.candidates[block.winner].geometry,
+                block.candidates[cast(int, block.winner)].geometry,
             )
 
         if pilot.get("publication_profile") in (C3_PROFILE, C3_V2_PROFILE):
@@ -316,34 +351,33 @@ class HostedReads:
                 graph.document_version_id,
                 graph.parse_manifest_id,
                 publication.runs.snapshot(tenant, local_run)["c3_evidence_sha256"],
-                block.candidates[block.winner].geometry,
+                block.candidates[cast(int, block.winner)].geometry,
             )
         with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
             db.execute("BEGIN")
-            snapshot = json.loads(
-                db.execute(
-                    "SELECT payload FROM run_snapshots WHERE tenant_id=? AND run_id=?",
-                    (tenant, local_run),
-                ).fetchone()[0]
-            )
+            snapshot = tenant_snapshot(db, tenant, local_run)
             if (snapshot["tenant_id"], snapshot["run_id"], snapshot["input_hash"]) != (
                 tenant,
                 local_run,
                 canonical_hash({k: v for k, v in snapshot.items() if k != "input_hash"}),
             ):
                 raise ValueError("snapshot")
-            meta = json.loads(LocalSQLiteJobStore._raw(db, tenant, local_run, "run", "META"))
+            # Preserve the existing decode/hash failure on missing checkpoint bytes.
+            meta = json.loads(LocalSQLiteJobStore._raw(db, tenant, local_run, "run", "META"))  # type: ignore[arg-type]
             message = meta["parse_job"]
             job = json.loads(
-                LocalSQLiteJobStore._raw(db, tenant, local_run, "job", message["job_id"])
+                # Preserve the existing decode/hash failure on missing checkpoint bytes.
+                LocalSQLiteJobStore._raw(db, tenant, local_run, "job", message["job_id"])  # type: ignore[arg-type]
             )
             if job["message"] != message:
                 raise ValueError("job")
             ref = job["artifact_ref"]
             raw = LocalSQLiteJobStore._raw(db, tenant, local_run, "artifact", ref["key"])
-            if digest(raw) != ref["sha256"] or len(raw) != ref["byte_size"]:
+            # Preserve the existing decode/hash failure on missing checkpoint bytes.
+            if digest(raw) != ref["sha256"] or len(raw) != ref["byte_size"]:  # type: ignore[arg-type]
                 raise ValueError("checkpoint")
-            checkpoint = json.loads(raw)
+            # Preserve the existing decode/hash failure on missing checkpoint bytes.
+            checkpoint = json.loads(raw)  # type: ignore[arg-type]
         version = identifier(snapshot["document"]["version_id"])
         manifest_id = str(uuid5(UUID(local_run), "parse:" + snapshot["input_hash"]))
         prepared_sha = row["prepared_sha256"]
@@ -386,9 +420,9 @@ class HostedReads:
         return version, manifest_id, checkpoint["manifest_sha256"], PageGeometry(**geometry)
 
     @staticmethod
-    def _refs(result):
+    def _refs(result: dict[str, Any]) -> Iterator[tuple[str, list[tuple[str, dict[str, Any]]]]]:
         # Stored result refs only; arbitrary client-provided boxes never enter.
-        def visit(value, identity):
+        def visit(value: object, identity: str) -> Iterator[tuple[str, dict[str, Any]]]:
             if isinstance(value, dict):
                 if {
                     "source_id",
@@ -408,8 +442,15 @@ class HostedReads:
             yield claim["claim_id"], list(visit(claim, "claims/" + claim["claim_id"]))
 
     def page(
-        self, auth, run, physical_page, *, source_id=None, claim_id=None, document_version_id=None
-    ):
+        self,
+        auth: AuthContext,
+        run: str,
+        physical_page: int,
+        *,
+        source_id: str | None = None,
+        claim_id: str | None = None,
+        document_version_id: str | None = None,
+    ) -> tuple[dict[str, Any], bytes]:
         with _source_slot(self.store.root):
             return self._page(
                 auth,
@@ -421,8 +462,15 @@ class HostedReads:
             )
 
     def _page(
-        self, auth, run, physical_page, *, source_id=None, claim_id=None, document_version_id=None
-    ):
+        self,
+        auth: AuthContext,
+        run: str,
+        physical_page: int,
+        *,
+        source_id: str | None = None,
+        claim_id: str | None = None,
+        document_version_id: str | None = None,
+    ) -> tuple[dict[str, Any], bytes]:
         identifier(run)
         if not auth.has_capability("viewer"):
             raise HostedError("FORBIDDEN", 403)
@@ -459,7 +507,7 @@ class HostedReads:
                 )
                 from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
-                pilot = json.loads((path / "pilot.json").read_text())
+                pilot = pilot_text(path)
                 c4 = pilot.get("publication_profile") == C4_PROFILE
                 if c4:
                     if selected != pilot["selected_pages"]:
@@ -601,6 +649,9 @@ class HostedReads:
                     verification_state=ref.get("verification_state"),
                 )
                 if valid:
+                    box = cast(
+                        list[float], box
+                    )  # The compound valid predicate checks all four coordinates.
                     highlights.append(
                         item
                         | dict(

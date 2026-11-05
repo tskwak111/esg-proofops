@@ -1,7 +1,10 @@
 """Conservative majority candidates; only unanimous guarded tags can be confirmed."""
 
+from __future__ import annotations
+
 from collections import Counter
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING, cast
 
 from proofops.application.evidence.retrieval import EvidencePacket
 from proofops.application.tagging.service import TagRun
@@ -9,7 +12,13 @@ from proofops.domain.errors import DomainValidationError
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import RulePackSnapshot
 from proofops.domain.rules.engine import MAPPINGS, ConfirmedFact, ConfirmedTags
-from proofops.domain.values import LlmElement
+from proofops.domain.values import ElementState, LlmElement
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from proofops.domain.rules.engine import Decision
+
 
 PARTIAL_FACTS_V1 = "partial-facts-v1"
 PARTIAL_FACTS_HASH = canonical_hash({"fact_assembly": PARTIAL_FACTS_V1})
@@ -48,7 +57,9 @@ PARTIAL_FACTS_PROFILES = {
 }
 
 
-def reviewable_decision(decision, profile, review_status):
+def reviewable_decision(
+    decision: Decision | None, profile: str, review_status: str
+) -> tuple[Decision | None, str | None]:
     """A complete ladder remains a candidate until its tag is actually confirmed."""
     if (
         decision
@@ -59,7 +70,9 @@ def reviewable_decision(decision, profile, review_status):
     return decision, None
 
 
-def reviewable_checkpoint(item, *, pinned_profile=None):
+def reviewable_checkpoint(
+    item: dict[str, Any], *, pinned_profile: str | None = None
+) -> dict[str, Any]:
     """Keep an old unreviewed decision out of a new stage checkpoint."""
     decision = item.get("decision")
     decided = decision and decision.get("decision_status") == "decided"
@@ -81,7 +94,7 @@ def reviewable_checkpoint(item, *, pinned_profile=None):
         item["status"] = "needs_review"
         item["reason"] = "PARTIAL_FACTS_REVIEW_REQUIRED"
         if decided:
-            item["candidate_grade"] = decision.get("evidence_grade")
+            item["candidate_grade"] = cast("dict[str, Any]", decision).get("evidence_grade")
             item["decision"] = None
     return item
 
@@ -299,18 +312,18 @@ def form_consensus(
 
 
 def _partial_facts(
-    ordered,
-    data,
-    packet,
-    rulepack,
-    tenant_id,
-    tag_revision,
-    rule_gaps,
+    ordered: tuple[TagRun, ...],
+    data: dict[str, Any],
+    packet: EvidencePacket,
+    rulepack: RulePackSnapshot,
+    tenant_id: str,
+    tag_revision: int,
+    rule_gaps: tuple[str, ...],
     *,
-    citation_unavailable=False,
-    preserve_conflict=False,
-    preserve_surviving_conflict=False,
-):
+    citation_unavailable: bool = False,
+    preserve_conflict: bool = False,
+    preserve_surviving_conflict: bool = False,
+) -> ConsensusResult:
     """Assemble complete guarded element states without asserting a missing search was negative."""
     headers = {
         (r.guarded.track, r.guarded.safe_harbor_category, r.guarded.superlative_quote)
@@ -371,20 +384,29 @@ def _partial_facts(
         )
         valid_keys = {key for key in keys if key is not None}
         if len(valid_keys) > 1:
-            state = "conflict"
+            state: ElementState = "conflict"
         elif preserve_surviving_conflict and any(e and e.state == "conflict" for e in votes):
             # A failed replica cannot erase a guarded conflict in a surviving vote.
             state = "conflict"
         elif any(key is None for key in keys):
             state = "unknown"
         elif (
-            votes[0].state == "present"
-            and all(key[2] is not None for key in keys)
-            and all(ref.verification_state == "verified" for e in votes for ref in e.evidence_refs)
+            cast("LlmElement", votes[0]).state == "present"
+            and all(
+                cast("tuple[ElementState, str | None, str | None, str | None]", key)[2] is not None
+                for key in keys
+            )
+            and all(
+                ref.verification_state == "verified"
+                for e in votes
+                for ref in cast("LlmElement", e).evidence_refs
+            )
         ):
             state = "present"
-        elif votes[0].state == "unknown" or (preserve_conflict and votes[0].state == "conflict"):
-            state = votes[0].state
+        elif cast("LlmElement", votes[0]).state == "unknown" or (
+            preserve_conflict and cast("LlmElement", votes[0]).state == "conflict"
+        ):
+            state = cast("LlmElement", votes[0]).state
         else:
             # LLM absence/N/A never supplies search coverage or applicability authority.
             state = "unknown"
@@ -431,7 +453,7 @@ def _partial_facts(
                     True,
                     True,
                     source_scope=scope,
-                    normalized_value=base.normalized_value,
+                    normalized_value=cast("LlmElement", base).normalized_value,
                 )
                 if state == "present"
                 else ConfirmedFact(name, state)

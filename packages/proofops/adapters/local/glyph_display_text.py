@@ -4,6 +4,14 @@ A canonical block is mapped in its pinned crop only, never by searching a page
 for a matching quote. Original glyph identities are independently recomputed.
 """
 
+from __future__ import annotations
+
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import CanonicalBlock, CanonicalDocumentGraph
+    from proofops.domain.values import SourceRef
 import io
 import re
 from concurrent.futures import ProcessPoolExecutor
@@ -11,7 +19,6 @@ from dataclasses import asdict
 from hashlib import sha256
 from multiprocessing import get_context
 from threading import RLock
-from typing import Any
 
 import pdfplumber
 import pypdfium2 as pdfium
@@ -29,9 +36,11 @@ from proofops.application.ingest.display_text import (
 )
 from proofops.domain.provenance import canonical_hash
 
+DisplayPage = tuple[list[dict[str, Any]], dict[int, dict[str, Any]], set[int], str | None]
+
 
 class GlyphDisplayCatalog:
-    def __init__(self, graph, source: bytes):
+    def __init__(self, graph: CanonicalDocumentGraph, source: bytes) -> None:
         if source is None:
             raise ValueError("DISPLAY_SOURCE_UNAVAILABLE")
         if sha256(source).hexdigest() != graph.source_sha256:
@@ -45,19 +54,19 @@ class GlyphDisplayCatalog:
             graph_sha256=canonical_hash(asdict(graph)),
         )
         self._blocks = {b.source_id: b for b in graph.blocks}
-        self._cache: dict[str, Any] = {}
-        self._pages: dict[int, Any] = {}
+        self._cache: dict[str, tuple[list[int], list[dict[str, Any]]]] = {}
+        self._pages: dict[int, DisplayPage] = {}
         self._lock = RLock()
 
-    def _block(self, source_id):
+    def _block(self, source_id: str) -> tuple[list[int], list[dict[str, Any]]]:
         with self._lock:
             if source_id not in self._cache:
                 self._cache[source_id] = self._build(self._blocks[source_id])
             return self._cache[source_id]
 
-    def _build(self, block):
+    def _build(self, block: CanonicalBlock) -> tuple[list[int], list[dict[str, Any]]]:
         raw, box = block.raw_text, block.bbox
-        empty = ([], [])
+        empty: tuple[list[int], list[dict[str, Any]]] = ([], [])
         if block.winner is None or box is None or " " not in raw:
             return empty
         if block.page_num not in self._pages:
@@ -143,10 +152,10 @@ class GlyphDisplayCatalog:
                 )
         return deleted, boundaries
 
-    def _page(self, page_num):
+    def _page(self, page_num: int) -> DisplayPage:
         return _read_display_page(self.source, page_num)
 
-    def prefetch_pages(self, pages, *, max_workers=1):
+    def prefetch_pages(self, pages: Iterable[int], *, max_workers: int = 1) -> None:
         """Opt-in CPU reads in isolated processes; the normal page reader is unchanged.
 
         No model requests or source-quality promotion. Spawn keeps PDFium handles
@@ -166,7 +175,7 @@ class GlyphDisplayCatalog:
                 readings = list(pool.map(_read_display_page, [self.source] * len(pending), pending))
             self._pages.update(zip(pending, readings, strict=True))
 
-    def pin(self, ref: dict) -> dict:
+    def pin(self, ref: dict[str, Any]) -> dict[str, Any]:
         block = self._blocks[ref["source_id"]]
         start, end = ref["char_start"], ref["char_end"]
         if (
@@ -197,11 +206,17 @@ class GlyphDisplayCatalog:
             boundaries=[b for b in boundaries if b["raw_offset"] - start in local],
         )
 
-    def block_pin(self, source_id):
+    def block_pin(self, source_id: str) -> dict[str, Any]:
         return self.pin(asdict(self._blocks[source_id].source_ref()))
 
     @staticmethod
-    def restore(selection, original, pin, *, policy=None):
+    def restore(
+        selection: str,
+        original: dict[str, Any],
+        pin: dict[str, Any],
+        *,
+        policy: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         mapping = display_alignment(original["quote"], pin["deleted_offsets"])
         if (
             pin["policy"] != POLICY
@@ -236,17 +251,19 @@ class GlyphDisplayCatalog:
             char_end=original["char_start"] + end,
         )
 
-    def element_pins(self, data):
+    def element_pins(self, data: dict[str, Any]) -> dict[str, Any]:
         refs = [
             *data["claim_source_refs"],
             *(r for c in data["evidence_candidates"] for r in c["source_refs"]),
         ]
         return dict(policy=POLICY, sources=[self.pin(r) for r in refs])
 
-    def context_pin(self, entry):
+    def context_pin(self, entry: dict[str, Any]) -> dict[str, Any]:
         return self.pin(entry["source_ref"] | dict(quote=entry["text"]))
 
-    def preliminary_pins(self, packet, sources):
+    def preliminary_pins(
+        self, packet: dict[str, Any], sources: Iterable[SourceRef]
+    ) -> dict[str, Any]:
         data = packet["untrusted_document_data"]
         for block in data.get("context_blocks", []):
             pin = self.context_pin(block)
@@ -258,7 +275,9 @@ class GlyphDisplayCatalog:
             context=[self.context_pin(b) for b in data.get("context_blocks", [])],
         )
 
-    def restore_preliminary(self, response, packet):
+    def restore_preliminary(
+        self, response: dict[str, Any], packet: dict[str, Any]
+    ) -> dict[str, Any]:
         from copy import deepcopy
 
         if "dimension_restore_errors" in response:
@@ -306,7 +325,7 @@ class GlyphDisplayCatalog:
         return restored
 
 
-def _read_display_page(source, page_num):
+def _read_display_page(source: bytes, page_num: int) -> DisplayPage:
     try:
         with pdfplumber.open(io.BytesIO(source)) as doc:
             page = doc.pages[page_num - 1]

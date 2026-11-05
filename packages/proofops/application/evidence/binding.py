@@ -7,16 +7,16 @@ model/prompt/rule hashes, replica and graph with that state in a new revision.
 """
 
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Literal
+from typing import Any, Literal, cast
 from unicodedata import normalize
 
 from proofops.application.claims import Claim
 from proofops.application.evidence.report_level import scope_rejection_reason
 from proofops.application.evidence.span_citations import verify_source_ref
-from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+from proofops.application.ingest.graph_fusion import CandidateBlock, CanonicalDocumentGraph
 from proofops.domain.errors import DomainValidationError
 from proofops.domain.periods import is_supported_period
 from proofops.domain.rulepacks import RulePackSnapshot
@@ -74,7 +74,7 @@ class ClaimContext:
     claim: Claim
     dimensions: Mapping[str, SourceRef | None]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not isinstance(self.claim, Claim):
             raise DomainValidationError("internal Claim required")
         object.__setattr__(self, "dimensions", MappingProxyType(_dimensions(self.dimensions)))
@@ -141,8 +141,8 @@ def accept_binding(
     rulepack: RulePackSnapshot,
     element_id: str,
     local_value_identity: bool = False,
-    local_binding_policy: Mapping | None = None,
-    structural_policy: Mapping | None = None,
+    local_binding_policy: Mapping[str, Any] | None = None,
+    structural_policy: Mapping[str, Any] | None = None,
     allow_edge_whitespace: bool = False,
     diagnostics: list[str] | None = None,
 ) -> BindingState:
@@ -164,11 +164,11 @@ def accept_binding(
     if structural_policy is not None:
         from proofops.application.tagging.q1_contract import validate_policy
 
-        validate_policy(structural_policy)
+        cast("Callable[..., object]", validate_policy)(structural_policy)
     if type(allow_edge_whitespace) is not bool:
         raise DomainValidationError("edge-whitespace binding policy must be boolean")
 
-    def diagnose(reason: str):
+    def diagnose(reason: str) -> None:
         from proofops.application.tagging.q1_contract import QUALITY_POLICIES
 
         if (
@@ -254,7 +254,9 @@ def accept_binding(
         if (
             not unresolved
             and element_id == "G4"
-            and scope_definition_identity(context, ref, original, policy=local_binding_policy)
+            and cast("Callable[..., bool]", scope_definition_identity)(
+                context, ref, original, policy=local_binding_policy
+            )
         ):
             for name, value in context.dimensions.items():
                 if value is None:
@@ -282,9 +284,9 @@ def accept_binding(
         diagnose("claim_source_unverified" if unresolved else "relation_tags_unresolved")
         return "undetermined"
 
-    def selected(source: SourceRef):
+    def selected(source: SourceRef) -> CandidateBlock:
         block = blocks[source.source_id]
-        return block.candidates[block.winner]  # checked above before coordinate access
+        return block.candidates[cast(int, block.winner)]  # checked above before coordinate access
 
     def contains(outer: SourceRef, inner: SourceRef) -> bool:
         return outer.source_id == inner.source_id and (
@@ -330,9 +332,13 @@ def accept_binding(
         if any(type(value) is not int or value < 1 for value in spans):
             return "undetermined"
         ar, ac, br, bc = spans
-        row_covers = a.row_number <= b.row_number and b.row_number + br <= a.row_number + ar
+        row_covers = (
+            cast(int, a.row_number) <= cast(int, b.row_number)
+            and cast(int, b.row_number) + br <= cast(int, a.row_number) + ar
+        )
         column_covers = (
-            a.column_number <= b.column_number and b.column_number + bc <= a.column_number + ac
+            cast(int, a.column_number) <= cast(int, b.column_number)
+            and cast(int, b.column_number) + bc <= cast(int, a.column_number) + ac
         )
         if dimension == "reporting_period" and not column_covers:
             return "rejected"
@@ -340,7 +346,7 @@ def accept_binding(
             return "accepted"
         if (
             column_covers
-            and a.row_number + ar <= b.row_number
+            and cast(int, a.row_number) + ar <= cast(int, b.row_number)
             and any(
                 edge.source_id == target.source_id
                 and edge.target_id == anchor.source_id
@@ -373,13 +379,13 @@ def accept_binding(
         ):
             raise DomainValidationError("K9_BINDING_POLICY_MISMATCH")
         if direct and element_id in BINDING_POLICY["elements"]:
-            intrinsic = local_implementation_identity(
+            intrinsic = cast("Callable[..., bool]", local_implementation_identity)(
                 context, ref, original, policy=local_binding_policy, element_id=element_id
             )
     if local_value_identity and direct:
         from proofops.application.tagging.k2_recovery import local_intrinsic
 
-        intrinsic |= local_intrinsic(claim, ref, element_id)
+        intrinsic |= cast("Callable[..., bool]", local_intrinsic)(claim, ref, element_id)
         # The scalar/year/means belongs to this atomic claim, not a cross-source
         # join. Null axes do not deny that literal identity; asserted roles still
         # undergo the same source, containment, period and contradiction checks.
@@ -436,7 +442,9 @@ def accept_binding(
                     structural_policy is not None
                     and direct
                     and intrinsic
-                    and observed_period(value.quote, policy=structural_policy)
+                    and cast("Callable[..., bool]", observed_period)(
+                        value.quote, policy=structural_policy
+                    )
                 ):
                     diagnose("period_syntax_unsupported")
                     unresolved = True

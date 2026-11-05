@@ -5,16 +5,19 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
+from collections.abc import Callable
 from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Request, Security
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyCookie
-from proofops.adapters.local.comparison_store import ComparisonRejected
+from proofops.adapters.local.comparison_store import ComparisonRejected, LocalComparisonStore
+from proofops.application.authorization import AuthContext, Capability
 from proofops.domain.errors import DomainValidationError
 from proofops_api.auth import (
     SESSION_COOKIE_NAME,
+    AuthStore,
     _authorize,
     _error_response,
     _request_limit_response,
@@ -45,7 +48,13 @@ class Comparison(StrictDTO):
     changes: list[ComparisonChange]
 
 
-def build_comparisons_router(store, auth_store, *, allowed_origin: str, clock=time.time):
+def build_comparisons_router(
+    store: LocalComparisonStore,
+    auth_store: AuthStore,
+    *,
+    allowed_origin: str,
+    clock: Callable[[], float] = time.time,
+) -> APIRouter:
     router = APIRouter(
         responses=_ERROR_RESPONSES,
         dependencies=[
@@ -57,7 +66,9 @@ def build_comparisons_router(store, auth_store, *, allowed_origin: str, clock=ti
         ],
     )
 
-    def authorize(request: Request, operation: str, role: str, requests: int):
+    def authorize(
+        request: Request, operation: str, role: Capability, requests: int
+    ) -> AuthContext | JSONResponse:
         now = clock()
         auth = _authorize(request, auth_store, now, role)
         if isinstance(auth, JSONResponse):
@@ -71,7 +82,7 @@ def build_comparisons_router(store, auth_store, *, allowed_origin: str, clock=ti
         )
         return limited or auth
 
-    def failure(error: Exception):
+    def failure(error: Exception) -> JSONResponse:
         if isinstance(error, ComparisonRejected):
             return _error_response(
                 error.status, error.code, "Comparison request could not be processed."
@@ -91,7 +102,7 @@ def build_comparisons_router(store, auth_store, *, allowed_origin: str, clock=ti
         response_model=JobAccepted,
         openapi_extra=_request_schema(ComparisonCreate),
     )
-    async def create(request: Request, run_id: UUID):
+    async def create(request: Request, run_id: UUID) -> JSONResponse:
         auth = authorize(request, "comparison_create", "editor", 10)
         if isinstance(auth, JSONResponse):
             return auth
@@ -134,7 +145,7 @@ def build_comparisons_router(store, auth_store, *, allowed_origin: str, clock=ti
             "x-rate-limit": "120/min/user",
         },
     )
-    def get(request: Request, comparison_id: UUID):
+    def get(request: Request, comparison_id: UUID) -> JSONResponse:
         auth = authorize(request, "comparison_get", "viewer", 120)
         if isinstance(auth, JSONResponse):
             return auth

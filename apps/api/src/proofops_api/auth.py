@@ -84,7 +84,9 @@ class TenantSelect(_StrictDTO):
         return value
 
 
-def _error_body(code: str, message: str, request_id: str, *, retryable: bool = False) -> dict:
+def _error_body(
+    code: str, message: str, request_id: str, *, retryable: bool = False
+) -> dict[str, Any]:
     return {
         "error": {
             "code": code,

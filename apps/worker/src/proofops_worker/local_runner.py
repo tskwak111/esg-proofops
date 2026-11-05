@@ -10,11 +10,13 @@ import json
 import math
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import asdict, replace
 from hashlib import sha256
 from importlib.resources import files
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID, uuid4, uuid5
 
 from proofops.adapters.local.run_artifacts import (
@@ -24,20 +26,40 @@ from proofops.adapters.local.run_artifacts import (
 )
 from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser, ParseFailure
 from proofops.application.budget import BudgetExceeded
-from proofops.application.ingest.graph_fusion import ParserProfile
-from proofops.application.ports.jobs import JobMessage, LeaseLost
+from proofops.application.ingest.graph_fusion import (
+    CanonicalDocumentGraph,
+    ParserProfile,
+    SourceArtifact,
+)
+from proofops.application.ports.jobs import JobLease, JobMessage, LeaseLost
 from proofops.application.telemetry import Telemetry, TraceContext
 from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 from pypdf.errors import PdfReadError
 
-from proofops_worker.consumer import StageFailure, consume_job, with_lease_heartbeat
+from proofops_worker.consumer import (
+    HeartbeatRepository,
+    StageFailure,
+    consume_job,
+    with_lease_heartbeat,
+)
 from proofops_worker.extract_runner import paragraph_priority
 from proofops_worker.telemetry import observe_job
 
+if TYPE_CHECKING:
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops.adapters.local.upstage import UpstageProbe
+    from proofops.adapters.local.upstage_parse import UpstageParseProbe
+    from proofops.application.uploads import UploadService
 
-def _with_parser_heartbeat(store, lease, clock, operation):
+
+def _with_parser_heartbeat(
+    store: HeartbeatRepository,
+    lease: JobLease,
+    clock: Callable[[], float],
+    operation: Callable[[JobLease], tuple[bytes, dict[str, Any]]],
+) -> tuple[bytes, dict[str, Any]]:
     """Renew only this local parser's lease; any renewal failure blocks publication."""
     try:
         return with_lease_heartbeat(store, lease, clock, operation)
@@ -50,18 +72,18 @@ def _with_parser_heartbeat(store, lease, clock, operation):
 class LocalParserRunner:
     def __init__(
         self,
-        store,
-        uploads,
+        store: LocalSQLiteRunStore,
+        uploads: UploadService,
         parser: OpenDataLoaderParser,
         *,
         profile: ParserProfile,
         telemetry: Telemetry,
-        clock=time.time,
-        note_client=None,
-        note_ledger=None,
+        clock: Callable[[], float] = time.time,
+        note_client: UpstageProbe | None = None,
+        note_ledger: str | Path | None = None,
         verify_paragraphs: bool = False,
-        raster_probe=None,
-        raster_ledger=None,
+        raster_probe: UpstageParseProbe | None = None,
+        raster_ledger: str | Path | None = None,
         native_typography_tolerance: bool = False,
     ):
         if not uploads.local_synthetic or not isinstance(profile, ParserProfile):
@@ -82,14 +104,14 @@ class LocalParserRunner:
         # hashed, separately versioned proof on this instance (see
         # native_paragraph_typography.py) after the unchanged base replay.
         self.native_typography_tolerance = native_typography_tolerance
-        self.last_typography_proof = None
+        self.last_typography_proof: dict[str, Any] | None = None
         self.note_client = note_client
         self.note_ledger = (
             note_ledger if note_ledger is not None else getattr(note_client, "ledger", None)
         )
         self.raster_probe, self.raster_ledger = raster_probe, raster_ledger
 
-    def _raster_enabled(self, snapshot):
+    def _raster_enabled(self, snapshot: dict[str, Any]) -> bool:
         raster_keys = {key for key in snapshot if key.startswith("raster_ocr_")}
         if not raster_keys:
             if self.raster_probe is not None or self.raster_ledger is not None:
@@ -113,7 +135,7 @@ class LocalParserRunner:
             raise ValueError("RASTER_OCR_RUNTIME_NOT_SUPPORTED")
         return True
 
-    def _note_policy(self):
+    def _note_policy(self) -> dict[str, Any] | None:
         if self.note_client is None:
             return None
         if not isinstance(self.note_client.model, str) or not self.note_client.model:
@@ -128,7 +150,9 @@ class LocalParserRunner:
             batch_sha256=sha256(package.joinpath("note_review_batch.py").read_bytes()).hexdigest(),
         )
 
-    def _inputs(self, tenant_id, run_id):
+    def _inputs(
+        self, tenant_id: str, run_id: str
+    ) -> tuple[dict[str, Any], SourceArtifact, ParserProfile]:
         snapshot, source, profile = load_run_inputs(
             self.store, self.uploads, tenant_id=tenant_id, run_id=run_id
         )
@@ -136,7 +160,7 @@ class LocalParserRunner:
             raise ParseFailure("RUN_INPUT_INTEGRITY_MISMATCH")
         return snapshot, source, profile
 
-    def _directory(self, source, profile):
+    def _directory(self, source: SourceArtifact, profile: ParserProfile) -> Path:
         return (
             self.parser.artifact_root
             / source.tenant_id
@@ -215,15 +239,19 @@ class LocalParserRunner:
                 message, job_id=str(uuid5(UUID(message.job_id), "extract")), stage="extract"
             )
 
-            def operation(lease):
-                usage = {"model_calls": 0, "parser_executions": 0, "artifact_reused": False}
+            def operation(lease: JobLease) -> tuple[bytes, dict[str, Any]]:
+                usage: dict[str, Any] = {
+                    "model_calls": 0,
+                    "parser_executions": 0,
+                    "artifact_reused": False,
+                }
                 policy = None
-                attempted = []
-                raster_attempted = []
-                raster_registrations = ()
-                raster_receipts = {}
+                attempted: list[str] = []
+                raster_attempted: list[str] = []
+                raster_registrations: tuple[dict[str, Any], ...] = ()
+                raster_receipts: dict[str, dict[str, Any] | None] = {}
 
-                def invoke(*args, **kwargs):
+                def invoke(*args: Any, **kwargs: Any) -> dict[str, Any]:
                     try:
                         self.store.jobs.heartbeat(lease, now=int(self.clock()), lease_seconds=90)
                         self.store.jobs.register_parser_note_request(
@@ -233,7 +261,7 @@ class LocalParserRunner:
                         raise StageFailure("NOTE_REVIEW_LEASE_LOST", usage=usage) from None
                     attempted.append(kwargs["request_id"])
                     try:
-                        return self.note_client.complete(*args, **kwargs)
+                        return cast("UpstageProbe", self.note_client).complete(*args, **kwargs)
                     finally:
                         self.store.jobs.finish_parser_note_request(lease, kwargs["request_id"])
 
@@ -289,8 +317,8 @@ class LocalParserRunner:
                         from proofops.adapters.local.note_review_batch import review_tables
 
                         client = SimpleNamespace(
-                            model=self.note_client.model,
-                            summary=self.note_client.summary,
+                            model=cast("UpstageProbe", self.note_client).model,
+                            summary=cast("UpstageProbe", self.note_client).summary,
                             complete=invoke,
                         )
                         prepared = review_tables(
@@ -310,7 +338,10 @@ class LocalParserRunner:
                         )
 
                         validate_automatic_note_reviews(
-                            graph, pinned_notes, policy, selected_pages=profile.physical_pages
+                            graph,
+                            cast(tuple[str, ...], pinned_notes),
+                            policy,
+                            selected_pages=profile.physical_pages,
                         )
                     if pinned_notes:
                         from proofops.adapters.local.table_notes import replay_note_reviews
@@ -330,6 +361,7 @@ class LocalParserRunner:
                     native_receipt = None
                     evidence_receipt = None
                     if native_policy is not None:
+                        attest_native_sources: Callable[..., Any]
                         from proofops.adapters.local.source_verification import (
                             attest_native_sources,
                             replay_native_sources,
@@ -380,12 +412,24 @@ class LocalParserRunner:
                                     native_policy["mode"], policy=native_policy, native=True
                                 )
 
-                                def attest_native_sources(g, s, *, tenant_id, geometry_mode):
+                                def attest_native_sources(
+                                    g: CanonicalDocumentGraph,
+                                    s: bytes,
+                                    *,
+                                    tenant_id: str,
+                                    geometry_mode: str,
+                                ) -> dict[str, Any]:
                                     with reader_scope(
                                         source_reader, run_id=run_id, tenant_id=tenant_id
                                     ) as instance:
-                                        return instance.attest_native_sources(
-                                            g, s, tenant_id=tenant_id, geometry_mode=geometry_mode
+                                        return cast(
+                                            dict[str, Any],
+                                            instance.attest_native_sources(
+                                                g,
+                                                s,
+                                                tenant_id=tenant_id,
+                                                geometry_mode=geometry_mode,
+                                            ),
                                         )
 
                         native_receipt = attest_native_sources(
@@ -511,7 +555,7 @@ class LocalParserRunner:
                                 native_receipt,
                                 ids,
                                 probe=self.raster_probe,
-                                ledger=self.raster_ledger,
+                                ledger=cast(str | Path, self.raster_ledger),
                             )
                             raster_attempted.append(request["request_id"])
                             if receipt is None:
@@ -592,7 +636,7 @@ class LocalParserRunner:
                     if policy is not None:
                         payload.update(
                             schema="local_parser_checkpoint_v3",
-                            runtime_note_review_artifacts=list(pinned_notes),
+                            runtime_note_review_artifacts=list(cast(tuple[str, ...], pinned_notes)),
                             graph_sha256=canonical_hash(asdict(graph)),
                             note_review_policy_sha256=canonical_hash(policy),
                         )
@@ -794,7 +838,7 @@ class LocalParserRunner:
             return result
         return "pending_downstream" if run.get("current_stage") == "extract" else "idle"
 
-    def load_graph(self, *, tenant_id: str, run_id: str):
+    def load_graph(self, *, tenant_id: str, run_id: str) -> CanonicalDocumentGraph:
         """The sole runner publication read: fence-committed pointer plus verified rich graph."""
         return load_run_graph(
             self.store, self.uploads, self.parser, tenant_id=tenant_id, run_id=run_id

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
+from typing import Any
 
 from proofops.application.evidence.element_queries import (
     ANCHOR_STOP_WORDS,
@@ -40,7 +41,7 @@ SEARCH_PROFILE_HASH = canonical_hash(
 )
 
 
-def literal_hits(pages: Mapping[int, str], terms: list[str]) -> list[dict]:
+def literal_hits(pages: Mapping[int, str], terms: list[str]) -> list[dict[str, Any]]:
     """Retain every whitespace-insensitive occurrence; original offsets, no top-k."""
     hits = []
     for term in terms:
@@ -104,8 +105,8 @@ def claim_anchors(quote: str) -> dict[str, list[str]]:
 
 
 def native_candidate_windows(
-    pages: Mapping[int, str], hits: list[dict], quote: str
-) -> tuple[list[dict], dict]:
+    pages: Mapping[int, str], hits: list[dict[str, Any]], quote: str
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Same-window anchors route review candidates, never a semantic join.
 
     Synonym-only hits are background text, not claim candidates. A shared metric
@@ -159,11 +160,11 @@ def search_elements(
     *,
     track: str | None,
     claim_quote: str,
-    document: dict,
-    elements: list[dict],
-    confirmed_refs: dict[str, list[dict]],
-    candidate_refs: dict[str, list[dict]],
-) -> list[dict]:
+    document: dict[str, Any],
+    elements: list[dict[str, Any]],
+    confirmed_refs: dict[str, list[dict[str, Any]]],
+    candidate_refs: dict[str, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
     """Only the trusted caller's replayed citation/binding results can confirm.
 
     Document text and BM25 hits are diagnostics. Unapproved absence stays unknown,

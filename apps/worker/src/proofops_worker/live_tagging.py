@@ -1,121 +1,118 @@
 """Scoped local Upstage composition; immutable receipts, no implicit rule approval."""
 
-import json
+from __future__ import annotations
+
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from dataclasses import asdict, replace
+from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
-from uuid import UUID, uuid5
+from typing import TYPE_CHECKING, Any, Unpack, cast
 
 from proofops.adapters.local.tag_store import tagging_settings
-from proofops.adapters.local.upstage import request_usage
 from proofops.application.authorization import AuthContext
-from proofops.application.budget import BudgetCall, BudgetExceeded, TokenUsage
+from proofops.application.budget import BudgetCall, BudgetExceeded
+from proofops.application.claims import Claim
 from proofops.application.evidence.binding import local_relation_tags
-from proofops.application.evidence.span_citations import verify_source_ref
+from proofops.application.evidence.retrieval import EvidencePacket
+from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.application.input_reservation import validate_capacity_policy
-from proofops.application.ports.jobs import LeaseLost
-from proofops.application.preflight import check_local_upstage_tagger
+from proofops.application.ports.jobs import JobLease, LeaseLost
+from proofops.application.preflight import Preflight, check_local_upstage_tagger
 from proofops.application.registry import Registry, artifact_sha256
+from proofops.application.tagging.contracts import (
+    PreliminaryClassification,
+    RawTagResponse,
+    TaggingSettings,
+)
 from proofops.application.tagging.preliminary import (
-    SENTENCE_CONTEXT_PROFILE,
-    SENTENCE_FALLBACK_BASE_PROMPT,
-    SENTENCE_FALLBACK_PROFILE,
-    SENTENCE_FALLBACK_SYSTEM_PROMPT,
     preliminary_request,
     preliminary_table_request,
-    sentence_context_ready,
-    validate_preliminary,
-    validate_preliminary_table_sources,
 )
 from proofops.application.tagging.relations import (
     OCCURRENCE_PROFILE,
     OCCURRENCE_V3_PROFILE,
     RelationValidationError,
-    relation_request,
-    validate_relations,
 )
-from proofops.application.tagging.service import RawTagResponse, output_reservation_tokens
+from proofops.application.tagging.tracks import TrackCandidate
 from proofops.domain.provenance import canonical_hash
-from proofops.domain.rulepacks import canonical_json
-from proofops.domain.values import _source_ref_from_dict
+from proofops.domain.values import SourceRef
 from proofops_agent.upstage_preliminary import UpstagePreliminaryTransport
 from proofops_agent.upstage_tagging import (
-    NEVER_SENT_ERROR_CODES,
     TransportResume,
     UpstageTaggingTransport,
 )
 
-from proofops_worker.consumer import TagHeartbeatFailed, point_heartbeat
-
-# The local stop conditions this module raises itself, per replica prefix. Recording
-# only these keeps a durable record free of arbitrary exception text while still
-# naming the exact condition that stopped the operation.
-_LOCAL_STOP_SUFFIXES = (
-    "_RECEIPT_INCOMPLETE_OR_MISMATCH",
-    "_PENDING_CALL",
-    "_PROVIDER_FAILED",
-    "_PROVIDER_ID_REQUIRED",
-    "_RECOVERY_ALLOWANCE_EXHAUSTED",
+from proofops_worker.consumer import LeaseHeartbeatState, TagHeartbeatFailed, point_heartbeat
+from proofops_worker.tagging_parts.contracts import (
+    BudgetReservation,
+    ConsensusOptions,
+    ContextReceiptOptions,
+    PreliminaryResult,
+    RelationRoles,
+    ReplicaOutcome,
+    ReplicaValue,
+    SourceTransport,
 )
-LOCAL_STOP_CODE = "LOCAL_STOP"
-_VALIDATION_REASONS = {
-    "display quote absent or ambiguous": "DISPLAY_QUOTE_UNRESOLVED",
-    "preliminary quote absent or ambiguous": "PRELIMINARY_QUOTE_UNRESOLVED",
-    "invalid preliminary fields; grades are prohibited": "PRELIMINARY_FIELDS_INVALID",
-    "invalid preliminary safe harbor category": "PRELIMINARY_CATEGORY_INVALID",
-    "unresolved track requires null confidence": "PRELIMINARY_CONFIDENCE_INVALID",
-    "invalid preliminary confidence": "PRELIMINARY_CONFIDENCE_INVALID",
-    "preliminary claim mismatch": "PRELIMINARY_CLAIM_MISMATCH",
-    "required preliminary dimension roles missing": "PRELIMINARY_ROLES_MISSING",
-    "invalid preliminary source span": "PRELIMINARY_SPAN_INVALID",
-    "invalid preliminary source selection": "PRELIMINARY_SELECTION_INVALID",
-    "preliminary span outside literal claim source": "PRELIMINARY_SPAN_OUTSIDE_SOURCE",
-}
-_VALIDATION_CODES = frozenset(
-    """PROBE_REQUEST_TOO_LARGE INVALID_PROBE_REQUEST DISPLAY_PACKET_MISMATCH
-DISPLAY_MAP_MISMATCH DISPLAY_REF_MISMATCH DISPLAY_CONTEXT_MISMATCH DISPLAY_PRELIMINARY_SELECTION
-UPSTAGE_PRELIMINARY_PROMPT_INVALID UPSTAGE_PRELIMINARY_SYSTEM_REQUIRED
-UPSTAGE_PRELIMINARY_PACKET_INVALID UPSTAGE_PRELIMINARY_PACKET_MISMATCH
-UPSTAGE_PRELIMINARY_CONTEXT_POLICY_INVALID UPSTAGE_PRELIMINARY_SOURCES_REQUIRED
-UPSTAGE_PRELIMINARY_TABLE_SOURCE_INVALID UPSTAGE_PRELIMINARY_TABLE_POLICY_INVALID
-UPSTAGE_PRELIMINARY_CONTEXT_INVALID RELATION_PACKET_MISMATCH RELATION_CLAIM_MISMATCH
-K1_PUE_PERFORMANCE_RETAG_REQUIRED K4_CONNECTIVE_GOAL_RETAG_REQUIRED""".split()
+from proofops_worker.tagging_parts.decisions import (
+    configure_decisions,
+    decision_pair,
+    decision_preliminary,
+)
+from proofops_worker.tagging_parts.preliminary import (
+    build_preliminary_packet,
+    preliminary_agreement,
+    validate_preliminary_response,
+)
+from proofops_worker.tagging_parts.relations import (
+    build_relation_packet,
+    validate_relation_response,
+)
+from proofops_worker.tagging_parts.replicas import (
+    _LOCAL_STOP_SUFFIXES as _LOCAL_STOP_SUFFIXES,
+)
+from proofops_worker.tagging_parts.replicas import (
+    _VALIDATION_CODES as _VALIDATION_CODES,
+)
+from proofops_worker.tagging_parts.replicas import (
+    _VALIDATION_REASONS as _VALIDATION_REASONS,
+)
+from proofops_worker.tagging_parts.replicas import (
+    LOCAL_STOP_CODE as LOCAL_STOP_CODE,
+)
+from proofops_worker.tagging_parts.replicas import (
+    _local_stop_code,
+    account,
+    flush_accounting,
+    source_replicas,
+    update_accounting,
 )
 
+if TYPE_CHECKING:
+    from proofops.adapters.local.decisions import DecisionProbe
+    from proofops.adapters.local.glyph_display_text import GlyphDisplayCatalog
+    from proofops.adapters.local.openrouter import OpenRouterProbe
+    from proofops.adapters.local.upstage import UpstageProbe
 
-def _local_stop_code(prefix, error):
-    """Map a local stop to a stable code; never echo an unrecognized message."""
-    if isinstance(error, BudgetExceeded) or str(error) in {
-        "R108_FINALS_BUDGET_EXHAUSTED",
-        "R108_FINALS_CUMULATIVE_BUDGET_EXHAUSTED",
-        "BUDGET_EXHAUSTED",
-    }:
-        return "BUDGET_EXHAUSTED"
-    if str(error) == "PROCESSING_UNCERTAIN":
-        return "PROCESSING_UNCERTAIN"
-    known = {prefix.upper() + suffix for suffix in _LOCAL_STOP_SUFFIXES}
-    text = str(error)
-    if text in known:
-        return text
-    if text in _VALIDATION_CODES:
-        return text
-    if text in _VALIDATION_REASONS:
-        return _VALIDATION_REASONS[text]
-    return prefix.upper() + "_" + LOCAL_STOP_CODE + ":" + type(error).__name__
+    from proofops_worker.tag_runner import LocalTagRunner
 
 
 class LiveTaggingRuntime:
     synthetic = False
-    heartbeat_state = None
+    heartbeat_state: LeaseHeartbeatState | None = None
+    s2_call_allowance: int
+    s2_reserved_calls: set[tuple[str, int]]
+    replica_workers: int
+    scope_records: dict[str, Any]
+    decision_probes: dict[str, DecisionProbe]
 
-    def _check_heartbeat(self):
+    def _check_heartbeat(self) -> None:
         if self.heartbeat_state is not None:
             self.heartbeat_state.check()
 
-    def reserve_tag_call(self, call, **kwargs):
+    def reserve_tag_call(self, call: BudgetCall, **kwargs: Unpack[BudgetReservation]) -> bool:
         """The claim-volume allowance never replaces persisted or USD limits."""
         if not hasattr(self, "s2_call_allowance"):
             return self.runner.store.usage.reserve_budget(call, **kwargs)
@@ -127,7 +124,18 @@ class LiveTaggingRuntime:
                 self.s2_reserved_calls.add((call.request_id, call.attempt))
             return reserved
 
-    def __init__(self, runner, snapshot, graph, lease, usage, *, probe, ledger, receipts):
+    def __init__(
+        self,
+        runner: LocalTagRunner,
+        snapshot: dict[str, Any],
+        graph: CanonicalDocumentGraph,
+        lease: JobLease,
+        usage: dict[str, Any],
+        *,
+        probe: UpstageProbe | OpenRouterProbe,
+        ledger: str | Path,
+        receipts: str | Path,
+    ) -> None:
         from proofops.application.evidence.relation_attribution import snapshot_policy
 
         self.attribution_policy = snapshot_policy(snapshot)
@@ -168,21 +176,23 @@ class LiveTaggingRuntime:
                 # An authorization is bound to the exact receipt tree it was proven
                 # against; it can never be applied to a different local state.
                 raise ValueError("LIVE_TAGGING_RESUME_ROOT_MISMATCH")
-        self.settings = tagging_settings(snapshot)
-        self.preliminary_settings = tagging_settings(snapshot, preliminary=True)
+        self.settings: TaggingSettings = tagging_settings(snapshot)
+        self.preliminary_settings: TaggingSettings = tagging_settings(snapshot, preliminary=True)
         self.registry = Registry.sqlite(runner.store.path)
         self.auth = AuthContext(
             "local-worker", graph.tenant_id, "viewer", frozenset(), snapshot["run_id"]
         )
-        self.allowed_packets = set()
-        self.preliminary_records = {}
-        self.relation_records = {}
-        self.decision_records = {}
-        self.decision_request_ids = {p: set() for p in ("openai", "openrouter")}
-        self.relation_settings = (
+        self.allowed_packets: set[tuple[str, str]] = set()
+        self.preliminary_records: dict[str, list[dict[str, Any]]] = {}
+        self.relation_records: dict[str, list[dict[str, Any]]] = {}
+        self.decision_records: dict[str, dict[str, Any]] = {}
+        self.decision_request_ids: dict[str, set[str]] = {
+            p: set() for p in ("openai", "openrouter")
+        }
+        self.relation_settings: TaggingSettings | None = (
             tagging_settings(snapshot, relation=True) if "relation_settings" in snapshot else None
         )
-        self.request_ids = set()
+        self.request_ids: set[str] = set()
         accounting = snapshot.get("analysis_profile_policy", {}).get("s5_usage_accounting")
         if accounting not in (None, "s5_final_reporting_snapshot_v1"):
             raise ValueError("S5_USAGE_ACCOUNTING_POLICY_MISMATCH")
@@ -193,7 +203,7 @@ class LiveTaggingRuntime:
             for row in runner.store.jobs.list_usage(graph.tenant_id, snapshot["run_id"])
             for identifier in row.get("tag_request_ids", [])
         }
-        self.display_catalog = None
+        self.display_catalog: GlyphDisplayCatalog | None = None
         if "display_text_policy" in snapshot:
             from proofops.adapters.local.glyph_display_text import GlyphDisplayCatalog
             from proofops.application.ingest.display_text import POLICY
@@ -241,38 +251,10 @@ class LiveTaggingRuntime:
                 authorize=self._authorize,
                 resume=self.resume,
             )
-        self.decision_probes = {}
-        if "decision_settings" in snapshot:
-            import os
-
-            from proofops.adapters.local.decisions import DecisionProbe, load_key
-            from proofops.application.tagging.decisions import validate_decision_snapshot
-
-            validate_decision_snapshot(snapshot)
-            injected = getattr(runner, "decision_probes", None)
-            if injected is not None:
-                self.decision_probes = injected
-            else:
-                project = Path(
-                    os.environ.get(
-                        "PROOFOPS_DECISION_PROJECT_ROOT", str(Path(ledger).resolve().parents[2])
-                    )
-                )
-                historical = [
-                    project / ".local" / p / "budget.sqlite3" for p in ("openrouter", "upstage")
-                ]
-                for provider in ("openai", "openrouter"):
-                    self.decision_probes[provider] = DecisionProbe(
-                        provider,
-                        project / ".local" / provider / "budget.sqlite3",
-                        r108_spend=project
-                        / "outputs/agent-results/R108-redesign/lab/sprint3/E2E/r108-spend.json",
-                        key_loader=lambda p=provider: load_key(p, project),
-                        historical_ledgers=historical,
-                    )
+        configure_decisions(self, runner, snapshot, ledger)
         self._capacity(self.settings.model_id)
 
-    def _capacity(self, model_id):
+    def _capacity(self, model_id: str) -> int:
         if model_id == "gpt-6-luna":
             from proofops.adapters.local.openai import validate_capacity_policy as validate_openai
 
@@ -291,7 +273,7 @@ class LiveTaggingRuntime:
             checked_at=datetime.fromtimestamp(self.runner.clock(), UTC),
         )
 
-    def _fence(self):
+    def _fence(self) -> None:
         from proofops.adapters.local.verified_read_cache import _parse_enabled
 
         self._check_heartbeat()
@@ -310,7 +292,7 @@ class LiveTaggingRuntime:
             raise TagHeartbeatFailed() from None
         self._check_heartbeat()
 
-    def _authorize(self, settings, request):
+    def _authorize(self, settings: TaggingSettings, request: dict[str, Any]) -> Preflight:
         self._fence()
         prefix = next(
             (
@@ -357,7 +339,9 @@ class LiveTaggingRuntime:
             document_rights=self.snapshot["document"]["metadata"]["rights_profile_id"],
         )
 
-    def display_packet(self, packet, *, claim=None):
+    def display_packet(
+        self, packet: EvidencePacket, *, claim: Claim | None = None
+    ) -> EvidencePacket:
         display_catalog = getattr(self, "display_catalog", None)
         policy = getattr(self, "snapshot", {}).get("analysis_profile_policy", {})
         from proofops.application.ingest.k5_context import POLICY as K5_POLICY
@@ -462,27 +446,32 @@ class LiveTaggingRuntime:
                 "local_implementation_binding_policy"
             ]
         if "qt2_contextual_elements_policy" in policy:
-            from proofops.application.tagging.qt2_context import augment_packet, validate_policy
+            from proofops.application.tagging.qt2_context import augment_packet as qt2_augment
+            from proofops.application.tagging.qt2_context import validate_policy
 
             contextual = policy["qt2_contextual_elements_policy"]
             validate_policy(contextual)
             if policy.get("qt2_contextual_elements_policy_sha256") != canonical_hash(contextual):
                 raise ValueError("QT2_CONTEXT_POLICY_PIN_MISMATCH")
-            data = augment_packet(data, claim, self.graph, tenant_id=self.graph.tenant_id)
+            # Missing claim on this configured path retains its existing failure (S_INT report).
+            data = qt2_augment(data, cast(Claim, claim), self.graph, tenant_id=self.graph.tenant_id)
         if "qt1_tuple_policy" in policy:
-            from proofops.application.tagging.qt1_tuples import POLICY, augment_packet
+            from proofops.application.tagging.qt1_tuples import POLICY as qt1_policy
+            from proofops.application.tagging.qt1_tuples import augment_packet as qt1_augment
 
-            if policy["qt1_tuple_policy"] != POLICY:
+            if policy["qt1_tuple_policy"] != qt1_policy:
                 raise ValueError("QT1_TUPLE_POLICY_MISMATCH")
-            data = augment_packet(data, claim, self.graph, tenant_id=self.graph.tenant_id)
+            # Missing claim on this configured path retains its existing failure (S_INT report).
+            data = qt1_augment(data, cast(Claim, claim), self.graph, tenant_id=self.graph.tenant_id)
         if "tb1_table_policy" in policy:
-            from proofops.application.tagging.tb1_table_bundles import POLICY, augment_packet
+            from proofops.application.tagging.tb1_table_bundles import POLICY as tb1_policy
+            from proofops.application.tagging.tb1_table_bundles import augment_packet as tb1_augment
 
-            if policy["tb1_table_policy"] != POLICY or policy.get(
+            if policy["tb1_table_policy"] != tb1_policy or policy.get(
                 "tb1_table_policy_sha256"
-            ) != canonical_hash(POLICY):
+            ) != canonical_hash(tb1_policy):
                 raise ValueError("TB1_TABLE_POLICY_MISMATCH")
-            augment_packet(data, claim, self.graph, tenant_id=self.auth.tenant_id)
+            tb1_augment(data, claim, self.graph, tenant_id=self.auth.tenant_id)
         if "v3_dec92_policy" in policy:
             from proofops.application.tagging.v3_context import augment_packet as v3_augment
             from proofops.application.tagging.v3_dec92 import validate_policy as validate_v3
@@ -490,7 +479,8 @@ class LiveTaggingRuntime:
             validate_v3(policy["v3_dec92_policy"])
             if policy.get("v3_dec92_policy_sha256") != canonical_hash(policy["v3_dec92_policy"]):
                 raise ValueError("V3_DEC92_POLICY_PIN_MISMATCH")
-            data = v3_augment(data, claim, self.graph, tenant_id=self.graph.tenant_id)
+            # Missing claim on this configured path retains its existing failure (S_INT report).
+            data = v3_augment(data, cast(Claim, claim), self.graph, tenant_id=self.graph.tenant_id)
         if display_catalog is not None:
             data["display_text"] = display_catalog.element_pins(data)
         if policy.get("hold_recovery_policy") is not None:
@@ -503,32 +493,36 @@ class LiveTaggingRuntime:
                 raise ValueError("K2_RECOVERY_POLICY_PIN_MISMATCH")
             data["local_element_recovery_policy"] = policy["hold_recovery_policy"]
         if self.snapshot.get("analysis_profile_policy", {}).get("hold_recovery") == "hf1-v1":
-            from proofops.application.tagging.citation_restore import POLICY
+            from proofops.application.tagging.citation_restore import POLICY as citation_policy
 
-            data["citation_restore_policy"] = POLICY
+            data["citation_restore_policy"] = citation_policy
         if policy.get("citation_restore") == "citation-table-separators-pb2-v1":
-            from proofops.application.tagging.pb2_citation_restore import POLICY
+            from proofops.application.tagging.pb2_citation_restore import (
+                POLICY as pb2_citation_policy,
+            )
 
-            data["citation_restore_policy"] = POLICY
+            data["citation_restore_policy"] = pb2_citation_policy
         if policy.get("citation_restore") == "citation-selected-value-pb6-v1":
-            from proofops.application.tagging.pb6_citation_restore import POLICY
+            from proofops.application.tagging.pb6_citation_restore import (
+                POLICY as pb6_citation_policy,
+            )
 
-            data["citation_restore_policy"] = POLICY
+            data["citation_restore_policy"] = pb6_citation_policy
         if policy.get("citation_restore") == "citation-selected-adjacent-unit-k6-v1":
-            from proofops.application.tagging.k6_citations import POLICY
+            from proofops.application.tagging.k6_citations import POLICY as k6_citation_policy
 
-            data["citation_restore_policy"] = POLICY
+            data["citation_restore_policy"] = k6_citation_policy
         return freeze_packet(data)
 
-    def allow_packet(self, claim_id, packet_sha256):
+    def allow_packet(self, claim_id: str, packet_sha256: str) -> None:
         self.allowed_packets.add((claim_id, packet_sha256))
 
     @staticmethod
-    def token_counter(text):
+    def token_counter(text: str) -> int:
         # Retrieval size bound only; provider reservation uses the full capacity below.
         return len(text.encode("utf-8"))
 
-    def count_input_tokens(self, request):
+    def count_input_tokens(self, request: dict[str, Any]) -> int:
         # Validate the actual wire and current authority before reserving its upper bound.
         # A withdrawn or exhausted recovery allowance stops here, before any
         # reservation: tag_replicates records TAGGING_INPUT_COUNT_INVALID and
@@ -539,23 +533,16 @@ class LiveTaggingRuntime:
             request, counter=lambda system, user: self._capacity(self.settings.model_id)
         )
 
-    def account(self, request_id):
-        with self._account_lock:
-            if request_id not in self.previously_accounted:
-                self.request_ids.add(request_id)
-            if not self._s5_defer_accounting:
-                self._update_accounting()
+    def account(self, request_id: str) -> None:
+        return account(self, request_id)
 
-    def _update_accounting(self):
-        identifiers = sorted(self.request_ids)
-        self.usage.update(request_usage(self.ledger, identifiers))
-        self.usage["tag_request_ids"] = identifiers
+    def _update_accounting(self) -> None:
+        return update_accounting(self)
 
-    def flush_accounting(self):
-        with self._account_lock:
-            self._update_accounting()
+    def flush_accounting(self) -> None:
+        return flush_accounting(self)
 
-    def invoke(self, request):
+    def invoke(self, request: dict[str, Any]) -> RawTagResponse:
         try:
             context = (
                 self.probe.response_context(role="elements", replica=request["replicate_id"])
@@ -567,368 +554,29 @@ class LiveTaggingRuntime:
         finally:
             self.account(request["request_id"])
 
-    def preliminary(self, claim, graph):
-        unattended = self.snapshot.get("pipeline_profile") in (
-            "unattended-v1",
-            "finals-unattended-v1",
-            "finals-unattended-v2",
-            "finals-unattended-j3-v1",
-            "finals-unattended-j7-v1",
-            "finals-unattended-j8-v1",
-        )
+    def preliminary(self, claim: Claim, graph: CanonicalDocumentGraph) -> PreliminaryResult | None:
         from proofops.application.tagging import cf5_context
 
-        cf5 = cf5_context.enabled(self.snapshot.get("analysis_profile_policy", {}))
-        if cf5 and self.preliminary_settings.system_prompt != cf5_context.PRELIMINARY:
-            raise ValueError("CF5_CONTEXT_PROMPT_MISMATCH")
-        profile = self.preliminary_settings.model_profile
-        from proofops.application.tagging.preliminary import CONTEXT_POSITION_ORDER
-
-        position_order = profile in (
-            "upstage-preliminary-source-quotes-table-role-v1-position-v1",
-            "upstage-preliminary-source-quotes-table-role-v2-p2-position-v1",
+        plan = build_preliminary_packet(
+            self,
+            claim,
+            graph,
+            preliminary_request=preliminary_request,
+            preliminary_table_request=preliminary_table_request,
         )
-        if position_order and self.snapshot.get("position_context_order") != CONTEXT_POSITION_ORDER:
-            raise ValueError("PRELIMINARY_CONTEXT_ORDER_MISMATCH")
-        p2 = profile in (
-            "upstage-preliminary-source-quotes-table-role-v2-p2",
-            "upstage-preliminary-source-quotes-table-role-v2-p2-position-v1",
-        )
-        decision = profile == "preliminary-decision-v1"
-        fallback = profile == SENTENCE_FALLBACK_PROFILE
-        sentence_context = profile == SENTENCE_CONTEXT_PROFILE or fallback
-        compact_pb1 = profile == "upstage-preliminary-source-quotes-pb1-compact-v1"
-        pb1 = profile == "upstage-preliminary-source-quotes-actor-role-v3-pb1" or compact_pb1
-        actor_role_v2 = (
-            profile == "upstage-preliminary-source-quotes-actor-role-v2" or decision or pb1
-        )
-        actor_role = profile == "upstage-preliminary-source-quotes-actor-role-v1" or actor_role_v2
-        goal_role = profile == "upstage-preliminary-source-quotes-goal-role-v1" or actor_role
-        role_table = (
-            profile
-            in (
-                "upstage-preliminary-source-quotes-table-role-v1",
-                "upstage-preliminary-source-quotes-table-role-v1-position-v1",
-            )
-            or goal_role
-            or p2
-        )
-        table = (
-            profile == "upstage-preliminary-source-quotes-table-v1"
-            or role_table
-            or sentence_context
-        )
-        if table:
-            packet = preliminary_table_request(
-                claim,
-                graph,
-                tenant_id=self.auth.tenant_id,
-                sentence_context=sentence_context,
-                role_resolution=role_table,
-                goal_role=goal_role,
-                actor_role=actor_role,
-                period_role=actor_role_v2,
-                p2=p2,
-                position_order=position_order,
-                allow_unverified=unattended,
-            )
-        else:
-            packet = preliminary_request(
-                claim,
-                graph,
-                tenant_id=self.auth.tenant_id,
-                include_context=profile == "upstage-preliminary-source-quotes-context-v1",
-                allow_unverified=unattended,
-            )
+        if plan is None:
+            self.preliminary_records[claim.claim_id] = []
+            return None
+        packet, context_receipt = plan.packet, plan.context_receipt
+        decision, unattended, cf5 = plan.decision, plan.unattended, plan.cf5
 
-        if pb1:
-            from proofops_agent.upstage_preliminary import PB1_SYSTEM_PROMPT
-
-            if compact_pb1:
-                from proofops.application.tagging.pb1_classification import COMPACT_PROMPT
-
-                packet["prompt_sha256"] = canonical_hash(COMPACT_PROMPT)
-                from proofops.application.tagging.finals_i4 import K4_PRELIMINARY
-                from proofops.application.tagging.k1_semantics import GUIDANCE
-                from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
-                from proofops.application.tagging.q1_contract import PRELIMINARY as Q1_PRELIMINARY
-                from proofops.application.tagging.v3_dec92 import PRELIMINARY as V3_PRELIMINARY
-
-                if self.preliminary_settings.system_prompt in (
-                    COMPACT_PROMPT + "\n" + GUIDANCE,
-                    K4_PRELIMINARY,
-                    K9_PRELIMINARY,
-                    Q1_PRELIMINARY,
-                    V3_PRELIMINARY,
-                    cf5_context.PRELIMINARY,
-                ):
-                    packet["prompt_sha256"] = canonical_hash(
-                        self.preliminary_settings.system_prompt
-                    )
-            else:
-                packet["prompt_sha256"] = canonical_hash(PB1_SYSTEM_PROMPT)
-        if fallback:
-            packet["prompt_sha256"] = canonical_hash(SENTENCE_FALLBACK_SYSTEM_PROMPT)
-            data = packet["untrusted_document_data"]
-            verified_context = []
-            for entry in data["context_blocks"]:
-                if (
-                    entry["quality"] == "verified"
-                    and entry["source_ref"].get("verification_state") == "verified"
-                ):
-                    verified_context.append(entry | {"context_index": len(verified_context)})
-                elif entry["source_id"] not in data["omitted_source_ids"]:
-                    data["omitted_source_ids"].append(entry["source_id"])
-            data["context_blocks"] = verified_context
-        if self.snapshot.get("analysis_profile_policy", {}).get("sentence_context_policy"):
-            from proofops.application.ingest.k5_context import (
-                configured_context,
-                preliminary_context,
-            )
-
-            complete = configured_context(claim, graph, self.snapshot["analysis_profile_policy"])
-            packet = preliminary_context(packet, complete)
-        response_policy = self.snapshot.get("analysis_profile_policy", {}).get(
-            "preliminary_response_policy"
-        )
-        if response_policy is not None:
-            from proofops.application.tagging.k4_contract import RESPONSE_POLICY
-
-            if response_policy != RESPONSE_POLICY:
-                raise ValueError("K4_RESPONSE_POLICY_MISMATCH")
-            packet["preliminary_response_policy"] = response_policy
-        context_receipt = {}
-        if cf5:
-            packet = cf5_context.preserve_context(packet, claim, graph, receipt=context_receipt)
-        packet = self.preliminary_transport.bound_context(packet)
-        if not cf5 and self.snapshot.get("analysis_profile_policy", {}).get(
-            "sentence_context_policy"
-        ):
-            from copy import deepcopy
-
-            from proofops.application.ingest.k5_context import POLICY as K5_POLICY
-
-            if complete and complete["policy"] == K5_POLICY:
-                expected = preliminary_context(deepcopy(packet), complete)
-                if (
-                    packet["untrusted_document_data"]["context_blocks"]
-                    != expected["untrusted_document_data"]["context_blocks"]
-                ):
-                    raise ValueError("K5_SENTENCE_CONTEXT_WIRE_OMITTED")
-        if sentence_context and not sentence_context_ready(claim, packet):
-            if not fallback:
-                self.preliminary_records[claim.claim_id] = []
-                return None
-            # Retain E2E3's verified numbered table sources and classifier.
-            # Omit all sentence interpretation input when the guard fails.
-            packet = preliminary_table_request(
-                claim, graph, tenant_id=self.auth.tenant_id, role_resolution=True
-            )
-            data = packet["untrusted_document_data"]
-            for entry in data["context_blocks"]:
-                if entry["source_id"] not in data["omitted_source_ids"]:
-                    data["omitted_source_ids"].append(entry["source_id"])
-            data["context_blocks"] = []
-            packet["prompt_sha256"] = canonical_hash(SENTENCE_FALLBACK_BASE_PROMPT)
-        display_catalog = getattr(self, "display_catalog", None)
-        if display_catalog is not None:
-            from proofops.application.tagging.preliminary import _sources
-            from proofops.application.tagging.table_sources import table_structural_sources
-
-            sources = _sources(claim, graph, self.auth.tenant_id, allow_unverified=unattended)
-            if table:
-                structural = table_structural_sources(graph, sources, tenant_id=self.auth.tenant_id)
-                sources = (*sources, *(item.ref for item in structural.verified))
-            packet["display_text"] = display_catalog.preliminary_pins(packet, sources)
-            recovery = self.snapshot.get("analysis_profile_policy", {}).get("hold_recovery_policy")
-            if recovery is not None:
-                from proofops.application.tagging.k2_recovery import validate_policy
-
-                validate_policy(recovery)
-                if self.snapshot["analysis_profile_policy"].get(
-                    "hold_recovery_policy_sha256"
-                ) != canonical_hash(recovery):
-                    raise ValueError("K2_RECOVERY_POLICY_PIN_MISMATCH")
-                packet["preliminary_recovery_policy"] = recovery
-
-        from proofops.application.tagging.k9_contract import BINDING_POLICY, BINDING_V4_POLICY
-
-        if self.snapshot.get("analysis_profile_policy", {}).get(
-            "local_implementation_binding_policy"
-        ) in (BINDING_POLICY, BINDING_V4_POLICY):
-            packet["k9_targeted_wire_policy"] = self.snapshot["analysis_profile_policy"][
-                "local_implementation_binding_policy"
-            ]
-
-        quality_policy = self.snapshot.get("analysis_profile_policy", {}).get(
-            "structural_quality_policy"
-        )
-        from proofops.application.tagging.q1_contract import QUALITY_POLICIES
-
-        if quality_policy in QUALITY_POLICIES:
-            packet["structural_quality_policy"] = quality_policy
-
-        def validate(raw):
-            restoration = {}
-            if display_catalog is not None:
-                raw = display_catalog.restore_preliminary(raw, packet)
-                restoration = raw.pop("dimension_restore_errors", {})
-            auxiliary = None
-            from proofops.application.tagging.pb2_preliminary import enabled as pb2_enabled
-
-            if pb2_enabled(claim, graph, self.snapshot.get("analysis_profile_policy", {})):
-                from proofops.application.tagging.pb2_preliminary import (
-                    validate_preliminary as validate_pb2,
-                )
-
-                result, auxiliary = validate_pb2(
-                    claim, graph, raw, tenant_id=self.auth.tenant_id, allow_unverified=unattended
-                )
-            # The table profile recomputes its own quotable source tuple from
-            # claim+graph; the legacy validator stays the only path for the two
-            # older profiles, so stored responses replay unchanged. The
-            # role-resolution profile and the goal-role profile differ only
-            # in their prompt, so they reuse this same validator without a new
-            # schema or a new source rule.
-            result = (
-                result
-                if auxiliary is not None
-                else (
-                    validate_preliminary_table_sources(
-                        claim,
-                        graph,
-                        raw,
-                        tenant_id=self.auth.tenant_id,
-                        allow_unverified=unattended,
-                    )
-                    if table
-                    else validate_preliminary(
-                        claim,
-                        graph,
-                        raw,
-                        tenant_id=self.auth.tenant_id,
-                        allow_unverified=unattended,
-                    )
-                )
-            )
-            from proofops.application.tagging.k1_semantics import POLICY as K1_POLICY
-            from proofops.application.tagging.k1_semantics import track_requires_review
-            from proofops.application.tagging.k4_contract import SEMANTIC_POLICY, estimate_evidence
-
-            semantic = self.snapshot.get("analysis_profile_policy", {}).get("semantic_admission")
-            from proofops.application.tagging.k10_contract import SEMANTIC_POLICY as K10_POLICY
-            from proofops.application.tagging.k10_contract import (
-                SEMANTIC_V2_POLICY as K10_V2_POLICY,
-            )
-            from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_POLICY
-
-            v3_policy = self.snapshot.get("analysis_profile_policy", {}).get("v3_dec92_policy")
-            if v3_policy is not None:
-                from proofops.application.tagging.v3_dec92 import validate_classification
-                from proofops.application.tagging.v3_dec92 import validate_policy as validate_v3
-
-                validate_v3(v3_policy)
-                if self.snapshot["analysis_profile_policy"].get(
-                    "v3_dec92_policy_sha256"
-                ) != canonical_hash(v3_policy):
-                    raise ValueError("V3_DEC92_POLICY_PIN_MISMATCH")
-                result = validate_classification(result, claim, graph)
-            if v3_policy is None and semantic in (Q1_POLICY, K10_POLICY, K10_V2_POLICY):
-                from proofops.application.tagging.q1_contract import forecast_quote
-
-                if forecast_quote(claim.quote) and result.safe_harbor_category != "forward_looking":
-                    raise ValueError("Q1_FORWARD_LOOKING_CATEGORY_REVIEW")
-            risk_policy = self.snapshot.get("analysis_profile_policy", {}).get(
-                "risk_classification_policy"
-            )
-            if risk_policy is not None:
-                from proofops.application.tagging.k6_citations import (
-                    RISK_POLICY,
-                    risk_without_commitment,
-                )
-
-                if risk_policy != RISK_POLICY or self.snapshot["analysis_profile_policy"].get(
-                    "risk_classification_policy_sha256"
-                ) != canonical_hash(RISK_POLICY):
-                    raise ValueError("K6_RISK_POLICY_MISMATCH")
-                if (
-                    result.track
-                    and result.track.track == "goal"
-                    and risk_without_commitment(claim.quote)
-                ):
-                    raise ValueError("K6_RISK_WITHOUT_COMPANY_COMMITMENT")
-            if (
-                semantic in (SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY)
-                and result.track
-                and result.track.track == "goal"
-            ):
-                from proofops.application.ingest.j7_split import goal_requires_retag
-
-                if goal_requires_retag(claim, graph):
-                    raise ValueError("K4_CONNECTIVE_GOAL_RETAG_REQUIRED")
-            if (
-                semantic in (SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY)
-                and result.safe_harbor_category == "emissions_estimate"
-            ):
-                sources = dict(
-                    tenant_id=graph.tenant_id,
-                    document_version_id=graph.document_version_id,
-                    claim_source_refs=[asdict(r) for r in claim.source_refs],
-                    safe_harbor_category=result.safe_harbor_category,
-                )
-                if not estimate_evidence(sources, graph):
-                    result = replace(
-                        result,
-                        safe_harbor_category=None,
-                        track=replace(result.track, safe_harbor_category=None)
-                        if result.track
-                        else None,
-                    )
-
-            if (
-                semantic in (K1_POLICY, SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY)
-                and result.track is not None
-                and track_requires_review(claim.quote, result.track.track)
-            ):
-                raise ValueError("K1_PUE_PERFORMANCE_RETAG_REQUIRED")
-            if (
-                pb1
-                and v3_policy is None
-                and result.safe_harbor_category == "forward_looking"
-                and not (
-                    semantic in (Q1_POLICY, K10_POLICY, K10_V2_POLICY)
-                    and forecast_quote(claim.quote)
-                )
-            ):
-                from proofops.application.tagging.pb1_classification import forward_candidate
-
-                category, reason = forward_candidate(claim.quote)
-                if reason == "forecast_context_requires_review":
-                    raise ValueError("PB1_FORECAST_CONTEXT_REQUIRES_REVIEW")
-                result = replace(result, safe_harbor_category=category)
-            attribution = {}
-            if self.attribution_policy is not None:
-                from proofops.application.evidence.binding import ClaimContext
-                from proofops.application.evidence.relation_attribution import filter_dimensions
-
-                dimensions, rejected = filter_dimensions(
-                    claim, result.context.dimensions, graph, tenant_id=self.auth.tenant_id
-                )
-                result = replace(result, context=ClaimContext(claim, dimensions))
-                attribution = dict(
-                    attribution_rejections=rejected,
-                    attribution_policy_sha256=canonical_hash(self.attribution_policy),
-                )
-            return result, dict(
-                **({"auxiliary_fact_selections": auxiliary} if auxiliary is not None else {}),
-                track=asdict(result.track) if result.track else None,
-                dimensions={
-                    key: asdict(value) if value else None
-                    for key, value in result.context.dimensions.items()
-                },
-                safe_harbor_category=result.safe_harbor_category,
-                **attribution,
-                **({"dimension_restore_errors": restoration} if restoration else {}),
+        def validate(raw: dict[str, Any]) -> tuple[PreliminaryClassification, dict[str, Any]]:
+            return validate_preliminary_response(
+                self,
+                raw,
+                claim=claim,
+                graph=graph,
+                plan=plan,
             )
 
         results = self._source_replicas(
@@ -939,8 +587,16 @@ class LiveTaggingRuntime:
             self.preliminary_transport,
             self.preliminary_records,
             validate,
-            **({"require_consensus": False} if decision or unattended else {}),
-            **({"context_receipt": context_receipt} if context_receipt else {}),
+            **(
+                ConsensusOptions(require_consensus=False)
+                if decision or unattended
+                else ConsensusOptions()
+            ),
+            **(
+                ContextReceiptOptions(context_receipt=context_receipt)
+                if context_receipt
+                else ContextReceiptOptions()
+            ),
         )
         if decision:
             return self._decision_preliminary(claim, packet, results)
@@ -962,8 +618,8 @@ class LiveTaggingRuntime:
             winners = [
                 r for r in results if r.track and (r.track.track, r.safe_harbor_category) == header
             ]
-            dimensions = {}
-            for key in set().union(*(r.context.dimensions for r in winners)):
+            dimensions: dict[str, SourceRef | None] = {}
+            for key in set[str]().union(*(r.context.dimensions for r in winners)):
                 values = [r.context.dimensions.get(key) for r in winners]
                 dimensions[key] = values[0] if all(v == values[0] for v in values) else None
             self.preliminary_records[claim.claim_id].append(
@@ -974,222 +630,25 @@ class LiveTaggingRuntime:
                 )
             )
             context = ClaimContext(claim, dimensions)
-            return winners[0].track, context, local_relation_tags(context)
+            return cast(TrackCandidate, winners[0].track), context, local_relation_tags(context)
         if results is None or results[0].track is None:
             return None
         context = results[0].context
         return results[0].track, context, local_relation_tags(context)
 
-    def preliminary_agreement(self, claim_id):
-        """Field-level replica agreement for review only; never a tag, state or grade.
+    def preliminary_agreement(self, claim_id: str) -> dict[str, Any]:
+        return preliminary_agreement(self, claim_id)
 
-        Reads the replica records this run already stored and compares each
-        asserted field on its own, because the replica signature covers the whole
-        classification: one differing field otherwise hides what every replica
-        did agree on. A field is agreed only when all three validated replicas
-        returned the identical literal value, conflict when validated values
-        differ, and unresolved when a replica is missing or did not report that
-        axis. A null category against a non-null one is a conflict: it is never
-        reported as null or not applicable, so an unagreed safe-harbor category
-        cannot reach the rule engine as a fact.
-        """
-        if claim_id in getattr(self, "decision_records", {}):
-            decision = self.decision_records[claim_id]
-            if "fields" in decision:
-                fields = decision["fields"]
-                return dict(
-                    schema="preliminary_decision_agreement_v1",
-                    claim_id=claim_id,
-                    fields={
-                        "track": fields["track"],
-                        "safe_harbor_category": decision["safe_harbor_category"],
-                    },
-                    dimensions={k: v for k, v in fields.items() if k != "track"},
-                    decision_receipts=decision["receipts"],
-                    safe_harbor_category=decision.get("safe_harbor_category"),
-                    policy_sha256=decision["policy_sha256"],
-                )
-        records = self.preliminary_records.get(claim_id, [])
-        validated = [
-            record["values"] for record in records if record["status"] == "validated_candidate"
-        ]
-
-        def state(reported):
-            distinct = {canonical_json(value) for value in reported}
-            return dict(
-                state="unresolved"
-                if len(validated) != 3 or len(reported) != len(validated)
-                else "agreed"
-                if len(distinct) == 1
-                else "conflict",
-                replicate_values=reported,
-                distinct_count=len(distinct),
-            )
-
-        axes = sorted({axis for values in validated for axis in values["dimensions"]})
-        return dict(
-            schema="preliminary_field_agreement_v1",
-            claim_id=claim_id,
-            replicates=len(records),
-            validated_replicates=len(validated),
-            fields=dict(
-                # The literal asserted track, separate from the category candidate.
-                track=state(
-                    [values["track"]["track"] if values["track"] else None for values in validated]
-                ),
-                safe_harbor_category=state(
-                    [values["safe_harbor_category"] for values in validated]
-                ),
-            ),
-            dimensions={
-                axis: state(
-                    [
-                        values["dimensions"][axis]
-                        for values in validated
-                        if axis in values["dimensions"]
-                    ]
-                )
-                for axis in axes
-            },
-        )
-
-    def relations(self, claim, packet):
+    def relations(self, claim: Claim, packet: EvidencePacket) -> RelationRoles | None:
         """Tag only verified external sources already present in this frozen packet."""
         self.relation_records[claim.claim_id] = []
         if self.relation_settings is None:
             return {}
         try:
-            data = packet.to_dict()
-            expected = dict(
-                tenant_id=self.auth.tenant_id,
-                run_id=self.snapshot["run_id"],
-                claim_id=claim.claim_id,
-                document_version_id=self.graph.document_version_id,
-                parse_manifest_id=self.graph.parse_manifest_id,
-                source_sha256=self.graph.source_sha256,
-                graph_sha256=canonical_hash(asdict(self.graph)),
-                status="candidate",
-            )
-            if any(data.get(key) != value for key, value in expected.items()):
-                raise ValueError("RELATION_PACKET_MISMATCH")
-            if (
-                claim.tenant_id,
-                claim.document_version_id,
-                claim.parse_manifest_id,
-                claim.source_sha256,
-            ) != (
-                self.auth.tenant_id,
-                self.graph.document_version_id,
-                self.graph.parse_manifest_id,
-                self.graph.source_sha256,
-            ):
-                raise ValueError("RELATION_CLAIM_MISMATCH")
-            local = {ref.source_id for ref in claim.source_refs}
-            if (
-                self.snapshot.get("analysis_profile_policy", {}).get("table_cell_relations")
-                == "attested-p1-p2-cells-pb2-v1"
-            ):
-                from proofops.application.tagging.pb2_table_evidence import structural_relation_ids
-
-                local.update(
-                    structural_relation_ids(data, claim, self.graph, tenant_id=self.auth.tenant_id)
-                )
-            blocks = {block.source_id: block for block in self.graph.blocks}
-            selected = {}
-            global_elements = {}
-            rulepack = None
-            if self.attribution_policy is not None and self.snapshot.get("rulepack"):
-                from proofops.domain.rulepacks import RulePackSnapshot
-
-                rulepack = RulePackSnapshot(**self.snapshot["rulepack"])
-            refused = {}
-            refusals = []
-            for candidate in data["evidence_candidates"]:
-                for raw in candidate["source_refs"]:
-                    if candidate.get("source_scope") == "global_bound":
-                        global_elements.setdefault(raw["source_id"], set()).update(
-                            candidate.get("allowed_elements", ())
-                        )
-                    ref = _source_ref_from_dict(raw)
-                    if ref.source_id in local:
-                        continue
-                    source = verify_source_ref(ref, self.graph, tenant_id=self.auth.tenant_id)
-                    block = blocks.get(ref.source_id)
-                    if source.verification_state != "verified" or block is None:
-                        continue
-                    canonical = verify_source_ref(
-                        block.source_ref(), self.graph, tenant_id=self.auth.tenant_id
-                    )
-                    if source != canonical or source.quote != ref.quote:
-                        continue  # Never widen a selected substring to its parent paragraph.
-                    if self.attribution_policy is not None:
-                        from proofops.application.evidence.relation_attribution import (
-                            relation_source_rejection,
-                        )
-
-                        reason = relation_source_rejection(
-                            claim,
-                            source,
-                            self.graph,
-                            tenant_id=self.auth.tenant_id,
-                            policy=self.attribution_policy,
-                            rulepack=rulepack,
-                            global_elements=global_elements.get(ref.source_id, ()),
-                        )
-                        if reason is not None:
-                            refused[ref.source_id] = dict(
-                                entity=None, metric=None, reporting_period=None
-                            )
-                            if not any(r["source_id"] == ref.source_id for r in refusals):
-                                refusals.append(
-                                    dict(
-                                        source_id=ref.source_id,
-                                        status="attribution_rejected",
-                                        state="unknown",
-                                        attribution_policy_sha256=canonical_hash(
-                                            self.attribution_policy
-                                        ),
-                                        stable_reason=dict(
-                                            category="attribution_guard", error_code=reason
-                                        ),
-                                    )
-                                )
-                            continue
-                    selected[ref.source_id] = source
-            sources = tuple(selected.values())
-            if not sources:
-                self.relation_records[claim.claim_id] = refusals
-                return refused
-            anchors = {}
-            if self.relation_settings.model_profile in (
-                OCCURRENCE_V3_PROFILE,
-                "relation-decision-gate-v1",
-            ):
-                values = [
-                    r["values"]["dimensions"]
-                    for r in self.preliminary_records.get(claim.claim_id, [])
-                    if r.get("status") == "validated_candidate"
-                ]
-                if len(values) == 3 and all(v == values[0] for v in values):
-                    anchors = {k: v["quote"] if v else None for k, v in values[0].items()}
-            selection_args = (
-                {"claim_text": claim.quote, "dimensions": anchors}
-                if self.relation_settings.model_profile
-                in (OCCURRENCE_V3_PROFILE, "relation-decision-gate-v1")
-                else {}
-            )
-            if self.attribution_policy is not None:
-                selection_args["attribution_guard"] = True
-            envelope = relation_request(
-                sources,
-                self.graph,
-                tenant_id=self.auth.tenant_id,
-                profile=self.relation_settings.model_profile,
-                **selection_args,
-            ) | {
-                "claim_id": claim.claim_id,
-                "retrieval_packet_sha256": packet.packet_sha256,
-            }
+            plan = build_relation_packet(self, claim, packet)
+            if not plan.sources:
+                self.relation_records[claim.claim_id] = plan.refusals
+                return plan.refused
         except (ValueError, KeyError, TypeError, AttributeError) as error:
             self.relation_records[claim.claim_id] = [
                 dict(
@@ -1207,38 +666,11 @@ class LiveTaggingRuntime:
             ]
             return None
 
-        def validate(raw):
-            roles = validate_relations(
-                sources,
-                self.graph,
-                raw,
-                tenant_id=self.auth.tenant_id,
-                profile=self.relation_settings.model_profile,
-                **selection_args,
-            )
-            if self.attribution_policy is not None:
-                from proofops.application.evidence.relation_attribution import (
-                    filter_evidence_dimensions,
-                )
+        sources, envelope, anchors = plan.sources, cast(dict[str, Any], plan.envelope), plan.anchors
+        refused, refusals = plan.refused, plan.refusals
 
-                roles = {
-                    sid: filter_evidence_dimensions(
-                        claim,
-                        selected[sid],
-                        values,
-                        self.graph,
-                        tenant_id=self.auth.tenant_id,
-                        policy=self.attribution_policy,
-                        rulepack=rulepack,
-                        global_elements=global_elements.get(sid, ()),
-                    )[0]
-                    for sid, values in roles.items()
-                }
-            values = {
-                sid: {name: asdict(ref) if ref else None for name, ref in dimensions.items()}
-                for sid, dimensions in roles.items()
-            }
-            return roles, values
+        def validate(raw: dict[str, Any]) -> tuple[RelationRoles, dict[str, Any]]:
+            return validate_relation_response(self, raw, claim=claim, plan=plan)
 
         results = self._source_replicas(
             "relation",
@@ -1256,7 +688,7 @@ class LiveTaggingRuntime:
             return None
         # A disputed source stays wholly unresolved; never combine roles from
         # different replicas into a relationship that no replica proposed.
-        resolved = {
+        resolved: RelationRoles = {
             source_id: roles
             if all(result[source_id] == roles for result in results)
             else {name: None for result in results for name in result[source_id]}
@@ -1303,419 +735,33 @@ class LiveTaggingRuntime:
         return refused | resolved
 
     def _decision_pair(
-        self, claim, state, questions, purpose, *, packet_sha256, retrieval_packet_sha256=None
-    ):
-        from proofops.application.preflight import check_local_decision_binding
-        from proofops.application.tagging.decisions import POLICY
-
-        self.allow_packet(claim.claim_id, packet_sha256)
-        answers, receipts = [], []
-        for provider in ("openai", "openrouter"):
-            probe = self.decision_probes[provider]
-            request_id = str(
-                uuid5(
-                    UUID(self.lease.message.job_id),
-                    f"decision:{purpose}:{claim.claim_id}:{provider}",
-                )
-            )
-            pins = dict(
-                tenant_id=self.auth.tenant_id,
-                run_id=self.snapshot["run_id"],
-                claim_id=claim.claim_id,
-                graph_sha256=canonical_hash(asdict(self.graph)),
-                packet_sha256=packet_sha256,
-                retrieval_packet_sha256=retrieval_packet_sha256,
-                policy_sha256=canonical_hash(POLICY),
-                settings_sha256=self.snapshot["decision_settings_hash"],
-                runtime_sha256=self.snapshot["decision_runtime_hashes"][provider],
-            )
-            call = BudgetCall(
-                self.auth.tenant_id,
-                self.snapshot["run_id"],
-                self.graph.document_version_id,
-                request_id,
-                1,
-                "decision",
-                probe.model,
-                "provider-managed-unverified",
-                canonical_hash(POLICY["models"][provider]),
-                canonical_hash(dict(state=state, questions=questions, pins=pins)),
-                None,
-            )
-
-            def check_authority():
-                self._fence()
-                for kind, frozen, identifier in (
-                    ("runtime", self.snapshot["decision_runtimes"][provider], "runtime_binding_id"),
-                    ("consent", self.snapshot["consent"], "consent_profile_id"),
-                    ("rights", self.snapshot["rights"], "rights_profile_id"),
-                ):
-                    current = self.registry.resolve_profile(self.auth, kind, frozen[identifier])
-                    if artifact_sha256(current) != artifact_sha256(frozen):
-                        raise ValueError("DECISION_APPROVAL_CHANGED")
-                if not check_local_decision_binding(
-                    binding=self.snapshot["decision_runtimes"][provider],
-                    consent=self.snapshot["consent"],
-                    auth=self.auth,
-                    checked_at=datetime.fromtimestamp(self.runner.clock(), UTC).isoformat(),
-                    source_sha256=self.graph.source_sha256,
-                    document_rights=self.snapshot["document"]["metadata"]["rights_profile_id"],
-                    provider=provider,
-                    settings=self.snapshot["decision_settings"],
-                ).ready:
-                    raise ValueError("DECISION_PREFLIGHT_BLOCKED")
-
-            def authorize():
-                check_authority()
-                if not self.runner.store.usage.reserve_budget(
-                    call,
-                    input_tokens=66560,
-                    max_output_tokens=4096,
-                    pricing=None,
-                    now=int(self.runner.clock()),
-                ):
-                    raise ValueError("DECISION_PENDING_CALL")
-
-            def dispatch():
-                check_authority()
-                if not self.runner.store.usage.mark_dispatched(call):
-                    raise ValueError("DECISION_PENDING_CALL")
-
-            try:
-                self._check_heartbeat()
-                result = probe.decide(
-                    state,
-                    questions,
-                    request_id=request_id,
-                    pins=pins,
-                    authorize=authorize,
-                    before_dispatch=dispatch,
-                )
-                receipt = result["receipt"]
-                self.runner.store.usage.record_usage(
-                    call,
-                    TokenUsage(
-                        receipt["input_tokens"],
-                        receipt["output_tokens"],
-                        0,
-                        0,
-                        receipt["latency_ms"],
-                        "succeeded",
-                        receipt["provider_request_id"],
-                    ),
-                    now=int(self.runner.clock()),
-                )
-                answers.append(result["answers"])
-                receipts.append(receipt)
-            except LeaseLost:
-                raise
-            except (ValueError, OSError, KeyError, TypeError) as error:
-                answers.append({})
-                code = (
-                    str(error)
-                    if str(error)
-                    in {
-                        "BUDGET_EXHAUSTED",
-                        "R108_BUDGET_EXHAUSTED",
-                        "DECISION_PENDING_CALL",
-                        "DECISION_REQUEST_FAILED",
-                        "DECISION_ANSWERS_INVALID",
-                        "DECISION_PREFLIGHT_BLOCKED",
-                        "DECISION_APPROVAL_CHANGED",
-                        "PROBE_REQUEST_TOO_LARGE",
-                        "DECISION_RECEIPT_MISMATCH",
-                    }
-                    else "DECISION_LOCAL_STOP"
-                )
-                receipts.append(
-                    dict(
-                        request_id=request_id,
-                        provider=provider,
-                        status="needs_review",
-                        error_code=code,
-                    )
-                )
-            finally:
-                with self._account_lock:
-                    self.decision_request_ids[provider].add(request_id)
-                    self.usage["decision_usage"] = {
-                        p: request_usage(pr.ledger, sorted(self.decision_request_ids[p]))
-                        for p, pr in self.decision_probes.items()
-                    }
-                    self.usage["decision_request_ids"] = {
-                        p: sorted(ids) for p, ids in self.decision_request_ids.items()
-                    }
-        return answers, receipts
-
-    def _decision_preliminary(self, claim, packet, results):
-        from proofops.application.evidence.binding import ClaimContext
-        from proofops.application.tagging.decisions import (
-            AXES,
-            POLICY,
-            preliminary_dimensions,
-            preliminary_questions,
-            preliminary_state,
-            resolve_preliminary,
-        )
-        from proofops.application.tagging.tracks import validate_track_candidates
-
-        quotes = {}
-        if results is not None:
-            for axis in AXES:
-                values = [r.context.dimensions.get(axis) for r in results]
-                if all(v == values[0] for v in values) and values[0] is not None:
-                    quotes[axis] = values[0]
-        pair, receipts = self._decision_pair(
-            claim,
-            preliminary_state(packet),
-            preliminary_questions(),
-            "preliminary",
-            packet_sha256=canonical_hash(packet),
-        )
-        fields = resolve_preliminary(*pair, quotes)
-        categories = [r.safe_harbor_category for r in results] if results else []
-        category_agreed = len(categories) == 3 and all(c == categories[0] for c in categories)
-        self.decision_records[claim.claim_id] = dict(
-            fields={
-                k: v | {"value": asdict(v["value"]) if k != "track" and v["value"] else v["value"]}
-                for k, v in fields.items()
-            },
-            receipts=receipts,
-            policy_sha256=canonical_hash(POLICY),
-            safe_harbor_category=dict(
-                state="agreed" if category_agreed else "unresolved", replicate_values=categories
-            ),
-        )
-        if results is None or fields["track"]["state"] != "agreed" or not category_agreed:
-            return None
-        track = validate_track_candidates(
-            (claim,),
-            (
-                dict(
-                    claim_id=claim.claim_id,
-                    track=fields["track"]["value"],
-                    safe_harbor_category=categories[0],
-                ),
-            ),
-        )[0]
-        context = ClaimContext(
-            claim, preliminary_dimensions(fields, [r.context.dimensions for r in results])
-        )
-        return track, context, local_relation_tags(context)
-
-    def _source_replicas(
         self,
-        prefix,
-        claim,
-        packet,
-        settings,
-        transport,
-        record_store,
-        validate,
+        claim: Claim,
+        state: dict[str, Any],
+        questions: dict[str, Any],
+        purpose: str,
         *,
-        retrieval_packet_sha256=None,
-        require_consensus=True,
-        context_receipt=None,
-    ):
-        packet_hash = canonical_hash(packet)
-        self.allow_packet(claim.claim_id, packet_hash)
-        record_store[claim.claim_id] = []
+        packet_sha256: str,
+        retrieval_packet_sha256: str | None = None,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        return decision_pair(
+            self,
+            claim,
+            state,
+            questions,
+            purpose,
+            packet_sha256=packet_sha256,
+            retrieval_packet_sha256=retrieval_packet_sha256,
+        )
 
-        def run_one(replica):
-            records, results, signatures, provider_ids = [], [], [], []
-            for replica in (replica,):
-                self._check_heartbeat()
-                request_id = str(
-                    uuid5(UUID(self.lease.message.job_id), f"{prefix}:{claim.claim_id}:{replica}")
-                )
-                request = dict(
-                    tenant_id=self.auth.tenant_id,
-                    claim_id=claim.claim_id,
-                    packet_sha256=packet_hash,
-                    replicate_id=replica,
-                    request_id=request_id,
-                    binding=asdict(settings.binding),
-                    model_id=settings.model_id,
-                    model_profile=settings.model_profile,
-                    region=settings.region,
-                    system_prompt=settings.rendered_system,
-                    user_json=canonical_json(packet),
-                    temperature=settings.temperature,
-                    max_tokens=settings.max_tokens,
-                    input_reservation_policy_sha256=self.snapshot["input_reservation_policy_hash"],
-                )
-                if retrieval_packet_sha256 is not None:
-                    request["retrieval_packet_sha256"] = retrieval_packet_sha256
-                from proofops.application.tagging.pb2_preliminary import enabled as pb2_enabled
+    def _decision_preliminary(
+        self, claim: Claim, packet: dict[str, Any], results: list[PreliminaryClassification] | None
+    ) -> PreliminaryResult | None:
+        return decision_preliminary(self, claim, packet, results)
 
-                if prefix == "preliminary" and pb2_enabled(
-                    claim, self.graph, self.snapshot.get("analysis_profile_policy", {})
-                ):
-                    request["preliminary_fact_fields"] = "preliminary-fact-fields-pb2-v1"
-                    scope = self.snapshot.get("analysis_profile_policy", {}).get(
-                        "preliminary_fact_fields_scope"
-                    )
-                    if scope is not None:
-                        request["preliminary_fact_fields_scope"] = scope
-                if self.snapshot.get("pipeline_profile") in (
-                    "unattended-v1",
-                    "finals-unattended-v1",
-                    "finals-unattended-v2",
-                    "finals-unattended-j3-v1",
-                    "finals-unattended-j7-v1",
-                    "finals-unattended-j8-v1",
-                ):
-                    request["pipeline_profile"] = self.snapshot["pipeline_profile"]
-                request["request_signature"] = canonical_hash(request)
-                call = BudgetCall(
-                    self.auth.tenant_id,
-                    self.snapshot["run_id"],
-                    self.graph.document_version_id,
-                    request_id,
-                    1,
-                    "tagger",
-                    settings.model_id,
-                    settings.region,
-                    settings.model_sha256,
-                    request["request_signature"],
-                    replica,
-                )
-                directory = self.receipts / prefix / request_id
-                record = dict(request_id=request_id, replicate_id=replica, status="unresolved")
-                if context_receipt:
-                    record.update(context_receipt)
-                records.append(record)
-                response = None
-                try:
-                    capacity = transport.count_input_tokens(
-                        request, counter=lambda system, user: self._capacity(settings.model_id)
-                    )
-                    if directory.exists():
-                        retained = json.loads((directory / "request.json").read_text())
-                        if (
-                            retained["request"] != request
-                            or not (directory / "response.json").is_file()
-                        ):
-                            raise ValueError(prefix.upper() + "_RECEIPT_INCOMPLETE_OR_MISMATCH")
-                        raw = json.loads((directory / "response.json").read_text())
-                        response = RawTagResponse(**(raw | {"usage": TokenUsage(**raw["usage"])}))
-                    else:
-                        # A withdrawn or exhausted recovery allowance stops before the
-                        # reservation, so no budget is held and no ledger row settles
-                        # for a request this operation is no longer authorized to send.
-                        if not transport.may_dispatch():
-                            raise ValueError(prefix.upper() + "_RECOVERY_ALLOWANCE_EXHAUSTED")
-                        self._fence()
-                        lock = (
-                            self.heartbeat_state.lock
-                            if self.heartbeat_state is not None
-                            else nullcontext()
-                        )
-                        with lock:
-                            self._check_heartbeat()
-                            if not self.reserve_tag_call(
-                                call,
-                                input_tokens=capacity,
-                                # Source transports aggregate schema-retry usage just
-                                # like element tagging; reserve every allowed output.
-                                max_output_tokens=output_reservation_tokens(
-                                    model_id=settings.model_id,
-                                    max_tokens=settings.max_tokens,
-                                    synthetic=settings.binding.synthetic,
-                                ),
-                                pricing=None,
-                                now=int(self.runner.clock()),
-                            ):
-                                raise ValueError(prefix.upper() + "_PENDING_CALL")
-                        self._fence()
-                        with lock:
-                            self._check_heartbeat()
-                            if not self.runner.store.usage.mark_dispatched(call):
-                                raise ValueError(prefix.upper() + "_PENDING_CALL")
-                        self._check_heartbeat()
-                        context = (
-                            self.probe.response_context(
-                                role="elements" if prefix == "tagging" else prefix,
-                                replica=replica,
-                            )
-                            if hasattr(self.probe, "response_context")
-                            else nullcontext()
-                        )
-                        with context:
-                            response = transport.invoke(request)
-                    self.runner.store.usage.record_usage(
-                        call, response.usage, now=int(self.runner.clock())
-                    )
-                    if (
-                        response.synthetic
-                        or response.usage.status != "succeeded"
-                        or not response.raw_response_json
-                    ):
-                        raise ValueError(prefix.upper() + "_PROVIDER_FAILED")
-                    result, values = validate(json.loads(response.raw_response_json))
-                    record.update(
-                        status="validated_candidate",
-                        values=values,
-                        raw_response_sha256=canonical_hash(response.raw_response_json),
-                    )
-                    if not response.usage.provider_request_id:
-                        raise ValueError(prefix.upper() + "_PROVIDER_ID_REQUIRED")
-                    results.append(result)
-                    signatures.append(canonical_hash(values))
-                    provider_ids.append(response.usage.provider_request_id)
-                except LeaseLost:
-                    raise
-                except (ValueError, OSError, KeyError, TypeError, BudgetExceeded) as error:
-                    # Never collapse the actual outcome to a bare "needs_review": a
-                    # provider error_code (e.g. UPSTREAM_UNAVAILABLE) means this specific
-                    # attempt was never actually sent (locally suppressed, latency 0ms,
-                    # no provider_request_id); that is a distinct, stable fact from a
-                    # real settled provider failure or a local/authorization/budget stop
-                    # raised before any transport call. Both are surfaced here so a
-                    # never-sent attempt is never misread as an unknown model outcome.
-                    usage = getattr(response, "usage", None)
-                    settled_code = getattr(usage, "error_code", None)
-                    record.update(
-                        status="needs_review",
-                        stable_reason=dict(
-                            # "never_sent" requires the transport's own explicitly
-                            # known local-suppression code, not merely a zero latency:
-                            # a fast real failure can also round to 0ms and lack a
-                            # provider id. The durable proof that no call happened is
-                            # the absent receipt directory, checked by the recovery
-                            # classifier; this label only reports the transport's
-                            # settled code without reinterpreting it.
-                            category="never_sent"
-                            if usage is not None
-                            and usage.status == "failed"
-                            and settled_code in NEVER_SENT_ERROR_CODES
-                            and usage.provider_request_id is None
-                            and usage.latency_ms == 0
-                            else "provider_failed"
-                            if usage is not None and usage.status == "failed"
-                            else "local_stop",
-                            # Stable internal codes only. An unrecognized exception
-                            # never leaks its message text into a durable record.
-                            error_code=settled_code
-                            or (
-                                error.code
-                                if prefix == "relation"
-                                and isinstance(error, RelationValidationError)
-                                else _local_stop_code(prefix, error)
-                            ),
-                            detail=(
-                                error.field
-                                if prefix == "relation"
-                                and isinstance(error, RelationValidationError)
-                                else None
-                            ),
-                        ),
-                    )
-                    return records, results, signatures, provider_ids, True
-                finally:
-                    self.account(request_id)
-            return records, results, signatures, provider_ids, False
-
+    def _run_source_replicas(
+        self, run_one: Callable[[int], ReplicaOutcome[ReplicaValue]], settings: TaggingSettings
+    ) -> list[ReplicaOutcome[ReplicaValue]]:
         workers = (
             min(getattr(self, "replica_workers", getattr(self.runner, "max_workers", 1)), 3)
             if settings.model_id in ("openai/gpt-6-luna", "gpt-6-luna")
@@ -1732,31 +778,32 @@ class LiveTaggingRuntime:
         else:
             with ThreadPoolExecutor(max_workers=workers) as pool:
                 outcomes = list(pool.map(run_one, (1, 2, 3)))
-        records, results, signatures, provider_ids = [], [], [], []
-        failed = False
-        for outcome in outcomes:
-            replica_records, replica_results, replica_signatures, replica_ids, replica_failed = (
-                outcome
-            )
-            records.extend(replica_records)
-            results.extend(replica_results)
-            signatures.extend(replica_signatures)
-            provider_ids.extend(replica_ids)
-            failed |= replica_failed
-        record_store[claim.claim_id] = records
-        unattended_majority = prefix == "preliminary" and self.snapshot.get("pipeline_profile") in (
-            "unattended-v1",
-            "finals-unattended-v1",
-            "finals-unattended-v2",
-            "finals-unattended-j3-v1",
-            "finals-unattended-j7-v1",
-            "finals-unattended-j8-v1",
+        return outcomes
+
+    def _source_replicas(
+        self,
+        prefix: str,
+        claim: Claim,
+        packet: dict[str, Any],
+        settings: TaggingSettings,
+        transport: SourceTransport,
+        record_store: dict[str, list[dict[str, Any]]],
+        validate: Callable[[dict[str, Any]], tuple[ReplicaValue, dict[str, Any]]],
+        *,
+        retrieval_packet_sha256: str | None = None,
+        require_consensus: bool = True,
+        context_receipt: dict[str, Any] | None = None,
+    ) -> list[ReplicaValue] | None:
+        return source_replicas(
+            self,
+            prefix,
+            claim,
+            packet,
+            settings,
+            transport,
+            record_store,
+            validate,
+            retrieval_packet_sha256=retrieval_packet_sha256,
+            require_consensus=require_consensus,
+            context_receipt=context_receipt,
         )
-        if failed and not (unattended_majority and len(results) >= 2):
-            return None
-        if (
-            len(set(provider_ids)) != len(provider_ids)
-            or (not unattended_majority and len(set(provider_ids)) != 3)
-        ) or (require_consensus and len(set(signatures)) != 1):
-            return None
-        return results

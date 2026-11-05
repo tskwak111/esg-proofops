@@ -1,15 +1,19 @@
 """Activate S1 for the exact I4 composite while preserving S1's pinned bytes."""
 
+from __future__ import annotations
+
+from collections.abc import Iterator
 from contextlib import contextmanager
 from hashlib import sha256
 from pathlib import Path
+from typing import Any, cast
 
 from proofops.adapters.local import parse_table_cache
 from proofops.domain.provenance import canonical_hash
 
 
 @contextmanager
-def for_snapshot(snapshot, tenant, run):
+def for_snapshot(snapshot: dict[str, Any], tenant: str, run: str) -> Iterator[None]:
     from proofops.application.analysis_profile import (
         FINALS_I4_POLICY,
         FINALS_I6_POLICY,
@@ -29,7 +33,7 @@ def for_snapshot(snapshot, tenant, run):
         if (
             snapshot.get("analysis_profile_policy") != configured
             or configured["parse_replay_cache"] != S1_POLICY["parse_replay_cache"]
-            or S1_POLICY["parse_replay_cache"]["implementation_sha256"]
+            or cast(dict[str, Any], S1_POLICY["parse_replay_cache"])["implementation_sha256"]
             != sha256(Path(parse_table_cache.__file__).read_bytes()).hexdigest()
         ):
             raise ValueError("I4_PARSE_POLICY_MISMATCH")

@@ -40,7 +40,7 @@ from threading import Lock
 _DEFAULT_COMPILE_TIMEOUT_S = 120
 
 _cache_dir_lock = Lock()
-_cache_dir: tempfile.TemporaryDirectory | None = None
+_cache_dir: tempfile.TemporaryDirectory[str] | None = None
 
 
 def _process_cache_dir() -> Path:

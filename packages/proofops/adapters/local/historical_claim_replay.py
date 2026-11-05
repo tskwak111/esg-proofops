@@ -5,8 +5,11 @@ unchanged wrapper bytes privately, then bind their historical dependencies as
 in frozen_native_replay. The caller still checks the complete stored policy.
 """
 
+from __future__ import annotations
+
 from hashlib import sha256
 from pathlib import Path
+from types import ModuleType
 
 from proofops.adapters.local.frozen_native_replay import _exec_private
 
@@ -38,7 +41,7 @@ _PINNED = (
 )
 
 
-def historical_typography_reader():
+def historical_typography_reader() -> ModuleType:
     for name, digest in _PINNED:
         path = _ROOT / name
         if not path.is_file() or sha256(path.read_bytes()).hexdigest() != digest:
@@ -47,26 +50,28 @@ def historical_typography_reader():
     from proofops.adapters.local import claim_span_bullet_alignment as current_bullet
     from proofops.adapters.local._frozen_verifiers import claims_pre_continuations
 
-    def load(name):
+    def load(name: str) -> ModuleType:
         return _exec_private(
             _ROOT, name + ".py", "proofops.adapters.local._historical." + Path(name).name
         )
 
     base = load("claim_source_verification")
-    base.claim_validation = claims_pre_continuations
+    setattr(base, "claim_validation", claims_pre_continuations)
     # Preserve the established reader injection surface, including offline tests.
-    base._rendered_text = current_base._rendered_text
+    setattr(base, "_rendered_text", getattr(current_base, "_rendered_text"))
     render = load("claim_span_render_resolution")
-    render.base = base
+    setattr(render, "base", base)
     bullet = load("claim_span_bullet_alignment")
-    bullet.base, bullet.baseline = base, render
-    bullet._rendered_text = current_bullet._rendered_text
+    setattr(bullet, "base", base)
+    setattr(bullet, "baseline", render)
+    setattr(bullet, "_rendered_text", getattr(current_bullet, "_rendered_text"))
     typography = load("_frozen_verifiers/claim_span_typography_v1")
-    typography.base, typography.baseline = base, bullet
+    setattr(typography, "base", base)
+    setattr(typography, "baseline", bullet)
     return typography
 
 
-def historical_upstage_ocr_v21_reader():
+def historical_upstage_ocr_v21_reader() -> ModuleType:
     """Load the exact D2 reader policy used before page receipt aggregation."""
     global _UPSTAGE_V21_READER
 

@@ -5,9 +5,12 @@ metadata-only request audit commit together. Old payload/revision tables are unt
 Rollback must keep tombstone guards and tables; removing guards resurrects access.
 """
 
+from __future__ import annotations
+
 import json
 import math
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from proofops.application.retention import RESOURCE_KINDS
@@ -15,14 +18,21 @@ from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import _require_uuid
 
+if TYPE_CHECKING:
+    import sqlite3
+    from typing import Any
+
+    from proofops.application.authorization import AuthContext
+    from proofops.application.uploads import UploadService
+
 
 class RetentionRejected(ValueError):
-    def __init__(self, code, status=409):
+    def __init__(self, code: str, status: int = 409) -> None:
         super().__init__(code)
         self.code, self.status = code, status
 
 
-def initialize_retention_schema(db):
+def initialize_retention_schema(db: sqlite3.Connection) -> None:
     db.execute("CREATE TABLE IF NOT EXISTS retention_schema (version INTEGER PRIMARY KEY)")
     rows = db.execute("SELECT version FROM retention_schema").fetchall()
     if rows not in ([], [(1,)]):
@@ -44,7 +54,7 @@ def initialize_retention_schema(db):
         BEGIN SELECT RAISE(ABORT, 'immutable deletion tombstone'); END""")
 
 
-def document_is_deleted(db, tenant_id, document_id):
+def document_is_deleted(db: sqlite3.Connection, tenant_id: str, document_id: str | None) -> bool:
     """For caller-owned read/write transactions; no commits or connection ownership here."""
     if not db.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", ("retention_tombstones",)
@@ -62,22 +72,30 @@ def document_is_deleted(db, tenant_id, document_id):
 class LocalRetentionStore:
     kind = "local-synthetic-only"
 
-    def __init__(self, uploads):
+    def __init__(self, uploads: UploadService) -> None:
         if not uploads.local_synthetic:
             raise ValueError("local-synthetic uploads required")
         self.uploads = uploads
         with uploads._transaction():
             initialize_retention_schema(uploads._db)
 
-    def is_deleted(self, tenant_id, document_id):
+    def is_deleted(self, tenant_id: str, document_id: str) -> bool:
         with self.uploads._lock:
             return document_is_deleted(self.uploads._db, tenant_id, document_id)
 
     @staticmethod
-    def _response(row):
+    def _response(row: tuple[str, ...]) -> dict[str, Any]:
         return dict(deletion_id=row[0], status="blocked_retention", requested_at=row[1])
 
-    def request(self, actor, document_id, body, key, *, now):
+    def request(
+        self,
+        actor: AuthContext,
+        document_id: str,
+        body: dict[str, Any],
+        key: str | None,
+        *,
+        now: float,
+    ) -> dict[str, Any]:
         if not actor.has_capability("admin"):
             raise RetentionRejected("FORBIDDEN", 403)
         _require_uuid("document_id", document_id)

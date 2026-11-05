@@ -5,12 +5,24 @@ an explicit shared activity and all asserted dimensions; proximity is not proof.
 Cross-page sources keep the existing explicit-link/attribution review path.
 """
 
+from __future__ import annotations
+
 import re
 from dataclasses import asdict, replace
+from typing import TYPE_CHECKING, Any
 
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.ingest.k5_context import BULLET, TERMINAL
 from proofops.domain.provenance import canonical_hash
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from proofops.application.claims import Claim
+    from proofops.application.evidence.binding import ClaimContext
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.domain.values import LlmElement, SourceRef
+
 
 GUIDANCE = """
 QT2: P2 compares the current observation with an earlier/base-year value in the
@@ -32,7 +44,7 @@ Do not infer missing actors/dates, present from metadata, or absent from unknown
 Conflict/unreadable stay held. Only Python computes grades; new votes require
 three independent replicas over the same frozen packet.
 """.strip()
-POLICY = dict(
+POLICY: dict[str, Any] = dict(
     profile="qt2-contextual-elements-v1",
     guidance_sha256=canonical_hash(GUIDANCE),
     elements=["P2", "M2", "M4"],
@@ -73,12 +85,12 @@ POLICY.update(
 POLICY_HASH = canonical_hash(POLICY)
 
 
-def validate_policy(policy):
+def validate_policy(policy: Mapping[str, Any]) -> None:
     if policy != POLICY:
         raise ValueError("QT2_CONTEXT_POLICY_MISMATCH")
 
 
-def guard(element):
+def guard(element: LlmElement) -> LlmElement:
     """Negative semantic checks only, scoped to model-selected evidence."""
     if element.state != "present" or element.element_id not in ("M2", "M4"):
         return element
@@ -112,13 +124,15 @@ def guard(element):
     )
 
 
-def _contains(outer, inner):
+def _contains(outer: SourceRef, inner: SourceRef) -> bool:
     return outer.source_id == inner.source_id and (
         outer.char_start <= inner.char_start < inner.char_end <= outer.char_end
     )
 
 
-def context_refs(claim, graph, *, tenant_id):
+def context_refs(
+    claim: Claim, graph: CanonicalDocumentGraph, *, tenant_id: str
+) -> tuple[SourceRef, ...]:
     """Propose only individually verified sentences, without promoting a block."""
     if (
         claim.tenant_id != tenant_id
@@ -168,7 +182,9 @@ def context_refs(claim, graph, *, tenant_id):
     return tuple(refs)
 
 
-def augment_packet(data, claim, graph, *, tenant_id):
+def augment_packet(
+    data: dict[str, Any], claim: Claim, graph: CanonicalDocumentGraph, *, tenant_id: str
+) -> dict[str, Any]:
     data["qt2_contextual_elements_policy"] = POLICY
     elements = [e for e in ("M2", "M4") if e in data["allowed_elements"]]
     if not elements:
@@ -193,7 +209,15 @@ def augment_packet(data, claim, graph, *, tenant_id):
     return data
 
 
-def accepts_context(context, ref, graph, *, tenant_id, element_id, relation_tags=None):
+def accepts_context(
+    context: ClaimContext,
+    ref: SourceRef,
+    graph: CanonicalDocumentGraph,
+    *,
+    tenant_id: str,
+    element_id: str,
+    relation_tags: Mapping[str, SourceRef | None] | None = None,
+) -> bool:
     """Literal local identity or explicit activity continuity, never a vote.
 
     For a local M4 action null dimensions remain null, as for intrinsic M1.
@@ -261,7 +285,9 @@ def accepts_context(context, ref, graph, *, tenant_id, element_id, relation_tags
     return True
 
 
-def prepare_table(element, claim, graph, *, tenant_id):
+def prepare_table(
+    element: LlmElement, claim: Claim, graph: CanonicalDocumentGraph, *, tenant_id: str
+) -> tuple[LlmElement, bool]:
     """Accept a selected comparison year OR value, with both exact refs present."""
     from proofops.application.tagging.pb2_table_evidence import observation_sources
 

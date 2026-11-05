@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
 from datetime import UTC, datetime
-from types import MappingProxyType
-from typing import Any
+from types import MappingProxyType, ModuleType
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
-from proofops.application.budget import BudgetLimits, cost_summary
+from proofops.application.authorization import AuthContext
+from proofops.application.budget import BudgetLimits, UsageRepository, cost_summary
 from proofops.application.claim_scope import validate_extraction_limits
 from proofops.application.claims import ExtractionProfile
 from proofops.application.ingest.graph_fusion import ParserProfile
@@ -34,6 +35,12 @@ from proofops.application.tagging.service import TaggingSettings
 from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import _require_sha256, _require_uuid
+
+if TYPE_CHECKING:
+    from proofops.adapters.local.job_store import LocalSQLiteJobStore
+    from proofops.application.registry import Registry
+    from proofops.application.supply_chain import SupplyChainResult
+    from proofops.application.uploads import UploadService
 
 
 class RunRejected(ValueError):
@@ -60,7 +67,7 @@ def _capacity_accommodated(limits: BudgetLimits | None, upper: int, output_cap: 
     )
 
 
-def _detach(value):
+def _detach(value: Any) -> Any:
     if isinstance(value, Mapping):
         return {key: _detach(item) for key, item in value.items()}
     if isinstance(value, list | tuple):
@@ -68,7 +75,7 @@ def _detach(value):
     return value
 
 
-def validate_raster_policy(policy):
+def validate_raster_policy(policy: object) -> dict[str, Any]:
     """Validate trusted policy shape without filesystem/provider dependencies."""
     hashes = (
         "native_policy_sha256",
@@ -92,10 +99,10 @@ def validate_raster_policy(policy):
         raise ValueError("RASTER_POLICY_INVALID")
     for name in hashes:
         _require_sha256(name, policy[name])
-    return _detach(policy)
+    return cast(dict[str, Any], _detach(policy))
 
 
-def validate_raster_snapshot(snapshot):
+def validate_raster_snapshot(snapshot: Mapping[str, Any]) -> None:
     fields = {
         "raster_ocr_policy",
         "raster_ocr_policy_hash",
@@ -133,38 +140,38 @@ class RunService:
 
     def __init__(
         self,
-        store,
-        uploads,
-        registry,
+        store: RunStore,
+        uploads: UploadService,
+        registry: Registry,
         *,
-        parser_profile_hash=None,
-        parser_profile=None,
+        parser_profile_hash: str | None = None,
+        parser_profile: Mapping[str, Any] | None = None,
         extraction_profile: ExtractionProfile | None = None,
         extraction_mode: str | None = None,
-        extraction_limits=None,
-        claim_source_policy=None,
-        display_text_policy=None,
+        extraction_limits: Mapping[str, Any] | None = None,
+        claim_source_policy: Mapping[str, Any] | None = None,
+        display_text_policy: Mapping[str, Any] | None = None,
         tagging_settings: TaggingSettings | None = None,
         tagging_mode: str | None = None,
         fact_assembly_profile: str = "strict-v1",
         pipeline_profile: str | None = None,
         analysis_policy_sha256: str | None = None,
-        report_level_link=None,
+        report_level_link: Mapping[str, Any] | None = None,
         preliminary_settings: TaggingSettings | None = None,
         relation_settings: TaggingSettings | None = None,
         relation_attribution_policy: str | None = "relation-attribution-v2",
-        decision_settings=None,
+        decision_settings: Mapping[str, Any] | None = None,
         raster_runtime_binding_id: str | None = None,
-        raster_policy=None,
-        input_reservation_policy=None,
-        position_context_order=None,
-        budget_limits=None,
-        allowed_regions=(),
-        build_result=None,
-        clock=time.time,
-        app_env="local",
-        model_adapter="synthetic",
-    ):
+        raster_policy: Mapping[str, Any] | None = None,
+        input_reservation_policy: Mapping[str, Any] | None = None,
+        position_context_order: Mapping[str, Any] | None = None,
+        budget_limits: BudgetLimits | None = None,
+        allowed_regions: Sequence[str] = (),
+        build_result: SupplyChainResult | None = None,
+        clock: Callable[[], float] = time.time,
+        app_env: str = "local",
+        model_adapter: str = "synthetic",
+    ) -> None:
         if app_env != "local" or model_adapter != "synthetic" or not uploads.local_synthetic:
             raise ValueError("run lifecycle requires local-synthetic composition")
         if parser_profile_hash is not None:
@@ -241,7 +248,7 @@ class RunService:
         if analysis_policy_sha256 is not None:
             from proofops.application.analysis_profile import publication_policy_for
 
-            publication_policy_for(pipeline_profile, pinned_hash=analysis_policy_sha256)
+            publication_policy_for(cast(str, pipeline_profile), pinned_hash=analysis_policy_sha256)
         self.analysis_policy_sha256 = analysis_policy_sha256
         self.tagging_settings, self.tagging_mode = tagging_settings, tagging_mode
         if report_level_link is not None and (tagging_mode is None or tagging_settings is None):
@@ -254,7 +261,7 @@ class RunService:
             PARTIAL_FACTS_V2 if fact_assembly_profile == PARTIAL_FACTS_V1 else fact_assembly_profile
         )
         self.report_level_link = (
-            _detach(validate_report_level_link(report_level_link))
+            _detach(cast("Callable[..., object]", validate_report_level_link)(report_level_link))
             if report_level_link is not None
             else None
         )
@@ -284,7 +291,13 @@ class RunService:
         from proofops.application.tagging.decisions import validate_decision_settings
 
         self.decision_settings = (
-            _detach(dict(validate_decision_settings(decision_settings)))
+            _detach(
+                dict(
+                    cast("Callable[..., dict[str, Any]]", validate_decision_settings)(
+                        decision_settings
+                    )
+                )
+            )
             if decision_settings is not None
             else None
         )
@@ -306,9 +319,9 @@ class RunService:
         self.clock = clock
         self.local_synthetic = True
 
-    def create(self, auth, body: dict[str, Any], key: str):
+    def create(self, auth: AuthContext, body: dict[str, Any], key: str) -> dict[str, Any]:
         if self.report_level_link is not None:
-            validate_report_level_link(self.report_level_link)
+            cast("Callable[..., object]", validate_report_level_link)(self.report_level_link)
         created_time = self.clock()
         now = int(created_time)
         replay = self.store.replay(auth.tenant_id, body, key, now=now)
@@ -394,7 +407,9 @@ class RunService:
                 _require_uuid("raster_runtime_binding_id", self.raster_runtime_binding_id)
                 raster_policy = validate_raster_policy(self.raster_policy)
                 raster_runtime = _detach(
-                    self.registry.resolve_profile(auth, "runtime", self.raster_runtime_binding_id)
+                    self.registry.resolve_profile(
+                        auth, "runtime", cast(str, self.raster_runtime_binding_id)
+                    )
                 )
                 raster_preflight = check_local_upstage_raster(
                     binding=raster_runtime,
@@ -446,13 +461,13 @@ class RunService:
             # ``pages`` is the validated broad declared subset; claim_pages must be
             # a subset of it and never widens the parse/evidence scope.
             try:
-                validate_extraction_limits(limits, pages)
+                validate_extraction_limits(limits, cast(list[int], pages))
                 if self.parser_profile.get("parser_mode") == "mixed-v1":
                     from proofops.application.claim_scope import claim_pages_for
 
                     if (
                         self.parser_profile["claim_physical_pages"]
-                        != claim_pages_for(limits, pages)
+                        != claim_pages_for(limits, cast(list[int], pages))
                         or pages is None
                         or len(pages) > 30
                     ):
@@ -613,9 +628,13 @@ class RunService:
             for pinned in pinned_settings:
                 try:
                     upper = (
-                        validate_openai_capacity(policy, model_id=pinned.model_id)
+                        cast("Callable[..., int]", validate_openai_capacity)(
+                            policy, model_id=pinned.model_id
+                        )
                         if pinned.model_id == "gpt-6-luna"
-                        else validate_luna_capacity(policy, model_id=pinned.model_id)
+                        else cast("Callable[..., int]", validate_luna_capacity)(
+                            policy, model_id=pinned.model_id
+                        )
                         if pinned.model_id == "openai/gpt-6-luna"
                         else validate_capacity_policy(
                             policy,
@@ -659,8 +678,8 @@ class RunService:
             parser_profile_hash=self.parser_profile_hash,
             parser_profile=dict(self.parser_profile),
             budget_limits=asdict(self.budget_limits),
-            build_result=asdict(self.build_result),
-            build_result_hash=canonical_hash(asdict(self.build_result)),
+            build_result=asdict(cast("SupplyChainResult", self.build_result)),
+            build_result_hash=canonical_hash(asdict(cast("SupplyChainResult", self.build_result))),
             selected_pages=list(range(1, count + 1)) if pages is None else pages,
             mode=body["mode"],
             scope=body["scope"],
@@ -682,6 +701,7 @@ class RunService:
                 )
                 snapshot["analysis_profile_policy"] = _detach(analysis_policy)
                 snapshot["analysis_profile_policy_sha256"] = canonical_hash(analysis_policy)
+                evidence: ModuleType
                 from proofops.adapters.local import evidence_source_verification_v1 as evidence
 
                 if (self.claim_source_policy or {}).get("profile") in {
@@ -721,7 +741,9 @@ class RunService:
                     )
                     from proofops.adapters.local.claim_source_policies import claim_source_reader
 
-                    selected_reader = claim_source_reader(self.claim_source_policy)
+                    selected_reader = cast("Callable[..., ModuleType]", claim_source_reader)(
+                        self.claim_source_policy
+                    )
                     if selected_reader is upstage_ocr_profile_hx5_v16:
                         evidence = evidence_source_hx5
                     elif selected_reader is upstage_ocr_profile_hx4_v16:
@@ -734,7 +756,9 @@ class RunService:
                         evidence_source_reader,
                     )
 
-                    evidence = evidence_source_reader(self.claim_source_policy["evidence_policy"])
+                    evidence = cast("Callable[..., ModuleType]", evidence_source_reader)(
+                        self.claim_source_policy["evidence_policy"]
+                    )
 
                 # EV1 accepts only a nonempty evidence-only page selection.
                 # All-claim scopes retain their normal claim/native verification.
@@ -806,20 +830,31 @@ class RunService:
                     relation_settings=asdict(relation),
                     relation_settings_hash=canonical_hash(asdict(relation)),
                     relation_runtime=relation_runtime,
-                    relation_runtime_artifact_hash=artifact_sha256(relation_runtime),
+                    relation_runtime_artifact_hash=artifact_sha256(
+                        cast(Mapping[str, object], relation_runtime)
+                    ),
                 )
         snapshot.update(raster_snapshot)
         if self.position_context_order is not None:
             snapshot["position_context_order"] = dict(self.position_context_order)
         return self.store.create(auth, body, key, snapshot, self.budget_limits, now=now)
 
-    def get(self, tenant_id, run_id):
+    def get(self, tenant_id: str, run_id: str) -> dict[str, Any]:
         return self.store.get(tenant_id, run_id)
 
-    def list(self, tenant_id, *, cursor=None, limit=50):
+    def list(self, tenant_id: str, *, cursor: str | None = None, limit: int = 50) -> dict[str, Any]:
         return self.store.list(tenant_id, cursor=cursor, limit=limit, now=int(self.clock()))
 
-    def action(self, auth, run_id, action, *, expected_revision, key, reason):
+    def action(
+        self,
+        auth: AuthContext,
+        run_id: str,
+        action: str,
+        *,
+        expected_revision: int,
+        key: str,
+        reason: str,
+    ) -> dict[str, Any]:
         return self.store.action(
             auth,
             run_id,
@@ -830,7 +865,7 @@ class RunService:
             now=int(self.clock()),
         )
 
-    def cost(self, tenant_id, run_id):
+    def cost(self, tenant_id: str, run_id: str) -> dict[str, Any]:
         self.get(tenant_id, run_id)
         result = cost_summary(self.store.usage, tenant_id, run_id)
         usage = self.store.jobs.list_usage(tenant_id, run_id)
@@ -877,7 +912,48 @@ class RunService:
             )
         return result
 
-    def audit(self, tenant_id, run_id, *, cursor=None, limit=50):
+    def audit(
+        self, tenant_id: str, run_id: str, *, cursor: str | None = None, limit: int = 50
+    ) -> dict[str, Any]:
         return self.store.audit(
             tenant_id, run_id, cursor=cursor, limit=limit, now=int(self.clock())
         )
+
+
+class RunStore(Protocol):
+    """Persistence operations used by orchestration, independent of a local adapter."""
+
+    @property
+    def usage(self) -> UsageRepository: ...
+    @property
+    def jobs(self) -> LocalSQLiteJobStore: ...
+    def replay(
+        self, tenant: str, body: dict[str, Any], key: str, *, now: int
+    ) -> dict[str, Any] | None: ...
+    def create(
+        self,
+        auth: AuthContext,
+        body: dict[str, Any],
+        key: str,
+        snapshot: dict[str, Any],
+        limits: BudgetLimits,
+        *,
+        now: int,
+    ) -> dict[str, Any]: ...
+    def get(self, tenant: str, run_id: str) -> dict[str, Any]: ...
+    def list(self, tenant: str, *, cursor: str | None, limit: int, now: int) -> dict[str, Any]: ...
+    def action(
+        self,
+        auth: AuthContext,
+        run_id: str,
+        action: str,
+        *,
+        expected_revision: int,
+        key: str,
+        reason: str,
+        now: int,
+    ) -> dict[str, Any]: ...
+    def snapshot(self, tenant: str, run_id: str) -> dict[str, Any]: ...
+    def audit(
+        self, tenant: str, run_id: str, *, cursor: str | None, limit: int, now: int
+    ) -> dict[str, Any]: ...

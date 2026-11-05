@@ -27,9 +27,11 @@ packet must pin the longer prompt hash, so the two prompts can never be swapped.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import asdict, replace
 from pathlib import Path
+from typing import Any
 
 from proofops.adapters.local.openrouter import OpenRouterProbe
 from proofops.adapters.local.upstage import UpstageProbe
@@ -63,6 +65,7 @@ from proofops.application.tagging.service import TaggingSettings
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import _require_sha256, _require_uuid
 
+from proofops_agent.extraction_parts.contracts import DisplayCatalog
 from proofops_agent.upstage_tagging import TransportResume, UpstageTaggingTransport
 
 MODEL_PROFILE = "upstage-preliminary-source-quotes-v1"
@@ -167,15 +170,15 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
 
     def __init__(
         self,
-        probe,
-        receipts,
+        probe: UpstageProbe | OpenRouterProbe,
+        receipts: Path,
         *,
-        settings,
-        tenant_id,
-        authorize,
-        resume=None,
-        display_catalog=None,
-    ):
+        settings: TaggingSettings,
+        tenant_id: str,
+        authorize: Callable[[TaggingSettings, dict[str, Any]], Preflight],
+        resume: TransportResume | None = None,
+        display_catalog: DisplayCatalog | None = None,
+    ) -> None:
         _require_uuid("tenant_id", tenant_id)
         if settings.model_profile == SENTENCE_FALLBACK_PROFILE:
             expected_prompt = SENTENCE_FALLBACK_SYSTEM_PROMPT
@@ -282,12 +285,12 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         self._init_operation_state()
 
     @staticmethod
-    def _probe_type():
+    def _probe_type() -> tuple[type[UpstageProbe], type[OpenRouterProbe]]:
         from proofops.adapters.local.openrouter import OpenRouterProbe
 
         return (UpstageProbe, OpenRouterProbe)
 
-    def bound_context(self, packet: dict) -> dict:
+    def bound_context(self, packet: dict[str, Any]) -> dict[str, Any]:
         """Fit optional whole context blocks BEFORE packet hashing/authorization.
 
         Numbered sources are never shortened. Omitted context IDs remain in the
@@ -331,7 +334,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
                 data["omitted_source_ids"].append(removed["source_id"])
         return bounded
 
-    def _wire_request(self, request: dict) -> tuple[str, str, dict[str, dict], Preflight, str]:
+    def _wire_request(
+        self, request: dict[str, Any]
+    ) -> tuple[str, str, dict[str, dict[str, Any]], Preflight, str]:
         settings = self._settings
         fallback = settings.model_profile == SENTENCE_FALLBACK_PROFILE
         # The authorized fallback profile has exactly two pinned wire branches.
@@ -667,7 +672,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         return system, wire_user, {}, authorization, schema_json
 
     @staticmethod
-    def _validate_context_shape(user: dict, data: dict, *, table: bool = False) -> None:
+    def _validate_context_shape(
+        user: dict[str, Any], data: dict[str, Any], *, table: bool = False
+    ) -> None:
         """Structural-only guard: context_blocks can never be indexed by a
         dimension's source_index (disjoint list, disjoint index namespace)."""
         policy = user.get("context_policy")

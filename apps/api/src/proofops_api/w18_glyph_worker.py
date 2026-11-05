@@ -12,7 +12,7 @@ MAX_CHARS = 40000
 MAX_OUTPUT = 32 * 1024 * 1024
 
 
-def extract(work):
+def extract(work: Path) -> None:
     import pypdfium2 as pdfium
     import pypdfium2.raw as raw
 

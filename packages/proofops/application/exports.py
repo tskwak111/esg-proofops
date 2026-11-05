@@ -1,11 +1,16 @@
 """Capture revisions once, then render only immutable inputs; no grading/model calls."""
 
+from __future__ import annotations
+
+from collections.abc import Iterator, Mapping, Sequence
 from datetime import UTC, datetime
 from hashlib import sha256
 from io import BytesIO
 from itertools import chain
+from typing import Any, Protocol, cast
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
+from proofops.application.authorization import AuthContext
 from proofops.application.reporting import build_report_model, render_report
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
@@ -32,13 +37,15 @@ SEARCH_COVERAGE_ENVELOPE = "__shared_coverage__"
 SEARCH_COVERAGE_FIELDS = ("source_quality", "quality_issues")
 
 
-def encode_revision_record(tag, decision, inputs):
+def encode_revision_record(
+    tag: dict[str, Any] | None, decision: dict[str, Any] | None, inputs: dict[str, Any]
+) -> dict[str, Any]:
     """Keep every observed byte, storing the original input packet once when it is identical.
 
     The second copy is dropped only when the canonical bytes of ``tag["inputs"]`` and the
     revision-1 packet are equal, so unequal packets are always both preserved verbatim.
     """
-    record = dict(tag=tag, decision=decision)
+    record: dict[str, Any] = dict(tag=tag, decision=decision)
     stored = tag.get("inputs") if isinstance(tag, dict) else None
     if stored is not None and canonical_json(stored) == canonical_json(inputs):
         record["original_inputs_ref"] = SHARED_ORIGINAL_INPUTS
@@ -47,7 +54,9 @@ def encode_revision_record(tag, decision, inputs):
     return record
 
 
-def decode_revision_record(record, *, encoding=REVISION_RECORDS_V1):
+def decode_revision_record(
+    record: object, *, encoding: str = REVISION_RECORDS_V1
+) -> dict[str, Any]:
     """Restore the byte-identical inline record, dispatching on the manifest encoding.
 
     Callers pass ``manifest.get("revision_records_encoding", REVISION_RECORDS_V1)`` so a
@@ -75,7 +84,7 @@ def decode_revision_record(record, *, encoding=REVISION_RECORDS_V1):
     return restored
 
 
-def _source_identity(value):
+def _source_identity(value: object) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError("source receipt identity must be an object")
     identity = {key: value.get(key) for key in SOURCE_RECEIPT_IDENTITY_KEYS}
@@ -84,7 +93,7 @@ def _source_identity(value):
     return identity
 
 
-def _validate_source_receipt(receipt, identity):
+def _validate_source_receipt(receipt: object, identity: object) -> None:
     if not isinstance(receipt, dict):
         raise ValueError("source receipt must be an object")
     expected = _source_identity(identity)
@@ -96,7 +105,9 @@ def _validate_source_receipt(receipt, identity):
         raise ValueError("source receipt artifact hash mismatch")
 
 
-def _validate_review_source_receipt(review, receipt, tag):
+def _validate_review_source_receipt(
+    review: dict[str, Any], receipt: dict[str, Any], tag: dict[str, Any]
+) -> None:
     refs, records = review.get("refs"), receipt.get("records")
     elements = tag.get("elements")
     if (
@@ -149,7 +160,9 @@ def _validate_review_source_receipt(review, receipt, tag):
         raise ValueError("source receipt review mismatch")
 
 
-def _validate_revision_source_identity(record, claim_id, identity):
+def _validate_revision_source_identity(
+    record: dict[str, Any], claim_id: str, identity: object
+) -> None:
     expected = _source_identity(identity)
     packets = [record.get("original_inputs")]
     tag = record.get("tag")
@@ -177,11 +190,14 @@ def _validate_revision_source_identity(record, claim_id, identity):
             raise ValueError("revision source identity mismatch")
 
 
-def encode_report_level_source_receipts(revision_records, *, identity):
+def encode_report_level_source_receipts(
+    revision_records: dict[str, Any], *, identity: Mapping[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Deduplicate verified report-level receipts across captured revision records."""
     if not isinstance(revision_records, dict):
         raise ValueError("revision records must be an object")
-    encoded, receipts = {}, {}
+    encoded: dict[str, Any] = {}
+    receipts: dict[str, Any] = {}
     for claim_id, record in revision_records.items():
         if not isinstance(record, dict):
             raise ValueError("revision record must be an object")
@@ -220,18 +236,18 @@ def encode_report_level_source_receipts(revision_records, *, identity):
     return encoded, receipts
 
 
-def _scoped_entry(value, scope):
+def _scoped_entry(value: object, scope: Mapping[str, Any]) -> dict[str, Any]:
     return {"scope": scope, "value": value}
 
 
-def _packet_scope(packet, scope):
+def _packet_scope(packet: object, scope: Mapping[str, Any]) -> None:
     if not isinstance(packet, dict) or any(
         packet.get(key) != value for key, value in scope.items()
     ):
         raise ValueError("coverage packet scope mismatch")
 
 
-def _coverage_packets(record):
+def _coverage_packets(record: dict[str, Any]) -> Iterator[dict[str, Any]]:
     seen = set()
     tag = record.get("tag")
     if isinstance(tag, dict) and isinstance(tag.get("inputs"), dict):
@@ -244,7 +260,9 @@ def _coverage_packets(record):
         yield record["original_inputs"]
 
 
-def encode_search_coverages(record, *, identity):
+def encode_search_coverages(
+    record: dict[str, Any], *, identity: Mapping[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Compact one revision without changing the source record or stored revisions."""
     scope = _source_identity(identity)
     encoded = dict(record)
@@ -267,7 +285,7 @@ def encode_search_coverages(record, *, identity):
                 raise ValueError("coverage must be an object")
             digest = canonical_hash(coverage)
             compact = dict(coverage)
-            envelope = {"refs": {}}
+            envelope: dict[str, Any] = {"refs": {}}
             if SEARCH_COVERAGE_ENVELOPE in compact:
                 envelope["original_value"] = compact.pop(SEARCH_COVERAGE_ENVELOPE)
             for field in SEARCH_COVERAGE_FIELDS:
@@ -283,7 +301,9 @@ def encode_search_coverages(record, *, identity):
     return encoded, coverages, documents
 
 
-def _resolve_shared(reference, table, scope, used):
+def _resolve_shared(
+    reference: object, table: Mapping[str, Any], scope: Mapping[str, Any], used: set[str]
+) -> tuple[str, Any]:
     if (
         not isinstance(reference, str)
         or len(reference) != 71
@@ -302,8 +322,14 @@ def _resolve_shared(reference, table, scope, used):
 
 
 def _decode_coverage_record(
-    record, encoding, coverages, documents, scope, used_coverages, used_documents
-):
+    record: dict[str, Any],
+    encoding: str | None,
+    coverages: Mapping[str, Any] | None,
+    documents: Mapping[str, Any] | None,
+    scope: Mapping[str, Any] | None,
+    used_coverages: set[str],
+    used_documents: set[str],
+) -> None:
     if encoding is None:
         for inputs in _coverage_packets(record):
             for name in ("original_packet", "packet"):
@@ -311,6 +337,10 @@ def _decode_coverage_record(
                 if isinstance(packet, dict) and SEARCH_COVERAGE_REF in packet:
                     raise ValueError("coverage reference has no encoding")
         return
+    # Shared mode was validated by the manifest decoder before entering here.
+    scope = cast(Mapping[str, Any], scope)
+    coverages = cast(Mapping[str, Any], coverages)
+    documents = cast(Mapping[str, Any], documents)
     tag = record.get("tag")
     if isinstance(tag, dict) and isinstance(tag.get("inputs"), dict):
         copied_tag = dict(tag)
@@ -372,7 +402,7 @@ def _decode_coverage_record(
             raise ValueError("tag input snapshot hash mismatch")
 
 
-def _iter_decoded_revision_records(manifest):
+def _iter_decoded_revision_records(manifest: object) -> Iterator[tuple[str, dict[str, Any]]]:
     """Validate and restore one revision at a time, including both shared tables."""
     if not isinstance(manifest, dict):
         raise ValueError("export manifest must be an object")
@@ -401,7 +431,9 @@ def _iter_decoded_revision_records(manifest):
     elif not isinstance(coverages, dict) or not isinstance(documents, dict):
         raise ValueError("coverage tables are missing")
     scope = _source_identity(manifest) if receipt_encoding or coverage_encoding else None
-    used_receipts, used_coverages, used_documents = set(), set(), set()
+    used_receipts: set[str] = set()
+    used_coverages: set[str] = set()
+    used_documents: set[str] = set()
     for claim_id, raw in raw_records.items():
         record = decode_revision_record(raw, encoding=encoding)
         tag = record.get("tag")
@@ -434,7 +466,7 @@ def _iter_decoded_revision_records(manifest):
                     if any(char not in "0123456789abcdef" for char in digest):
                         raise ValueError("malformed source receipt hash")
                     _validate_revision_source_identity(record, claim_id, scope)
-                    receipt = receipts.get(digest)
+                    receipt = cast(dict[str, Any], receipts).get(digest)
                     if receipt is None:
                         raise ValueError("referenced source receipt is missing")
                     _validate_source_receipt(receipt, scope)
@@ -459,30 +491,31 @@ def _iter_decoded_revision_records(manifest):
             used_documents,
         )
         yield claim_id, record
-    if receipt_encoding is not None and used_receipts != set(receipts):
+    if receipt_encoding is not None and used_receipts != set(cast(dict[str, Any], receipts)):
         raise ValueError("source receipt table has unreferenced entries")
     if coverage_encoding is not None and (
-        used_coverages != set(coverages) or used_documents != set(documents)
+        used_coverages != set(cast(dict[str, Any], coverages))
+        or used_documents != set(cast(dict[str, Any], documents))
     ):
         raise ValueError("unreferenced coverage table entries")
 
 
-def decode_revision_records(manifest):
+def decode_revision_records(manifest: object) -> dict[str, dict[str, Any]]:
     """Restore records; callers needing validation alone can consume the iterator."""
     return dict(_iter_decoded_revision_records(manifest))
 
 
 class ExportRejected(ValueError):
-    def __init__(self, code, status=409):
+    def __init__(self, code: str, status: int = 409) -> None:
         super().__init__(code)
         self.code, self.status = code, status
 
 
-def timestamp(now):
+def timestamp(now: float) -> str:
     return datetime.fromtimestamp(now, UTC).isoformat().replace("+00:00", "Z")
 
 
-def create_snapshot(store, tenant_id, export_id):
+def create_snapshot(store: ExportStore, tenant_id: str, export_id: str) -> dict[str, Any]:
     for _ in range(4):  # First attempt, then at most three snapshot-only retries.
         frozen = store.frozen(tenant_id, export_id)
         if frozen is not None:
@@ -498,7 +531,7 @@ def create_snapshot(store, tenant_id, export_id):
     raise ExportRejected("EXPORT_SNAPSHOT_BUSY")
 
 
-def build_export(snapshot, formats):
+def build_export(snapshot: Mapping[str, Any], formats: Sequence[str]) -> tuple[bytes, str, bool]:
     try:
         for _ in _iter_decoded_revision_records(snapshot["manifest"]):
             pass
@@ -537,10 +570,12 @@ def build_export(snapshot, formats):
 
 
 class ExportService:
-    def __init__(self, store):
+    def __init__(self, store: ExportStore) -> None:
         self.store = store
 
-    def create(self, actor, run_id, body, key, *, now):
+    def create(
+        self, actor: AuthContext, run_id: str, body: dict[str, Any], key: str | None, *, now: float
+    ) -> dict[str, Any]:
         if not isinstance(body, dict) or set(body) != {"formats", "allow_partial"}:
             raise ExportRejected("VALIDATION_ERROR", 422)
         formats = body["formats"]
@@ -560,10 +595,10 @@ class ExportService:
             raise ExportRejected(self.store.state(actor.tenant_id, export_id)["errors"][0])
         return result
 
-    def get(self, actor, export_id, *, now):
+    def get(self, actor: AuthContext, export_id: str, *, now: float) -> dict[str, Any]:
         state = self.store.state(actor.tenant_id, export_id)
         if state["response"]["state"] in ("ready", "failed") or now < state["retry_at"]:
-            return state["response"]
+            return cast(dict[str, Any], state["response"])
         try:
             snapshot = create_snapshot(self.store, actor.tenant_id, export_id)
             content, manifest_hash, partial = build_export(snapshot, state["body"]["formats"])
@@ -574,5 +609,29 @@ class ExportService:
             self.store.defer(actor.tenant_id, export_id, exc.code, now=now)
             return self.store.get(actor.tenant_id, export_id)
 
-    def authorize_download(self, actor, export_id, *, now):
+    def authorize_download(
+        self, actor: AuthContext, export_id: str, *, now: float
+    ) -> dict[str, Any]:
         return self.store.authorize_download(actor, export_id, now=now)
+
+
+class ExportStore(Protocol):
+    """Immutable capture/render persistence used by the export service."""
+
+    def content(self, actor: AuthContext, export_id: str, token: str, *, now: float) -> bytes: ...
+
+    def frozen(self, tenant: str, export_id: str) -> dict[str, Any] | None: ...
+    def capture(self, tenant: str, export_id: str) -> dict[str, Any]: ...
+    def freeze(self, tenant: str, export_id: str, captured: dict[str, Any]) -> bool: ...
+    def reserve(
+        self, actor: AuthContext, run_id: str, body: dict[str, Any], key: str, *, now: float
+    ) -> str: ...
+    def state(self, tenant: str, export_id: str) -> dict[str, Any]: ...
+    def complete(
+        self, tenant: str, export_id: str, content: bytes, manifest_hash: str, partial: bool
+    ) -> dict[str, Any]: ...
+    def defer(self, tenant: str, export_id: str, code: str, *, now: float) -> None: ...
+    def get(self, tenant: str, export_id: str) -> dict[str, Any]: ...
+    def authorize_download(
+        self, actor: AuthContext, export_id: str, *, now: float
+    ) -> dict[str, Any]: ...

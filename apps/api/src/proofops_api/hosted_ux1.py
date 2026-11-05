@@ -3,16 +3,24 @@
 No effect on PDF bytes, analysis profiles, replay hashes or grading.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from proofops_api.hosted_reads import HostedReads
+
 import json
 import sqlite3
+from typing import Any
 from urllib.parse import unquote
 
-from proofops_api.hosted_store import HostedError
+from proofops_api.hosted_contracts import HostedError
 
 UX1_POLICY_SHA256 = "bf9c32d96dde26ab8575bedc8cbbce157e74c1a1dd9c0b57634f4cdd9fcf50b3"
 
 
-def enabled_for(options):
+def enabled_for(options: dict[str, Any]) -> bool:
     """Use the run's frozen policy; older runs keep their original projection."""
     from proofops.application.analysis_profile import policy_for
 
@@ -20,13 +28,13 @@ def enabled_for(options):
     if pin is None:
         return False
     try:
-        policy = policy_for(options.get("analysis_profile"), pinned_hash=pin)
+        policy: dict[str, Any] = policy_for(options.get("analysis_profile"), pinned_hash=pin)
     except ValueError:
         return False
     return policy.get("ux1_data_policy_sha256") == UX1_POLICY_SHA256
 
 
-def parse_metadata(header: str | None) -> dict | None:
+def parse_metadata(header: str | None) -> dict[str, Any] | None:
     if header is None:
         return None
     if len(header) > 6000:
@@ -53,7 +61,7 @@ def parse_metadata(header: str | None) -> dict | None:
     return clean
 
 
-def project_data(reads, row, result):
+def project_data(reads: HostedReads, row: sqlite3.Row, result: dict[str, Any]) -> dict[str, Any]:
     """Add measured table blocks from the pinned parser graph; never rewrite a snapshot."""
     from hashlib import sha256
 

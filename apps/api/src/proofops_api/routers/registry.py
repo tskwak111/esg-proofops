@@ -16,10 +16,12 @@ from proofops.application.registry import (
 )
 from proofops_api.auth import (
     AuthStore,
-    _authorize,
     _error_response,
     _request_limit_response,
     _verify_csrf,
+)
+from proofops_api.auth import (
+    _authorize as _authorize,
 )
 from proofops_api.dto import CompanyCreate
 from proofops_api.middleware import RequestBodyTooLarge, read_bounded_json

@@ -2,18 +2,22 @@
 
 import sqlite3
 import time
-from typing import Annotated, Literal
+from collections.abc import Callable
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Request, Security
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyCookie
 from proofops.adapters.local.catalog_pages import CatalogCapacityExceeded, InvalidCatalogCursor
-from proofops.application.reviews import ReviewRejected
+from proofops.adapters.local.review_store import LocalSQLiteReviewStore
+from proofops.adapters.local.run_store import LocalSQLiteRunStore
+from proofops.application.reviews import ReviewRejected, ReviewService
 from proofops.application.runs import RunRejected
 from proofops.domain.errors import DomainValidationError
 from proofops_api.auth import (
     SESSION_COOKIE_NAME,
+    AuthStore,
     _authorize,
     _error_response,
     _request_limit_response,
@@ -67,8 +71,13 @@ class ReviewPage(StrictDTO):
 
 
 def build_reviews_router(
-    service, auth_store, *, allowed_origin: str, run_store=None, clock=time.time
-):
+    service: ReviewService,
+    auth_store: AuthStore,
+    *,
+    allowed_origin: str,
+    run_store: LocalSQLiteRunStore | None = None,
+    clock: Callable[[], float] = time.time,
+) -> APIRouter:
     router = APIRouter(
         responses=_ERROR_RESPONSES,
         dependencies=[
@@ -107,7 +116,7 @@ def build_reviews_router(
         run_id: UUID,
         cursor: str | None = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
-    ):
+    ) -> JSONResponse:
         now = clock()
         auth = _authorize(request, auth_store, now, "reviewer")
         if isinstance(auth, JSONResponse):
@@ -122,7 +131,7 @@ def build_reviews_router(
                 409, "REVIEW_QUEUE_UNAVAILABLE", "Review queue is not configured."
             )
         try:
-            result = service.store.page(
+            result = cast(LocalSQLiteReviewStore, service.store).page(
                 auth.tenant_id,
                 str(run_id),
                 cursor=cursor,
@@ -144,7 +153,7 @@ def build_reviews_router(
         except (sqlite3.DatabaseError, ValueError, KeyError):
             return _error_response(409, "REVIEW_CONFLICT", "Review queue unavailable.")
 
-    async def resolve_request(request: Request, review_id: UUID, *, reopen: bool):
+    async def resolve_request(request: Request, review_id: UUID, *, reopen: bool) -> JSONResponse:
         now = clock()
         auth = _authorize(request, auth_store, now, "reviewer")
         if isinstance(auth, JSONResponse):
@@ -191,7 +200,7 @@ def build_reviews_router(
         response_model=ReviewResolution,
         openapi_extra=request_schema,
     )
-    async def resolve(request: Request, review_id: UUID):
+    async def resolve(request: Request, review_id: UUID) -> JSONResponse:
         return await resolve_request(request, review_id, reopen=False)
 
     @router.post(
@@ -200,7 +209,7 @@ def build_reviews_router(
         response_model=ReviewResolution,
         openapi_extra=request_schema,
     )
-    async def re_review(request: Request, review_id: UUID):
+    async def re_review(request: Request, review_id: UUID) -> JSONResponse:
         return await resolve_request(request, review_id, reopen=True)
 
     return router

@@ -5,7 +5,10 @@ A matching hash alone is not a substitute for replay of the three raw receipts.
 Links are a new artifact; callers keep existing revisions and apply final gates.
 """
 
+from __future__ import annotations
+
 from dataclasses import asdict
+from typing import TYPE_CHECKING
 from unicodedata import normalize
 
 from proofops.application.evidence.report_level import scope_rejection_reason
@@ -14,20 +17,36 @@ from proofops.application.tagging.qt2_context import POLICY_HASH, context_refs, 
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import LlmElement, SourceRef
 
+if TYPE_CHECKING:
+    from typing import Any
+
+    from proofops.application.evidence.binding import ClaimContext
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.tagging.analysis_scope import InventoryIndex
+    from proofops.domain.rulepacks import RulePackSnapshot
+
+
 _AXES = dict(subject="entity", metric="metric", site="facility", period="reporting_period")
 
 
-def _key(text):
+def _key(text: str) -> str:
     return " ".join(normalize("NFC", text).casefold().split())
 
 
-def _contains(outer, inner):
+def _contains(outer: SourceRef, inner: SourceRef) -> bool:
     return outer.source_id == inner.source_id and (
         outer.char_start <= inner.char_start < inner.char_end <= outer.char_end
     )
 
 
-def _candidate_element(candidate, context, graph, *, tenant_id, rulepack):
+def _candidate_element(
+    candidate: dict[str, Any],
+    context: ClaimContext,
+    graph: CanonicalDocumentGraph,
+    *,
+    tenant_id: str,
+    rulepack: RulePackSnapshot,
+) -> LlmElement | None:
     """SC1 has replayed receipts; QT2 checks claim attribution and semantics."""
     claim = context.claim
     if candidate["element_id"] not in ("P2", "M2", "M4"):
@@ -37,7 +56,7 @@ def _candidate_element(candidate, context, graph, *, tenant_id, rulepack):
     focal = claim.source_refs[0]
     evidence = SourceRef(**candidate["evidence_ref"])
 
-    def checked(r):
+    def checked(r: SourceRef) -> bool:
         return verify_source_ref(r, graph, tenant_id=tenant_id).verification_state == "verified"
 
     if not checked(focal) or not checked(evidence):
@@ -98,7 +117,15 @@ def _candidate_element(candidate, context, graph, *, tenant_id, rulepack):
     return admitted if admitted.state == "present" else None
 
 
-def link_inventory(context, inventory, graph, *, run_id, tenant_id, rulepack):
+def link_inventory(
+    context: ClaimContext,
+    inventory: dict[str, Any] | InventoryIndex,
+    graph: CanonicalDocumentGraph,
+    *,
+    run_id: str,
+    tenant_id: str,
+    rulepack: RulePackSnapshot,
+) -> dict[str, Any]:
     """Replay SC1, then return additive QT2 links with the immutable inventory hash."""
     from proofops.application.tagging.analysis_scope import InventoryIndex
     from proofops.application.tagging.element_inventory import replay_inventory

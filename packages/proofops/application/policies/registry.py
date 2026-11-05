@@ -1,9 +1,11 @@
 """Replay order and hosted admission share one explicit registry."""
 
+from typing import Any
+
 from proofops.application.policies.legacy import analysis_profiles as _legacy
 
 
-def v2_policy_registry(V2_POLICY):
+def v2_policy_registry(V2_POLICY: dict[str, Any]) -> tuple[tuple[dict[str, Any], bool], ...]:
     """Return original policy objects; the caller supplies its current default."""
     return (
         (V2_POLICY, True),

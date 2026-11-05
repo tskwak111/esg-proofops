@@ -4,11 +4,21 @@ Metric paths are display metadata. Only explicit spans and narrowly labelled
 regional/intensity subgroups contribute parents; blank cells are never filled.
 """
 
+from __future__ import annotations
+
 import re
 import unicodedata
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, cast
 
-from proofops.application.ingest import pb1_tables as legacy
+from proofops.application.ingest import pb1_tables as _legacy
 from proofops.domain.provenance import canonical_hash
+
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import CanonicalBlock, CanonicalDocumentGraph
+
+
+legacy = _legacy
 
 PROFILE = "pb1-w9-v1"
 UNIT = re.compile(
@@ -18,7 +28,7 @@ UNIT = re.compile(
 )
 ENV = re.compile(legacy.ENV.pattern + r"|대기오염|수질오염|질소산화|황산화|COD|TOC|Dust", re.I)
 FINANCIAL = re.compile(r"자본변동표|자본잉여금|이익잉여금|지배기업 소유주지분|금융자산")
-POLICY = dict(
+POLICY: dict[str, Any] = dict(
     legacy.POLICY,
     profile=PROFILE,
     units=UNIT.pattern,
@@ -36,7 +46,7 @@ POLICY = dict(
 )
 
 
-def grid(text, cells=None):
+def grid(text: str, cells: Sequence[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """Reconstruct the exact sparse origin grid, retaining literal raw offsets."""
     if cells is None:
         cells = [
@@ -70,9 +80,9 @@ def grid(text, cells=None):
     return rows
 
 
-def graph_cells(table, graph):
+def graph_cells(table: CanonicalBlock, graph: CanonicalDocumentGraph) -> list[dict[str, Any]]:
     """Keep every matching parser origin, including fused identical cells."""
-    origin = table.candidates[table.winner]
+    origin = table.candidates[cast(int, table.winner)]
     ids = {
         e.source_id
         for e in graph.edges
@@ -101,11 +111,11 @@ def graph_cells(table, graph):
     return cells
 
 
-def _unit(value):
+def _unit(value: str) -> bool:
     return UNIT.fullmatch("".join(value.split())) is not None
 
 
-def _parents(rows, row, first_year):
+def _parents(rows: list[dict[str, Any]], row: int, first_year: int) -> list[dict[str, Any]]:
     selected = []
     for parent in rows[: row + 1]:
         for e in parent["entries"][:first_year]:
@@ -136,7 +146,9 @@ def _parents(rows, row, first_year):
     return sorted(selected, key=lambda e: (e["column"], e["start"]))
 
 
-def observations(text, *, cells=None, context="", limit=24):
+def observations(
+    text: str, *, cells: Sequence[dict[str, Any]] | None = None, context: str = "", limit: int = 24
+) -> list[dict[str, Any]]:
     # Legacy native readers ask whether a generic span is a numeric observation
     # without passing its grid. A multiline non-year table is not a year grid;
     # never reinterpret its internal wraps as structural rows.
@@ -147,11 +159,12 @@ def observations(text, *, cells=None, context="", limit=24):
     ):
         return []
     rows = grid(text, cells)
-    years, header_end = {}, -1
+    years: dict[int, dict[str, Any]] = {}
+    header_end = -1
     for row in rows[:4]:
         for e in row["entries"]:
             if legacy.YEAR.fullmatch(e["text"].strip()):
-                year = re.search(r"\d{4}", e["text"])[0]
+                year = cast(re.Match[str], re.search(r"\d{4}", e["text"]))[0]
                 col = e["column"]
                 if col in years and years[col]["year"] != year:
                     return []
@@ -228,14 +241,16 @@ def observations(text, *, cells=None, context="", limit=24):
     return results[: min(limit, POLICY["max_rows_per_table"])]
 
 
-def observations_for(table, graph):
-    context = " ".join(table.candidates[table.winner].context)
-    if PROFILE not in table.candidates[table.winner].context:
+def observations_for(table: CanonicalBlock, graph: CanonicalDocumentGraph) -> list[dict[str, Any]]:
+    context = " ".join(table.candidates[cast(int, table.winner)].context)
+    if PROFILE not in table.candidates[cast(int, table.winner)].context:
         return legacy.observations(table.normalized_text, context=context)
     return observations(table.normalized_text, cells=graph_cells(table, graph), context=context)
 
 
-def cell_entries(text, cells, *, source_id):
+def cell_entries(
+    text: str, cells: Sequence[dict[str, Any]] | None, *, source_id: str
+) -> list[dict[str, Any]]:
     """Generic non-time-series candidates stay inside one explicit parser cell."""
     from proofops.application.ingest.table_row_candidates import row_candidates
 

@@ -1,5 +1,12 @@
 """Bounded C3 local lifecycle on the existing immutable SQLite revision store."""
 
+from __future__ import annotations
+
+from types import ModuleType
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from proofops.application.tagging.fact_assembly_c2 import FactAssemblyReceiptV1
 import json
 from dataclasses import asdict, replace
 from hashlib import sha256
@@ -26,7 +33,7 @@ from proofops.domain.rules.engine import RuleContext
 from proofops.domain.values import SourceRef
 
 
-def _profile_module(profile, *, pinned_hash=None):
+def _profile_module(profile: str | None, *, pinned_hash: str | None = None) -> ModuleType:
     if profile == PROFILE:
         from proofops.application.tagging import fact_assembly_c3 as module
 
@@ -34,16 +41,16 @@ def _profile_module(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
 
     if profile == C3_V2_PROFILE:
-        from proofops.application.tagging import fact_assembly_c3_v2 as module
+        from proofops.application.tagging import fact_assembly_c3_v2 as current_module
 
-        if pinned_hash == module.legacy.POLICY_HASH:
-            return module.legacy
-        return module
+        if pinned_hash == getattr(current_module, "legacy").POLICY_HASH:
+            return cast(ModuleType, getattr(current_module, "legacy"))
+        return current_module
     raise ValueError("C3_PUBLICATION_PROFILE_UNKNOWN")
 
 
 class LocalC3Publication:
-    def __init__(self, path):
+    def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
         if self.path.is_symlink() or any(
             (self.path / name).is_symlink()
@@ -54,7 +61,15 @@ class LocalC3Publication:
         self.store = LocalSQLiteReviewStore(self.runs.jobs)
         self.service = ReviewService(self.store, load_inputs=self.load_inputs)
 
-    def initialize(self, case, receipt, *, source, parser_artifact, profile=None):
+    def initialize(
+        self,
+        case: dict[str, Any],
+        receipt: FactAssemblyReceiptV1,
+        *,
+        source: bytes,
+        parser_artifact: dict[str, Any],
+        profile: str | None = None,
+    ) -> dict[str, Any]:
         claim, graph = case["context"].claim, case["graph"]
         receipt_data = receipt.to_dict()
         profile = profile or receipt_data.get("policy", {}).get("profile", PROFILE)
@@ -127,7 +142,7 @@ class LocalC3Publication:
             self.runs.jobs.create_run(claim.tenant_id, run_id, claim.document_version_id)
         return self.service.publish(inputs)
 
-    def load_inputs(self, tenant, run, claim_id):
+    def load_inputs(self, tenant: str, run: str, claim_id: str) -> ReviewInputs:
         frozen = self.runs.snapshot(tenant, run)
         profile = frozen.get("analysis_profile_policy", {}).get("profile")
         module = _profile_module(profile, pinned_hash=frozen.get("analysis_profile_policy_sha256"))
@@ -187,9 +202,13 @@ class LocalC3Publication:
             {k: v for k, v in raw["original_packet"].items() if k != "packet_sha256"}
         )
         pack = RulePackSnapshot(**frozen["rulepack"])
-        receipt = _fact_assembly_reader(raw["fact_assembly_receipt"])
+        receipt = _fact_assembly_reader(raw.get("fact_assembly_receipt"))
+        if receipt is None:
+            raise ValueError("C3_PUBLICATION_RECEIPT_REQUIRED")
         consensus, decision = module.publication_values(
-            receipt.to_dict(), rulepack=pack, tag_revision=raw["tag_revision"]
+            receipt.to_dict(),
+            rulepack=pack,
+            tag_revision=raw["tag_revision"],
         )
         inputs = ReviewInputs(
             run,
@@ -212,7 +231,7 @@ class LocalC3Publication:
             raise ValueError("C3_STORED_INPUT_REPLAY_MISMATCH")
         return inputs
 
-    def result(self, tenant, run, claim_id):
+    def result(self, tenant: str, run: str, claim_id: str) -> dict[str, Any]:
         inputs = self.load_inputs(tenant, run, claim_id)
         history = self.store.history(tenant, run, claim_id)
         tag, record = history["tags"][-1], history["decisions"][-1]
@@ -221,7 +240,9 @@ class LocalC3Publication:
         claim = inputs.context.claim
         module = _profile_module(
             inputs.fact_assembly_profile,
-            pinned_hash=inputs.fact_assembly_receipt.to_dict()["policy_sha256"],
+            pinned_hash=cast("FactAssemblyReceiptV1", inputs.fact_assembly_receipt).to_dict()[
+                "policy_sha256"
+            ],
         )
         version = "c3_v1" if inputs.fact_assembly_profile == PROFILE else "c3_v2"
         return dict(
@@ -259,7 +280,7 @@ class LocalC3Publication:
             ],
         )
 
-    def export(self, tenant, run, claim_id):
+    def export(self, tenant: str, run: str, claim_id: str) -> dict[str, Any]:
         inputs = self.load_inputs(tenant, run, claim_id)
         history = self.store.history(tenant, run, claim_id)
         return encode_revision_record(

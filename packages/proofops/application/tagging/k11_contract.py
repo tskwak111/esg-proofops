@@ -1,7 +1,15 @@
 """Compound baseline citation guidance; no recovered facts or changed admission."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from proofops.application.tagging.k7_wire import POLICY_K10
 from proofops.domain.provenance import canonical_hash
+
+if TYPE_CHECKING:
+    from typing import Any
+
 
 GUIDANCE_V1 = (
     "\nK11 G3: 기준연도와 기준값은 같은 주장 또는 직접 연결된 동일 표에서 모두 인용한다. "
@@ -39,7 +47,13 @@ WIRE_POLICY = WIRE_V1_POLICY | dict(
 )
 
 
-def elements(schema, classification, *, policy=WIRE_POLICY, quality_policy=None):
+def elements(
+    schema: dict[str, Any],
+    classification: dict[str, Any],
+    *,
+    policy: dict[str, Any] = WIRE_POLICY,
+    quality_policy: dict[str, Any] | None = None,
+) -> str:
     from proofops.application.tagging.k10_contract import elements as previous
 
     if policy not in (WIRE_V1_POLICY, WIRE_POLICY):

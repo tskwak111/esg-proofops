@@ -1,12 +1,22 @@
 """Project PS1 derived paragraphs back onto each literal original SourceRef."""
 
+from __future__ import annotations
+
+from collections.abc import Sequence
 from dataclasses import replace
+from typing import TYPE_CHECKING, cast
 from unicodedata import normalize
+
+from proofops.domain.values import SourceRef
+
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import CanonicalBlock, CanonicalDocumentGraph
+
 
 JOIN_CONTEXT = "source_recovery_join=ps1-v1"
 
 
-def continuations(graph):
+def continuations(graph: CanonicalDocumentGraph) -> dict[str, tuple[CanonicalBlock, ...]]:
     blocks = {b.source_id: b for b in graph.blocks}
     groups = {}
     for block in graph.blocks:
@@ -28,14 +38,19 @@ def continuations(graph):
             for p in parts
         ):
             raise ValueError("SOURCE_CONTINUATION_INVALID")
-        parts.sort(key=lambda b: (b.bbox[1], b.bbox[0]))
+        parts.sort(
+            key=lambda b: (
+                cast(tuple[float, float, float, float], b.bbox)[1],
+                cast(tuple[float, float, float, float], b.bbox)[0],
+            )
+        )
         if len(parts) < 2 or "\n".join(p.raw_text for p in parts) != block.raw_text:
             raise ValueError("SOURCE_CONTINUATION_INVALID")
         groups[block.source_id] = tuple(parts)
     return groups
 
 
-def fragment_refs(parts, start, end):
+def fragment_refs(parts: Sequence[CanonicalBlock], start: int, end: int) -> tuple[SourceRef, ...]:
     refs, cursor = [], 0
     for part in parts:
         local_start, local_end = (
@@ -50,14 +65,14 @@ def fragment_refs(parts, start, end):
     return tuple(refs)
 
 
-def canonical_source_refs(refs):
+def canonical_source_refs(refs: Sequence[SourceRef]) -> tuple[SourceRef, ...]:
     """Collapse overlapping parser copies; retain the order of distinct sources.
 
     Callers must still validate every input ref against its original graph. This
     selection neither repairs offsets nor grants verification to a candidate.
     """
 
-    def key(ref):
+    def key(ref: SourceRef) -> tuple[str, str, int, str]:
         return (
             ref.document_version_id,
             ref.parse_manifest_id,
@@ -65,7 +80,7 @@ def canonical_source_refs(refs):
             " ".join(normalize("NFC", ref.quote).split()),
         )
 
-    def overlaps(left, right):
+    def overlaps(left: SourceRef, right: SourceRef) -> bool:
         a, b = left.bbox, right.bbox
         return (
             a is not None
@@ -73,7 +88,7 @@ def canonical_source_refs(refs):
             and (min(a[2], b[2]) > max(a[0], b[0]) and min(a[3], b[3]) > max(a[1], b[1]))
         )
 
-    def priority(ref):
+    def priority(ref: SourceRef) -> tuple[bool, float, str, int, int, str]:
         area = (ref.bbox[2] - ref.bbox[0]) * (ref.bbox[3] - ref.bbox[1]) if ref.bbox else 0
         return (
             ref.verification_state != "verified",
@@ -86,17 +101,26 @@ def canonical_source_refs(refs):
 
     # Choose in canonical priority order, then restore the earliest occurrence
     # of each group. Do not merge disjoint boxes through a transitive bridge.
-    groups = []
+    groups: list[list[SourceRef | int]] = []
     for index, ref in sorted(enumerate(refs), key=lambda item: priority(item[1])):
-        group = next((g for g in groups if key(g[0]) == key(ref) and overlaps(g[0], ref)), None)
+        group = next(
+            (
+                g
+                for g in groups
+                if key(cast(SourceRef, g[0])) == key(ref) and overlaps(cast(SourceRef, g[0]), ref)
+            ),
+            None,
+        )
         if group is None:
             groups.append([ref, index])
         else:
-            group[1] = min(group[1], index)
-    return tuple(g[0] for g in sorted(groups, key=lambda g: g[1]))
+            group[1] = min(cast(int, group[1]), index)
+    return tuple(cast(SourceRef, g[0]) for g in sorted(groups, key=lambda g: cast(int, g[1])))
 
 
-def claim_quote_matches_sources(quote, refs, graph):
+def claim_quote_matches_sources(
+    quote: str, refs: Sequence[SourceRef], graph: CanonicalDocumentGraph
+) -> bool:
     """Accept the legacy sequence or PS1's joined span plus its exact fragments.
 
     PS1 retains the derived paragraph AND original locations, not consecutive

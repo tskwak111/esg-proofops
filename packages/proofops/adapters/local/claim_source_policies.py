@@ -14,6 +14,15 @@ verifier, a run that pinned a frozen predecessor still replays under that frozen
 module, and both keep their original receipt schema and bytes.
 """
 
+from __future__ import annotations
+
+from collections.abc import Iterable
+from types import ModuleType
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.domain.values import SourceRef
 from collections.abc import Mapping
 
 # One registry owns source replay, publication and parser-native binding. Reader
@@ -64,25 +73,25 @@ CLAIM_SOURCE_POLICY_SCHEMAS = frozenset(
 )
 
 
-def _render_resolution():
+def _render_resolution() -> ModuleType:
     from proofops.adapters.local import claim_span_render_resolution
 
     return claim_span_render_resolution
 
 
-def _bullet_alignment():
+def _bullet_alignment() -> ModuleType:
     from proofops.adapters.local import claim_span_bullet_alignment
 
     return claim_span_bullet_alignment
 
 
-def _typography():
+def _typography() -> ModuleType:
     from proofops.adapters.local import claim_span_typography
 
     return claim_span_typography
 
 
-def _historical_typography():
+def _historical_typography() -> ModuleType:
     """Replay the byte-pinned R24 wrapper before its documentation path edit.
 
     The entire policy (including all dependency hashes) must still match the
@@ -93,31 +102,31 @@ def _historical_typography():
     return historical_typography_reader()
 
 
-def _glyph_alignment():
+def _glyph_alignment() -> ModuleType:
     from proofops.adapters.local import glyph_alignment_verification
 
     return glyph_alignment_verification
 
 
-def _source_v3():
+def _source_v3() -> ModuleType:
     from proofops.adapters.local import claim_source_verification_v3
 
     return claim_source_verification_v3
 
 
-def _source_v4():
+def _source_v4() -> ModuleType:
     from proofops.adapters.local import claim_source_verification_v4
 
     return claim_source_verification_v4
 
 
-def _table_claims():
+def _table_claims() -> ModuleType:
     from proofops.adapters.local import table_claim_source_verification
 
     return table_claim_source_verification
 
 
-def _wrappers():
+def _wrappers() -> tuple[ModuleType, ...]:
     """Every wrapper module, outermost first. Additive: the base verifier's own
     dispatch is untouched and each wrapper keeps its own distinct policy."""
     return (
@@ -131,7 +140,7 @@ def _wrappers():
     )
 
 
-def claim_source_reader(policy):
+def claim_source_reader(policy: object) -> ModuleType:
     """Replay dispatch for a policy already pinned in a run snapshot.
 
     A wrapper policy resolves only when it matches its shipped current or
@@ -184,10 +193,10 @@ def claim_source_reader(policy):
                 if policy != wrapper.claim_source_policy():
                     raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
             return wrapper
-    return base.claim_source_reader(policy)
+    return cast("ModuleType", base.claim_source_reader(policy))
 
 
-def publication_reader(policy):
+def publication_reader(policy: object) -> ModuleType:
     """Reader admissible for a NEW publication: the current base verifier or the
     current opt-in wrapper, nothing else.
 
@@ -211,7 +220,16 @@ def publication_reader(policy):
     raise ValueError("CLAIM_SOURCE_POLICY_MISMATCH")
 
 
-def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None):
+def attest_claims(
+    *,
+    reader: ModuleType,
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    refs: Iterable[SourceRef],
+    tenant_id: str,
+    cache: bool,
+    run_id: str | None = None,
+) -> dict[str, Any]:
     """Publish an attestation under ``reader``'s own semantics.
 
     ``cache`` keeps each existing call site's behaviour: the batch path reuses
@@ -274,19 +292,19 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
                 and _execution_policy() == VERIFIED_READ_V4_POLICY
             )
             or (
-                reader.PROFILE in VERIFIED_READ_V5_POLICY["raw_ocr_profiles"]
+                reader.PROFILE in cast("list[str]", VERIFIED_READ_V5_POLICY["raw_ocr_profiles"])
                 and _execution_policy() == VERIFIED_READ_V5_POLICY
             )
             or (
-                reader.PROFILE in VERIFIED_READ_V6_POLICY["raw_ocr_profiles"]
+                reader.PROFILE in cast("list[str]", VERIFIED_READ_V6_POLICY["raw_ocr_profiles"])
                 and _execution_policy() == VERIFIED_READ_V6_POLICY
             )
             or (
-                reader.PROFILE in VERIFIED_READ_V7_POLICY["raw_ocr_profiles"]
+                reader.PROFILE in cast("list[str]", VERIFIED_READ_V7_POLICY["raw_ocr_profiles"])
                 and _execution_policy() == VERIFIED_READ_V7_POLICY
             )
             or (
-                reader.PROFILE in VERIFIED_READ_V8_POLICY["raw_ocr_profiles"]
+                reader.PROFILE in cast("list[str]", VERIFIED_READ_V8_POLICY["raw_ocr_profiles"])
                 and _execution_policy() == VERIFIED_READ_V8_POLICY
             )
         ):
@@ -308,7 +326,7 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
             refs=refs,
             tenant_id=tenant_id,
         )
-        return receipt
+        return cast("dict[str, Any]", receipt)
     if cache and reader not in _wrappers():
         from proofops.adapters.local.native_replay_cache import attest_claims_cached
 
@@ -327,10 +345,10 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
             tenant_id=tenant_id,
             receipt=receipt,
         )
-    return receipt
+    return cast("dict[str, Any]", receipt)
 
 
-def page_ocr_profile(profile, *, policy=None, native=False):
+def page_ocr_profile(profile: object, *, policy: object = None, native: bool = False) -> ModuleType:
     """Resolve only shipped registry entries; never import an untrusted module name."""
     from importlib import import_module
 

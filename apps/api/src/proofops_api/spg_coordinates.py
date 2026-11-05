@@ -1,5 +1,12 @@
 """Warm disposable W19 pages while tagging waits for its existing provider calls."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from proofops_api.hosted_store import HostedStore
+
 import fcntl
 import json
 import time
@@ -11,7 +18,7 @@ from types import SimpleNamespace
 from proofops_api.hosted_store import HostedError, copy_verified_file
 
 
-def warm(store, job, workspace):
+def warm(store: HostedStore, job: dict[str, Any], workspace: Path) -> None:
     from proofops_api import w18_source_view as w19
 
     try:
@@ -50,7 +57,7 @@ def warm(store, job, workspace):
         pass  # Existing W19 foreground reader retries with all original guards.
 
 
-def start(store, job, workspace):
+def start(store: HostedStore, job: dict[str, Any], workspace: Path) -> Thread:
     thread = Thread(target=warm, args=(store, dict(job), workspace), daemon=True, name="spg-w19")
     thread.start()
     return thread

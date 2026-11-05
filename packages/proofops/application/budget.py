@@ -179,6 +179,7 @@ def usage_cost(usage: TokenUsage, pricing: dict[str, Any] | None) -> str | None:
         for field in ("input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens")
     ):
         return None
+    # The getattr guard above rejects None in every arithmetic operand.
     incoming = usage.input_tokens - usage.cache_read_tokens - usage.cache_write_tokens  # type: ignore[operator]
     buckets = (
         (incoming, "input_per_million"),

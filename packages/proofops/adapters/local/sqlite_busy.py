@@ -1,14 +1,22 @@
 """Bounded SQLite lock waits; never replay a transaction body or provider call."""
 
+from __future__ import annotations
+
 import sqlite3
 import time
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from pathlib import Path
+from typing import Any, TypeVar
+
+T = TypeVar("T")
+
 
 BUSY_TIMEOUT_SECONDS = 0.25
 LOCK_WAIT_SECONDS = 30
 
 
-def is_busy(error):
+def is_busy(error: sqlite3.OperationalError) -> bool:
     code = getattr(error, "sqlite_errorcode", None)
     if code is not None:
         return code & 0xFF in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED)
@@ -19,7 +27,7 @@ def is_busy(error):
     }
 
 
-def retry_busy(operation):
+def retry_busy(operation: Callable[[], T]) -> T:
     deadline = time.monotonic() + LOCK_WAIT_SECONDS
     while True:
         try:
@@ -36,7 +44,9 @@ class _Connection(sqlite3.Connection):
 
 
 @contextmanager
-def connection(path, *, readonly=False, uri=False):
+def connection(
+    path: str | Path, *, readonly: bool = False, uri: bool = False
+) -> Iterator[sqlite3.Connection]:
     """Acquire before yielding, retry COMMIT in place, roll back every failed body.
 
     Writers acquire IMMEDIATE before any reads, avoiding read-to-write upgrades.
@@ -53,7 +63,7 @@ def connection(path, *, readonly=False, uri=False):
     started = time.monotonic()
     try:
 
-        def acquire():
+        def acquire() -> None:
             try:
                 db.execute("BEGIN" if readonly else "BEGIN IMMEDIATE")
                 if readonly:
@@ -74,7 +84,7 @@ def connection(path, *, readonly=False, uri=False):
         db.close()
 
 
-def error_summary(error):
+def error_summary(error: sqlite3.OperationalError) -> dict[str, Any]:
     """Only fixed SQLite message categories; identifiers, paths and SQL never escape."""
     message = str(error).lower()
     exact = {

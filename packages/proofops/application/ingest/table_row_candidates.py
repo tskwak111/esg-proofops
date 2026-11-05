@@ -37,7 +37,9 @@ class RowCandidate:
     header_end: int | None = None
 
 
-def row_candidates(text, *, kind, table_context=()):
+def row_candidates(
+    text: str, *, kind: str, table_context: tuple[str, ...] = ()
+) -> tuple[RowCandidate, ...]:
     """Never combine disconnected chart labels/values or borrow another data row."""
     if kind not in ("table", "table_row", "table_cell", "figure"):
         return ()

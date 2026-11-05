@@ -1,10 +1,13 @@
 """DEC-85 opt-in rule profile. Legacy evaluator and revision hashes stay unchanged."""
 
+from collections.abc import Collection
 from dataclasses import asdict, dataclass, replace
+from typing import Any
 
 from proofops.domain.errors import DomainValidationError
 from proofops.domain.provenance import canonical_hash
-from proofops.domain.rules.engine import Decision, _evaluate
+from proofops.domain.rulepacks import RulePackSnapshot
+from proofops.domain.rules.engine import ConfirmedTags, Decision, RuleContext, _evaluate
 
 PROFILE = "analysis-scope-rules-sc1-v1"
 POLICY = {
@@ -22,10 +25,10 @@ DISPLAY = "분석 범위 기준 확정"
 class ScopeDecision(Decision):
     confirmation_basis: str = "analysis_scope"
     confirmation_display: str = DISPLAY
-    confirmation_scope: dict | None = None
+    confirmation_scope: dict[str, Any] | None = None
     confirmation_policy_sha256: str = POLICY_HASH
 
-    def to_api_dict(self):
+    def to_api_dict(self) -> dict[str, Any]:
         return super(ScopeDecision, self).to_api_dict() | {
             key: getattr(self, key)
             for key in (
@@ -37,7 +40,15 @@ class ScopeDecision(Decision):
         }
 
 
-def evaluate_scope(tags, context, pack, *, scope, absent_facts, receipt_sha256):
+def evaluate_scope(
+    tags: ConfirmedTags,
+    context: RuleContext,
+    pack: RulePackSnapshot,
+    *,
+    scope: dict[str, Any],
+    absent_facts: Collection[str],
+    receipt_sha256: str,
+) -> Decision:
     """Trusted application boundary, analogous to ConfirmedTags citation attestations.
 
     The application must replay the complete search receipt before calling this.

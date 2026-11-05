@@ -16,7 +16,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from typing import Any
 
+from proofops.application.claims import Claim
+from proofops.application.evidence.binding import ClaimContext
+from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.domain.numeric import (
     CheckResult,
     ClaimBinding,
@@ -27,6 +31,7 @@ from proofops.domain.numeric import (
     observation_source_holds,
     validated_condition_ids,
 )
+from proofops.domain.values import SourceRef
 
 # A claim with no accepted, source-backed binding is not a numeric finding.
 BINDING_ABSENT = "binding_absent"
@@ -49,7 +54,7 @@ class NumericCheckOutcome:
     status: str
     reason: str | None
     result: CheckResult | None
-    holds: tuple[dict, ...] = ()
+    holds: tuple[dict[str, Any], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,12 +212,19 @@ class NumericBindingProposal:
     binding: ClaimBinding | None
     reasons: tuple[str, ...]
     observation_ids: tuple[str, ...]
-    dimension_refs: dict
-    source_refs: tuple
-    holds: tuple[dict, ...] = ()
+    dimension_refs: dict[str, Any]
+    source_refs: tuple[SourceRef, ...]
+    holds: tuple[dict[str, Any], ...] = ()
 
 
-def propose_numeric_bindings(*, tenant_id, original, observations, claims, contexts=()):
+def propose_numeric_bindings(
+    *,
+    tenant_id: str,
+    original: CanonicalDocumentGraph,
+    observations: Sequence[NumericObservation],
+    claims: Sequence[Claim],
+    contexts: Sequence[ClaimContext] = (),
+) -> tuple[NumericBindingProposal, ...]:
     """Propose a narrow literal comparison, leaving acceptance to reviewed import.
 
     Reuse normalized table roles and validated ClaimContext spans. No value-equality

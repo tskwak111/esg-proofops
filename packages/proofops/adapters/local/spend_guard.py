@@ -4,16 +4,30 @@ Opaque SQLite sidecar: no existing provider/run schema is migrated. Uncertain
 calls retain their full bound indefinitely. Duplicate dispatch is forbidden.
 """
 
+from __future__ import annotations
+
 import sqlite3
 import time
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from decimal import Decimal
 from pathlib import Path
+from typing import TYPE_CHECKING, Protocol, TypeVar
 
 from proofops.application.budget import BudgetConflict, BudgetExceeded
 
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+    from typing import Any
 
-def amount(value):
+
+T = TypeVar("T")
+
+
+class LedgerProbe(Protocol):
+    ledger: str | Path
+
+
+def amount(value: str | int | float | Decimal) -> Decimal:
     number = Decimal(value)
     if not number.is_finite() or number < 0:
         raise ValueError("INVALID_SPEND_AMOUNT")
@@ -21,7 +35,14 @@ def amount(value):
 
 
 class SpendGuard:
-    def __init__(self, path, *, event_id, daily_limit="7", event_limit="7"):
+    def __init__(
+        self,
+        path: str | Path,
+        *,
+        event_id: str,
+        daily_limit: str | Decimal = "7",
+        event_limit: str | Decimal = "7",
+    ) -> None:
         self.path, self.event_id = Path(path), event_id
         self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         with self.transaction() as db:
@@ -45,12 +66,20 @@ class SpendGuard:
         self.path.chmod(0o600)
 
     @contextmanager
-    def transaction(self):
+    def transaction(self) -> Iterator[sqlite3.Connection]:
         with sqlite3.connect(self.path, timeout=30) as db:
             db.execute("BEGIN IMMEDIATE")
             yield db
 
-    def configure_run(self, run_id, *, day, run_limit="1", group_id=None, group_limit=None):
+    def configure_run(
+        self,
+        run_id: str,
+        *,
+        day: str,
+        run_limit: str | Decimal = "1",
+        group_id: str | None = None,
+        group_limit: str | Decimal | None = None,
+    ) -> None:
         pin = (
             run_id,
             self.event_id,
@@ -77,7 +106,7 @@ class SpendGuard:
                 raise BudgetConflict("SPEND_GROUP_CHANGED")
             db.execute("INSERT OR IGNORE INTO runs VALUES (?,?,?,?,?,?)", pin)
 
-    def reserve(self, run_id, provider, request_id, bound):
+    def reserve(self, run_id: str, provider: str, request_id: str, bound: str | Decimal) -> None:
         bound = amount(bound)
         if bound <= 0:
             raise ValueError("INVALID_SPEND_BOUND")
@@ -103,7 +132,7 @@ class SpendGuard:
                 (self.event_id,),
             ).fetchall()
 
-            def total(index=None, value=None):
+            def total(index: int | None = None, value: str | None = None) -> Decimal:
                 return sum(
                     (amount(row[0]) for row in rows if index is None or row[index] == value),
                     Decimal(0),
@@ -121,7 +150,7 @@ class SpendGuard:
                 (request_id, run_id, provider, str(bound), str(bound), "reserved"),
             )
 
-    def settle(self, request_id, charged):
+    def settle(self, request_id: str, charged: str | Decimal | None) -> None:
         with self.transaction() as db:
             row = db.execute(
                 "SELECT bound,exposure,state FROM charges WHERE id=?", (request_id,)
@@ -138,7 +167,7 @@ class SpendGuard:
                 "UPDATE charges SET exposure=?,state=? WHERE id=?", (exposure, state, request_id)
             )
 
-    def summary(self):
+    def summary(self) -> dict[str, Any]:
         with self.transaction() as db:
             rows = db.execute(
                 "SELECT c.* FROM charges c " "JOIN runs r ON c.run=r.id WHERE r.event=?",
@@ -153,8 +182,16 @@ class SpendGuard:
             calls=len(rows),
         )
 
-    def guarded(self, original, *, run_id, provider, bound, slots=None):
-        def call(probe, *args, **kwargs):
+    def guarded(
+        self,
+        original: Callable[..., T],
+        *,
+        run_id: str,
+        provider: str,
+        bound: Callable[[tuple[Any, ...], dict[str, Any]], str | Decimal],
+        slots: AbstractContextManager[object] | None = None,
+    ) -> Callable[..., T]:
+        def call(probe: LedgerProbe, *args: Any, **kwargs: Any) -> T:
             from contextlib import nullcontext
 
             with slots if slots is not None else nullcontext():

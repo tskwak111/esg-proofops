@@ -11,9 +11,16 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import asdict
+from typing import Any
 
-from proofops.application.assurance import ClaimContext, extract_assurance, match_assurance
+from proofops.application.assurance import (
+    AssuranceStatement,
+    ClaimContext,
+    extract_assurance,
+    match_assurance,
+)
 from proofops.application.evidence.span_citations import verify_source_ref
+from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import _require_sha256
 
@@ -42,11 +49,11 @@ POLICY = {
 POLICY_SHA256 = canonical_hash(POLICY)
 
 
-def _sealed(data, key):
+def _sealed(data: dict[str, Any], key: str) -> dict[str, Any]:
     return data | {key: canonical_hash(data)}
 
 
-def _check(data, key):
+def _check(data: object, key: str) -> None:
     if (
         not isinstance(data, dict)
         or data.get("policy_sha256") != POLICY_SHA256
@@ -55,7 +62,9 @@ def _check(data, key):
         raise ValueError(key.upper().replace("_SHA256", "_HASH") + "_MISMATCH")
 
 
-def discover_bundles(page_texts: Mapping[int, str], *, page_count: int, source_sha256: str):
+def discover_bundles(
+    page_texts: Mapping[int, str], *, page_count: int, source_sha256: str
+) -> dict[str, Any]:
     """Find bounded opinion candidates, retaining end/continuation uncertainty.
 
     Repeated navigation titles alone cannot start an opinion. An explicit scope
@@ -82,7 +91,7 @@ def discover_bundles(page_texts: Mapping[int, str], *, page_count: int, source_s
             tail = text[title.end() : stop]
             if _SCOPE.search(tail) and _STANDARD.search(tail):
                 starts.append((page, title.start(), title.group().strip()))
-    bundles = []
+    bundles: list[dict[str, Any]] = []
     for index, (page, offset, title_text) in enumerate(starts):
         next_start = starts[index + 1] if index + 1 < len(starts) else None
         last = next_start[0] if next_start else page_count
@@ -156,7 +165,9 @@ def discover_bundles(page_texts: Mapping[int, str], *, page_count: int, source_s
     )
 
 
-def select_bundles(discovery, *, claim_pages, union_cap):
+def select_bundles(
+    discovery: dict[str, Any], *, claim_pages: list[int], union_cap: int
+) -> dict[str, Any]:
     """Whole candidate bundles are prioritized; incomplete discovery stays visible."""
     _check(discovery, "discovery_sha256")
     if (
@@ -169,9 +180,10 @@ def select_bundles(discovery, *, claim_pages, union_cap):
         or len(claim_pages) > union_cap
     ):
         raise ValueError("BUNDLE_SELECTION_INVALID")
-    selected, missing, ids = set(claim_pages), set(), []
+    selected, missing = set(claim_pages), set()
+    ids: list[str] = []
     incomplete = False
-    handled = set()
+    handled: set[str] = set()
     for bundle in discovery["bundles"]:
         if bundle["bundle_id"] in handled:
             continue
@@ -215,7 +227,9 @@ def select_bundles(discovery, *, claim_pages, union_cap):
     )
 
 
-def build_catalog(graph, discovery, *, tenant_id):
+def build_catalog(
+    graph: CanonicalDocumentGraph, discovery: dict[str, Any], *, tenant_id: str
+) -> dict[str, Any]:
     """Catalogue exact verified SourceRefs; search text cannot promote a graph.
 
     The caller supplies a tenant-authorized graph after parsing/attestation. This
@@ -270,7 +284,13 @@ def build_catalog(graph, discovery, *, tenant_id):
     )
 
 
-def match_m3_candidate(catalog, *, graph, claim: ClaimContext, statement):
+def match_m3_candidate(
+    catalog: dict[str, Any],
+    *,
+    graph: CanonicalDocumentGraph,
+    claim: ClaimContext,
+    statement: AssuranceStatement | None,
+) -> dict[str, Any]:
     """One-opinion, one-replica scope diagnostic. No derived vote is minted.
 
     ClaimContext dimensions must originate from the validated claim-context builder

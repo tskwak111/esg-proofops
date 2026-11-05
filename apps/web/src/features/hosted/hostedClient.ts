@@ -1,5 +1,7 @@
+// Hosted R108 control-plane client. Type-only imports erase so Node tests can load it directly.
 import type { DocumentMetadata } from "./documentName";
-// Hosted R108 control-plane client. Self-contained (no imports) so node tests can load it directly.
+import type { ElementState, ReviewElement, Session as WireSession, SourceRef } from "../shared/wireTypes";
+export type { ElementState } from "../shared/wireTypes";
 // Browser talks same-origin to `/hosted-api/*` (Vercel rewrite -> backend) so `__Host-` cookies stay first-party.
 
 export type AnalysisBackend = "hosted" | "legacy" | "static";
@@ -17,7 +19,7 @@ export type Runtime = {
 };
 export type GuestAccess = { available: boolean; until: string | null; fresh_runs_per_day: number; showcase: boolean };
 export type GuestSession = { until: string | null; fresh_runs_today: number; fresh_runs_limit: number };
-export type Session = { user_id: string; tenant_id: string | null; role: string | null; csrf_token: string; expires_at: string; guest?: GuestSession | null };
+export type Session = WireSession<string> & { guest?: GuestSession | null };
 export type HostedDocument = DocumentMetadata & { document_id: string; page_count: number; size_bytes: number; expires: number; sha256: string; display_name?: string; company_name?: string };
 export type ListedDocument = HostedDocument & { display_name: string; uploaded_at: string };
 export type ListedRun = HostedRun & { created_at: string };
@@ -54,11 +56,7 @@ export type HostedRun = {
 };
 
 // r108-hosted-result-v1 (CONTRACT.md P2). Only fields the UI reads are typed; unknown extra keys are tolerated.
-export type SourceRefDto = {
-  source_id: string; document_version_id: string; parse_manifest_id: string; page_num: number; printed_page_label: string | null;
-  bbox: number[] | null; raw_text_sha256: string; quote: string; char_start: number; char_end: number;
-  location_quality: string; verification_state: string;
-};
+export type SourceRefDto = SourceRef<string, string>;
 export type SourceLocation = {
   bbox: number[]; line_rects: number[][] | null; glyph_rects?: number[][] | null;
   page: { width_pt: number; height_pt: number; rotation: number; crop_box: number[] };
@@ -72,10 +70,7 @@ export type SourceViewRef = {
   w18_reason?: string | null; w18_verification_state?: string;
 };
 export type SourceDocument = { document_id: string; sha256: string; page_count: number; url: string };
-export type ElementState = "present" | "absent" | "unknown" | "conflict" | "not_applicable";
-export type ResultElement = {
-  element_id: string; state: ElementState; evidence_refs: SourceRefDto[]; normalized_value: string | null; credited_from: string | null; reason_code: string | null;
-};
+export type ResultElement = ReviewElement<SourceRefDto>;
 export type GradeRange = { floor: string; ceiling: string; open_elements: string[] };
 export type TableComparison = { year?: string | number | null; value?: string | number | null; column_name?: string | null };
 export type TableObservation = {

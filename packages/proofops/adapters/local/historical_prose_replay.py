@@ -4,8 +4,11 @@ Recompute under the exact old bytes without changing current module globals.
 Complete policy equality still authenticates all transitive dependencies.
 """
 
+from __future__ import annotations
+
 from hashlib import sha256
 from pathlib import Path
+from types import ModuleType
 
 from proofops.adapters.local.frozen_native_replay import _exec_private
 
@@ -20,7 +23,7 @@ _PINNED = {
 }
 
 
-def historical_prose_reader(*, page_ocr=False):
+def historical_prose_reader(*, page_ocr: bool = False) -> ModuleType:
     for name, digest in _PINNED.items():
         path = _ROOT / name
         if not path.is_file() or sha256(path.read_bytes()).hexdigest() != digest:
@@ -33,11 +36,11 @@ def historical_prose_reader(*, page_ocr=False):
     reader = _exec_private(
         _ROOT, "upstage_ocr_v21_pre_visibility.py", "proofops.adapters.local._fxa_old_i20"
     )
-    reader.prose = prose
+    setattr(reader, "prose", prose)
     return reader
 
 
-def historical_pre_d2_reader():
+def historical_pre_d2_reader() -> ModuleType:
     """Replay the exact FXA/I22 wrapper without changing current reader globals."""
     name = "upstage_ocr_v21_pre_d2.py"
     path = _ROOT / name

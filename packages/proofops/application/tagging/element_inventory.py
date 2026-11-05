@@ -5,9 +5,12 @@ request/signature/provider response IDs, one packet/model/prompt, replica 1/2/3,
 retained raw responses, and source verification before evidence admission.
 """
 
+from __future__ import annotations
+
 import json
 import re
 from dataclasses import asdict, replace
+from typing import TYPE_CHECKING, cast
 from uuid import UUID, uuid5
 
 from proofops.application.evidence.element_queries import ELEMENT_TERMS
@@ -15,6 +18,13 @@ from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.domain.periods import is_supported_period
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import SourceRef, _require_sha256
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator, Mapping
+    from typing import Any
+
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+
 
 SCHEMA = "element-evidence-inventory-sc1-v1"
 PROMPT = (
@@ -30,7 +40,7 @@ PROMPT = (
     "For each deterministic cue, supply a covering record, including explicit "
     "not_applicable when the cue is not relevant. Never treat missing as absent."
 )
-POLICY = dict(
+POLICY: dict[str, Any] = dict(
     profile=SCHEMA,
     replicas=[1, 2, 3],
     prompt_sha256=canonical_hash(PROMPT),
@@ -48,7 +58,9 @@ STATES = {"present", "not_applicable", "unknown", "conflict", "unreadable"}
 NUMERIC = {"P2", "P3", "P4", "G1", "G2", "G3", "G4", "G5", "G6"}
 
 
-def selection_from_snapshot(snapshot, graph, run_id):
+def selection_from_snapshot(
+    snapshot: dict[str, Any], graph: CanonicalDocumentGraph, run_id: str
+) -> dict[str, Any]:
     doc = snapshot["document"]
     if (doc["version_id"], doc["sha256"]) != (graph.document_version_id, graph.source_sha256):
         raise ValueError("SC1_DOCUMENT_MISMATCH")
@@ -77,7 +89,7 @@ def selection_from_snapshot(snapshot, graph, run_id):
     return result
 
 
-def validate_selection(selection, graph):
+def validate_selection(selection: dict[str, Any], graph: CanonicalDocumentGraph) -> None:
     from proofops.application.tagging.cf1_inventory import enabled as cf1_enabled
 
     cf1_enabled(selection)
@@ -109,7 +121,7 @@ def validate_selection(selection, graph):
         raise ValueError("SC1_SCOPE_IDENTITY_MISMATCH")
 
 
-def _split(text, limit):
+def _split(text: str, limit: int) -> Iterator[tuple[int, int]]:
     start, size = 0, 0
     for i, char in enumerate(text):
         cost = len(char.encode("utf-8"))
@@ -121,14 +133,15 @@ def _split(text, limit):
         yield start, len(text)
 
 
-def plan_inventory(graph, selection):
+def plan_inventory(graph: CanonicalDocumentGraph, selection: dict[str, Any]) -> dict[str, Any]:
     validate_selection(selection, graph)
     execution = selection.get("fxh_inventory_execution")
     limit = execution["inventory_chunk_bytes"] if execution else POLICY["max_chunk_utf8_bytes"]
     chunks, pages = [], []
     for page in selection["selected_pages"]:
         blocks = sorted((b for b in graph.blocks if b.page_num == page), key=lambda b: b.source_id)
-        errors, spans = [], []
+        errors: list[str] = []
+        spans: list[dict[str, Any]] = []
         if not blocks:
             errors.append("PAGE_MISSING")
         if any(i.page_num == page and i.state != "resolved" for i in graph.issues):
@@ -145,10 +158,13 @@ def plan_inventory(graph, selection):
                 errors.append("BLOCK_UNVERIFIED:" + block.source_id)
                 continue
             for start, end in _split(block.raw_text, limit):
-                span = replace(ref, char_start=start, char_end=end, quote=block.raw_text[start:end])
-                spans.append(dict(source_ref=asdict(span), kind=block.kind))
+                source_span = replace(
+                    ref, char_start=start, char_end=end, quote=block.raw_text[start:end]
+                )
+                spans.append(dict(source_ref=asdict(source_span), kind=block.kind))
         # Greedy page-local packing. Long blocks split with exact offsets; no truncation.
-        groups, current, size = [], [], 0
+        current: list[dict[str, Any]] = []
+        groups, size = [], 0
         for span in spans:
             cost = len(span["source_ref"]["quote"].encode("utf-8"))
             if current and (
@@ -181,7 +197,7 @@ def plan_inventory(graph, selection):
     return dict(schema=SCHEMA, policy=POLICY, selection=selection, pages=pages, chunks=chunks)
 
 
-def inventory_request(chunk, replica, model_sha256):
+def inventory_request(chunk: dict[str, Any], replica: int, model_sha256: str) -> dict[str, Any]:
     _require_sha256("model_sha256", model_sha256)
     if replica not in (1, 2, 3):
         raise ValueError("SC1_REPLICA_INVALID")
@@ -206,7 +222,9 @@ def inventory_request(chunk, replica, model_sha256):
     return request
 
 
-def _verified_span(value, chunk, graph):
+def _verified_span(
+    value: object, chunk: dict[str, Any], graph: CanonicalDocumentGraph
+) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != {"source_id", "char_start", "char_end"}:
         raise ValueError("SC1_SPAN_SCHEMA")
     start, end = value["char_start"], value["char_end"]
@@ -233,7 +251,9 @@ def _verified_span(value, chunk, graph):
     return asdict(verified)
 
 
-def _guard_record(record, chunk, graph):
+def _guard_record(
+    record: dict[str, Any], chunk: dict[str, Any], graph: CanonicalDocumentGraph
+) -> dict[str, Any]:
     if set(record) != {"element_id", "state", "evidence", "attributes"}:
         raise ValueError("SC1_RECORD_SCHEMA")
     if record["element_id"] not in POLICY["terms"] or record["state"] not in STATES:
@@ -274,14 +294,14 @@ def _guard_record(record, chunk, graph):
     )
 
 
-def _cues(chunk):
+def _cues(chunk: dict[str, Any]) -> list[dict[str, Any]]:
     """Recall guard: omissions in three extractions are not proof of absence."""
     cues = []
     for span in chunk["spans"]:
         ref, kind = span["source_ref"], span["kind"]
         text = ref["quote"].casefold()
         for eid, terms in POLICY["terms"].items():
-            hits = []
+            hits: list[tuple[int, int]] = []
             for term in terms:
                 hits.extend(
                     (m.start(), m.end()) for m in re.finditer(re.escape(term.casefold()), text)
@@ -304,7 +324,13 @@ def _cues(chunk):
     return cues
 
 
-def assemble_inventory(plan, responses, *, graph, model_sha256):
+def assemble_inventory(
+    plan: dict[str, Any],
+    responses: Mapping[str, dict[str, Any] | str | None],
+    *,
+    graph: CanonicalDocumentGraph,
+    model_sha256: str,
+) -> dict[str, Any]:
     from proofops.application.tagging.cf1_inventory import absence_policy, restore_response
     from proofops.application.tagging.cf1_inventory import enabled as cf1_enabled
 
@@ -313,15 +339,18 @@ def assemble_inventory(plan, responses, *, graph, model_sha256):
     expected = plan_inventory(graph, plan["selection"])
     if canonical_hash(expected) != canonical_hash(plan):
         raise ValueError("SC1_PLAN_MISMATCH")
-    candidates, chunks, all_requests, all_providers = {}, [], set(), set()
+    candidates: dict[str, dict[str, Any]] = {}
+    chunks, all_requests, all_providers = [], set(), set()
     for chunk in plan["chunks"]:
-        votes, errors, records_by_replica = [], [], {}
+        votes: list[dict[str, Any]] = []
+        errors, records_by_replica = [], {}
         contrary_records = []
         for replica in (1, 2, 3):
             request = inventory_request(chunk, replica, model_sha256)
             response = responses.get(request["request_id"])
-            valid = isinstance(response, dict)
+            valid: object = isinstance(response, dict)
             if valid:
+                response = cast("dict[str, Any]", response)
                 valid = (
                     response.get("request_id") == request["request_id"]
                     and response.get("request_signature") == request["request_signature"]
@@ -349,6 +378,7 @@ def assemble_inventory(plan, responses, *, graph, model_sha256):
             guarded = []
             validation_error = None
             if valid:
+                response = cast("dict[str, Any]", response)
                 all_providers.add(response["provider_response_id"])
                 try:
                     raw = json.loads(response["raw_response_json"])
@@ -395,7 +425,7 @@ def assemble_inventory(plan, responses, *, graph, model_sha256):
                 errors.append("REPLICA_UNINSPECTED:" + str(replica))
                 guarded = []
             records_by_replica[replica] = guarded
-            vote = dict(request=request, response=response, valid=bool(valid))
+            vote: dict[str, Any] = dict(request=request, response=response, valid=bool(valid))
             if cf1 and not valid:
                 vote["cf1_validation_error"] = validation_error or "CF1_RESPONSE_IDENTITY_OR_STATUS"
             votes.append(vote)
@@ -486,10 +516,16 @@ def assemble_inventory(plan, responses, *, graph, model_sha256):
     return body | dict(inventory_sha256=canonical_hash(body))
 
 
-def build_inventory(graph, selection, *, model_sha256, invoke):
+def build_inventory(
+    graph: CanonicalDocumentGraph,
+    selection: dict[str, Any],
+    *,
+    model_sha256: str,
+    invoke: Callable[[dict[str, Any]], dict[str, Any] | str | None],
+) -> dict[str, Any]:
     """One serial batch per page/chunk, exactly three independent invocations."""
     plan = plan_inventory(graph, selection)
-    responses = {}
+    responses: dict[str, dict[str, Any] | str | None] = {}
     for chunk in plan["chunks"]:
         for replica in (1, 2, 3):
             request = inventory_request(chunk, replica, model_sha256)
@@ -500,7 +536,7 @@ def build_inventory(graph, selection, *, model_sha256, invoke):
     return assemble_inventory(plan, responses, graph=graph, model_sha256=model_sha256)
 
 
-def replay_inventory(inventory, graph):
+def replay_inventory(inventory: dict[str, Any], graph: CanonicalDocumentGraph) -> dict[str, Any]:
     expected = assemble_inventory(
         plan_inventory(graph, inventory["selection"]),
         inventory["raw_responses"],

@@ -1,8 +1,11 @@
 """Bounded process-local reuse of successfully recomputed native receipts."""
 
+from __future__ import annotations
+
 import os
 import sys
 from collections import OrderedDict
+from collections.abc import Callable, Iterable
 from copy import deepcopy
 from dataclasses import asdict, replace
 from hashlib import sha256
@@ -11,25 +14,55 @@ from json import dumps, loads
 from marshal import dumps as marshal_dumps
 from marshal import loads as marshal_loads
 from threading import Lock
+from typing import TYPE_CHECKING, Protocol, TypeVar
 from zlib import compress, decompress
 
 from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
+from proofops.adapters.local.receipt_environment_compat import STRICT
+from proofops.adapters.local.receipt_environment_compat import compare_receipts as _compare_receipts
+from proofops.adapters.local.receipt_environment_compat import read_profile as _read_profile
 from proofops.adapters.local.receipt_environment_compat import (
-    STRICT,
-    compare_receipts,
-    read_profile,
-    receipt_read_metadata,
-    replay_raster_with_profile,
-    replay_receipt,
+    receipt_read_metadata as _receipt_read_metadata,
 )
+from proofops.adapters.local.receipt_environment_compat import (
+    replay_raster_with_profile as _replay_raster_with_profile,
+)
+from proofops.adapters.local.receipt_environment_compat import replay_receipt as _replay_receipt
 from proofops.adapters.local.run_artifacts import native_paragraph_policy
 from proofops.adapters.local.source_verification import replay_native_sources
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 
+if TYPE_CHECKING:
+    from types import ModuleType
+    from typing import Any
+
+    from proofops.application.claims import ClaimDiscovery
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.ports.jobs import JobMessage
+    from proofops.domain.values import SourceRef
+
+
+compare_receipts: Callable[..., dict[str, Any]] = _compare_receipts
+read_profile: Callable[..., str] = _read_profile
+receipt_read_metadata: Callable[..., dict[str, Any] | None] = _receipt_read_metadata
+
+
+_ReplayResult = TypeVar("_ReplayResult")
+
+
+class ReplayOperation(Protocol):
+    def __call__(
+        self, function: Callable[..., _ReplayResult], *args: Any, **kwargs: Any
+    ) -> _ReplayResult: ...
+
+
+replay_receipt: ReplayOperation = _replay_receipt
+replay_raster_with_profile: ReplayOperation = _replay_raster_with_profile
+
 _replays: OrderedDict[str, frozenset[str]] = OrderedDict()
 _raster_replays: OrderedDict[str, tuple[frozenset[str], str, str]] = OrderedDict()
-_claim_replays: OrderedDict[str, tuple] = OrderedDict()
+_claim_replays: OrderedDict[str, tuple[ClaimDiscovery, CanonicalDocumentGraph]] = OrderedDict()
 _claim_attestations: OrderedDict[str, bytes] = OrderedDict()
 _claim_wrapper_receipts: OrderedDict[str, bytes] = OrderedDict()
 _lock = Lock()
@@ -46,7 +79,13 @@ _BULLET_ALIGNMENT_SCHEMA = "claim_span_bullet_alignment_attestation_v1"
 _UNREADABLE_REASONS = frozenset({"rendered_reader_unavailable", "render_limit"})
 
 
-def _claim_attestation_key(reader, policy, graph, source, tenant_id):
+def _claim_attestation_key(
+    reader: ModuleType,
+    policy: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    tenant_id: str,
+) -> str:
     return canonical_hash(
         dict(
             tenant_id=tenant_id,
@@ -62,7 +101,7 @@ def _claim_attestation_key(reader, policy, graph, source, tenant_id):
     )
 
 
-def _reusable_claim_record(record, receipt):
+def _reusable_claim_record(record: dict[str, Any], receipt: dict[str, Any]) -> bool:
     return record["status"] == "verified" or (
         record["status"] == "unresolved"
         and record.get("reason") == "rendered_quote_unresolved"
@@ -74,7 +113,7 @@ def _reusable_claim_record(record, receipt):
     )
 
 
-def _remember_claim_attestation(key, receipt):
+def _remember_claim_attestation(key: str, receipt: dict[str, Any]) -> None:
     # Completed negative OCR is reusable as unresolved, never as evidence approval.
     records = [r for r in receipt["records"] if _reusable_claim_record(r, receipt)]
     sources = {r["ref"]["source_id"] for r in records}
@@ -93,7 +132,14 @@ def _remember_claim_attestation(key, receipt):
                 _claim_attestations.popitem(last=False)
 
 
-def attest_claims_cached(*, reader, graph, source, refs, tenant_id):
+def attest_claims_cached(
+    *,
+    reader: ModuleType,
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    refs: Iterable[SourceRef],
+    tenant_id: str,
+) -> dict[str, Any]:
     """Compose unchanged reader records; re-read new refs, never infer verification."""
     refs = tuple(refs)
     key = _claim_attestation_key(reader, reader.claim_source_policy(), graph, source, tenant_id)
@@ -145,7 +191,9 @@ def attest_claims_cached(*, reader, graph, source, refs, tenant_id):
     return deepcopy(result)
 
 
-def replay_cached(receipt, graph, source, *, tenant_id):
+def replay_cached(
+    receipt: dict[str, Any], graph: CanonicalDocumentGraph, source: bytes, *, tenant_id: str
+) -> CanonicalDocumentGraph:
     key = canonical_hash(
         dict(
             tenant_id=tenant_id,
@@ -183,13 +231,30 @@ def replay_cached(receipt, graph, source, *, tenant_id):
 
 
 def replay_raster_cached(
-    snapshot, message, native, graph, source, registrations, receipts, *, native_policy=None
-):
+    snapshot: dict[str, Any],
+    message: JobMessage,
+    native: dict[str, Any] | None,
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    registrations: tuple[dict[str, Any], ...],
+    receipts: dict[str, dict[str, Any] | None],
+    *,
+    native_policy: dict[str, Any] | None = None,
+) -> tuple[CanonicalDocumentGraph, dict[str, Any], list[dict[str, Any]]]:
     """Reuse a completed v5 replay without relaxing its durable read checks."""
     from proofops.adapters.local.frozen_raster_replay import (
-        raster_policy_requires_pinned_native,
-        replay_raster_records_frozen,
+        raster_policy_requires_pinned_native as _raster_policy_requires_pinned_native,
     )
+    from proofops.adapters.local.frozen_raster_replay import (
+        replay_raster_records_frozen as _replay_raster_records_frozen,
+    )
+
+    raster_policy_requires_pinned_native: Callable[..., bool] = (
+        _raster_policy_requires_pinned_native
+    )
+    replay_raster_records_frozen: Callable[
+        ..., tuple[CanonicalDocumentGraph, dict[str, Any], list[dict[str, Any]]]
+    ] = _replay_raster_records_frozen
     from proofops.adapters.local.raster_checkpoint import replay_raster_records
     from proofops.adapters.local.raster_visibility import raster_ocr_policy
 
@@ -249,7 +314,7 @@ def replay_raster_cached(
             _raster_replays.move_to_end(key)
             while len(_raster_replays) > _MAX_REPLAYS:
                 _raster_replays.popitem(last=False)
-    verified, coverage, refs = cached
+    verified, coverage_json, refs_json = cached
     return (
         replace(
             graph,
@@ -258,12 +323,14 @@ def replay_raster_cached(
                 for block in graph.blocks
             ),
         ),
-        loads(coverage),
-        loads(refs),
+        loads(coverage_json),
+        loads(refs_json),
     )
 
 
-def _promote_claims(discovery, scoped, tenant_id):
+def _promote_claims(
+    discovery: ClaimDiscovery, scoped: CanonicalDocumentGraph, tenant_id: str
+) -> ClaimDiscovery:
     """Promote a claim only when EVERY one of its own refs verifies against the
     scoped graph; a claim with one still-unresolved ref is left unchanged."""
     from proofops.application.evidence import span_citations
@@ -285,7 +352,12 @@ def _promote_claims(discovery, scoped, tenant_id):
     return replace(discovery, claims=tuple(claims))
 
 
-def _project_attested_claims(expected, graph, discovery, tenant_id):
+def _project_attested_claims(
+    expected: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    discovery: ClaimDiscovery,
+    tenant_id: str,
+) -> tuple[ClaimDiscovery, CanonicalDocumentGraph]:
     """The pinned reader's deterministic replay tail, using its existing helpers."""
     from proofops.application.evidence import span_citations
     from proofops.domain.values import SourceRef
@@ -299,7 +371,7 @@ def _project_attested_claims(expected, graph, discovery, tenant_id):
     return _promote_claims(discovery, scoped, tenant_id), scoped
 
 
-def _unavailable_read(value):
+def _unavailable_read(value: object) -> bool:
     """True when any nested reading reports a reader that could not read at all.
 
     Such a receipt is never remembered or reused, so the next replay retries the
@@ -314,7 +386,9 @@ def _unavailable_read(value):
     return False
 
 
-def _wrapper_projection_pinned(reader, policy, receipt):
+def _wrapper_projection_pinned(
+    reader: ModuleType, policy: dict[str, Any], receipt: dict[str, Any]
+) -> bool:
     """Only the byte-pinned bullet-alignment wrapper and its own receipt schema."""
     from proofops.adapters.local import claim_span_bullet_alignment
 
@@ -332,7 +406,14 @@ def _wrapper_projection_pinned(reader, policy, receipt):
     )
 
 
-def _wrapper_receipt_key(reader, policy, graph, source, receipt, tenant_id):
+def _wrapper_receipt_key(
+    reader: ModuleType,
+    policy: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    receipt: dict[str, Any],
+    tenant_id: str,
+) -> str:
     """The existing attestation key plus this receipt's own ordered refs.
 
     ``_claim_attestation_key`` already binds tenant, source bytes, graph, policy,
@@ -350,7 +431,15 @@ def _wrapper_receipt_key(reader, policy, graph, source, receipt, tenant_id):
     )
 
 
-def remember_wrapper_attestation(*, reader, policy, graph, source, tenant_id, receipt):
+def remember_wrapper_attestation(
+    *,
+    reader: ModuleType,
+    policy: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    tenant_id: str,
+    receipt: dict[str, Any],
+) -> None:
     """Remember a whole wrapper receipt this process just read from real bytes.
 
     The receipt is kept as its own canonical bytes, never as a hash alone: the
@@ -375,7 +464,14 @@ def remember_wrapper_attestation(*, reader, policy, graph, source, tenant_id, re
             _claim_wrapper_receipts.popitem(last=False)
 
 
-def _project_whole_attestation(receipt, graph, discovery, tenant_id, *, refs_field="base_records"):
+def _project_whole_attestation(
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    discovery: ClaimDiscovery,
+    tenant_id: str,
+    *,
+    refs_field: str = "base_records",
+) -> tuple[ClaimDiscovery, CanonicalDocumentGraph] | None:
     """Identical pinned bullet-wrapper and page-OCR replay tails after matching."""
     from proofops.adapters.local import claim_source_verification
     from proofops.application.evidence import span_citations
@@ -400,7 +496,15 @@ def _project_whole_attestation(receipt, graph, discovery, tenant_id, *, refs_fie
     return _promote_claims(discovery, scoped, tenant_id), scoped
 
 
-def _reuse_wrapper_replay(reader, policy, receipt, graph, source, discovery, tenant_id):
+def _reuse_wrapper_replay(
+    reader: ModuleType,
+    policy: dict[str, Any],
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    discovery: ClaimDiscovery,
+    tenant_id: str,
+) -> tuple[ClaimDiscovery, CanonicalDocumentGraph] | None:
     """Reuse only a receipt that is canonically identical to an attestation this
     process already recomputed from the original bytes under the same strict key.
 
@@ -420,7 +524,16 @@ def _reuse_wrapper_replay(reader, policy, receipt, graph, source, discovery, ten
     return _project_whole_attestation(receipt, graph, discovery, tenant_id)
 
 
-def replay_claims_cached(*, reader, policy, receipt, graph, source, discovery, tenant_id):
+def replay_claims_cached(
+    *,
+    reader: ModuleType,
+    policy: dict[str, Any],
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    discovery: ClaimDiscovery,
+    tenant_id: str,
+) -> tuple[ClaimDiscovery, CanonicalDocumentGraph]:
     """Reuse a successful original-byte replay only for identical pinned inputs."""
     if policy.get("profile") in PAGE_OCR_PROFILES:
         from proofops.adapters.local.verified_read_cache import replay_cached as replay_ocr_cached

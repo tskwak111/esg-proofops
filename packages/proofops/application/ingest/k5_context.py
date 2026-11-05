@@ -1,15 +1,24 @@
 """Literal sentence interpretation; focal atoms and evidence authority stay separate."""
 
+from __future__ import annotations
+
 import json
 import re
 import unicodedata
 from dataclasses import asdict, replace
+from typing import TYPE_CHECKING, Any, cast
 
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.ingest.j7_split import _top_level
 from proofops.application.ingest.w9_tables import graph_cells, grid
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
+from proofops.domain.values import SourceRef
+
+if TYPE_CHECKING:
+    from proofops.application.claims import Claim
+    from proofops.application.ingest.graph_fusion import CanonicalBlock, CanonicalDocumentGraph
+
 
 TERMINAL = r"[.!?。！？](?=\s|$)"
 BULLET = r"(?<!\S)[•▪▶]|\n\s*\n"
@@ -17,7 +26,7 @@ SUPERLATIVE = r"(?:업계|국내|세계|반도체\s*업계)\s*(?:최초|최대|�
 CONTINUATION = (
     r"(?:[을를의에]|에서는|으로|위해|하여|통해|하며|하고|함께|ESG|태양광|NDC\)|[,，])\s*$"
 )
-POLICY = dict(
+POLICY: dict[str, Any] = dict(
     profile="literal-sentence-context-k5-v1",
     focal="unchanged-atomic-quote-offsets-identities-and-selection",
     offsets="raw-source-codepoints; explicit-NFC-backmap-for-origin-grid",
@@ -40,7 +49,7 @@ POLICY = dict(
 )
 
 
-def _bounds(text, start, end):
+def _bounds(text: str, start: int, end: int) -> tuple[int, int]:
     boundaries = {0, len(text)}
     allowed = _top_level(text)
     for match in re.finditer(TERMINAL + "|" + BULLET, text):
@@ -55,7 +64,14 @@ def _bounds(text, start, end):
     return left, right
 
 
-def _ref(block, start, end, graph, *, normalized=False):
+def _ref(
+    block: CanonicalBlock,
+    start: int,
+    end: int,
+    graph: CanonicalDocumentGraph,
+    *,
+    normalized: bool = False,
+) -> SourceRef:
     ref = (
         block.source_ref(normalized_char_start=start, normalized_char_end=end)
         if normalized
@@ -67,7 +83,7 @@ def _ref(block, start, end, graph, *, normalized=False):
     # Keep its location unlocated and its authority candidate; the focal table
     # reference still provides the original page/region for the reader.
     if ref.location_quality == "unlocated" and block.kind == "table_cell":
-        candidate = block.candidates[block.winner]
+        candidate = block.candidates[cast(int, block.winner)]
         if block.quality in ("verified", "unverified") and any(
             batch.tenant_id == graph.tenant_id
             and batch.document_version_id == graph.document_version_id
@@ -80,7 +96,7 @@ def _ref(block, start, end, graph, *, normalized=False):
     return _check(ref, graph)
 
 
-def _check(ref, graph):
+def _check(ref: SourceRef, graph: CanonicalDocumentGraph) -> SourceRef:
     checked = verify_source_ref(ref, graph, tenant_id=graph.tenant_id)
     if checked.verification_state != "rejected":
         return checked
@@ -99,7 +115,7 @@ def _check(ref, graph):
     return checked
 
 
-def _prose(block):
+def _prose(block: CanonicalBlock) -> bool:
     return (
         block.winner is not None
         and block.bbox is not None
@@ -108,15 +124,31 @@ def _prose(block):
     )
 
 
-def _neighbour(block, graph, *, before):
+def _neighbour(
+    block: CanonicalBlock, graph: CanonicalDocumentGraph, *, before: bool
+) -> CanonicalBlock | None:
     choices = []
     for candidate in graph.blocks:
         if candidate.source_id == block.source_id or not _prose(candidate):
             continue
-        if candidate.page_num != block.page_num or abs(candidate.bbox[0] - block.bbox[0]) > 12:
+        if (
+            candidate.page_num != block.page_num
+            or abs(
+                cast(tuple[float, float, float, float], candidate.bbox)[0]
+                - cast(tuple[float, float, float, float], block.bbox)[0]
+            )
+            > 12
+        ):
             continue
         left, right = (candidate, block) if before else (block, candidate)
-        if right.bbox[1] <= left.bbox[1] or not -2 <= right.bbox[1] - left.bbox[3] <= 12:
+        if (
+            cast(tuple[float, float, float, float], right.bbox)[1]
+            <= cast(tuple[float, float, float, float], left.bbox)[1]
+            or not -2
+            <= cast(tuple[float, float, float, float], right.bbox)[1]
+            - cast(tuple[float, float, float, float], left.bbox)[3]
+            <= 12
+        ):
             continue
         if re.search(TERMINAL + r"\s*$", left.raw_text) or re.match(r"\s*[•▪▶]", right.raw_text):
             continue
@@ -126,7 +158,9 @@ def _neighbour(block, graph, *, before):
     return choices[0] if len(choices) == 1 else None
 
 
-def _table_refs(block, focal, graph):
+def _table_refs(
+    block: CanonicalBlock, focal: SourceRef, graph: CanonicalDocumentGraph
+) -> list[SourceRef]:
     try:
         rows = grid(block.normalized_text, graph_cells(block, graph))
     except ValueError:
@@ -158,7 +192,7 @@ def _table_refs(block, focal, graph):
     return refs
 
 
-def sentence_context(claim, graph):
+def sentence_context(claim: Claim, graph: CanonicalDocumentGraph) -> dict[str, Any] | None:
     if claim.tenant_id != graph.tenant_id or len(claim.source_refs) != 1:
         return None
     focal = claim.source_refs[0]
@@ -216,7 +250,9 @@ def sentence_context(claim, graph):
     )
 
 
-def configured_context(claim, graph, configured):
+def configured_context(
+    claim: Claim, graph: CanonicalDocumentGraph, configured: dict[str, Any]
+) -> dict[str, Any] | None:
     """Keep historical K4 behavior; select K5 only by its new frozen policy hash."""
     from proofops.application.ingest.j7_split import CONTEXT_POLICY
     from proofops.application.ingest.j7_split import sentence_context as legacy
@@ -231,7 +267,7 @@ def configured_context(claim, graph, configured):
     return sentence_context(claim, graph) if policy == POLICY else legacy(claim, graph)
 
 
-def preliminary_context(packet, context):
+def preliminary_context(packet: dict[str, Any], context: dict[str, Any] | None) -> dict[str, Any]:
     """Reuse the existing interpretation wire; these are never evidence candidates."""
     if context is None:
         return packet
@@ -262,9 +298,15 @@ def preliminary_context(packet, context):
     return packet
 
 
-def superlative_errors(quote, claim_quote, context):
+def superlative_errors(
+    quote: str | None, claim_quote: str, context: dict[str, Any] | None
+) -> list[str]:
     verified = context and context["verification_state"] == "verified"
-    if quote and quote not in claim_quote and not (verified and quote in context["text"]):
+    if (
+        quote
+        and quote not in claim_quote
+        and not (verified and quote in cast(dict[str, Any], context)["text"])
+    ):
         return ["SUPERLATIVE_SOURCE_INVALID"]
     if context and re.search(SUPERLATIVE, context["text"]) and (not quote or not verified):
         return ["K5_SUPERLATIVE_REQUIRES_RETAG"]

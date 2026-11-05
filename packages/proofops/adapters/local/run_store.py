@@ -6,8 +6,10 @@ import base64
 import hmac
 import json
 import secrets
+from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from proofops.adapters.aws.usage import LocalSQLiteUsageStore
@@ -32,14 +34,26 @@ from proofops.application.mode_gate import select_mode_rulepack
 from proofops.application.ports.jobs import JobConflict, JobMessage
 from proofops.application.registry import artifact_sha256
 from proofops.application.rulepacks import RunSnapshot
-from proofops.application.runs import RunRejected, validate_raster_snapshot
+from proofops.application.runs import RunRejected
+from proofops.application.runs import validate_raster_snapshot as _validate_raster_snapshot
 from proofops.domain.audit import ChangeSet
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 
+if TYPE_CHECKING:
+    import sqlite3
+    from types import ModuleType
+    from typing import Any
+
+    from proofops.application.authorization import AuthContext
+    from proofops.application.budget import BudgetLimits
+
+
+validate_raster_snapshot: Callable[..., None] = _validate_raster_snapshot
+
 
 class LocalSQLiteRunStore:
-    def __init__(self, path, *, rulepacks=None):
+    def __init__(self, path: str | Path, *, rulepacks: RulePackSqliteStore | None = None) -> None:
         self.path = str(path)
         if self.path == ":memory:":
             raise ValueError("durable run storage requires a file")
@@ -77,7 +91,9 @@ class LocalSQLiteRunStore:
                     SELECT RAISE(ABORT, 'immutable run snapshot'); END""")
 
     @staticmethod
-    def _replay(db, tenant, body, key, now):
+    def _replay(
+        db: sqlite3.Connection, tenant: str, body: dict[str, Any], key: str, now: int
+    ) -> dict[str, Any] | None:
         if not isinstance(key, str) or not 16 <= len(key) <= 128:
             raise RunRejected("IDEMPOTENCY_KEY_INVALID", 400)
         if version_is_deleted(db, tenant, body.get("document_version_id")):
@@ -90,14 +106,26 @@ class LocalSQLiteRunStore:
         if row is not None and row[2] > now:
             if row[0] != canonical_hash(body):
                 raise RunRejected("IDEMPOTENCY_CONFLICT")
-            return json.loads(row[1])
+            return_value: dict[str, Any] | None = json.loads(row[1])
+            return return_value
         return None
 
-    def replay(self, tenant, body, key, *, now):
+    def replay(
+        self, tenant: str, body: dict[str, Any], key: str, *, now: int
+    ) -> dict[str, Any] | None:
         with self.jobs._transaction() as db:
             return self._replay(db, tenant, body, key, now)
 
-    def create(self, auth, body, key, snapshot, limits, *, now):
+    def create(
+        self,
+        auth: AuthContext,
+        body: dict[str, Any],
+        key: str,
+        snapshot: dict[str, Any],
+        limits: BudgetLimits,
+        *,
+        now: int,
+    ) -> dict[str, Any]:
         tenant, run_id = auth.tenant_id, str(uuid4())
         with self.jobs._transaction() as db:
             replay = self._replay(db, tenant, body, key, now)
@@ -115,7 +143,11 @@ class LocalSQLiteRunStore:
                 ):
                     raise ValueError("unknown fact assembly profile")
                 if "report_level_link" in snapshot:
-                    from proofops.application.tagging.report_level_link import validate_config
+                    from proofops.application.tagging.report_level_link import (
+                        validate_config as _validate_config,
+                    )
+
+                    validate_config = _validate_config
 
                     validate_config(snapshot["report_level_link"])
                     if any(
@@ -127,8 +159,10 @@ class LocalSQLiteRunStore:
                         raise ValueError("report-level link document mismatch")
                 if "claim_source_policy" in snapshot:
                     from proofops.adapters.local.claim_source_policies import (
-                        publication_reader,
+                        publication_reader as _publication_reader,
                     )
+
+                    publication_reader: Callable[..., ModuleType] = _publication_reader
 
                     # Admissible for a NEW run only: the current base verifier or
                     # the current opt-in render-resolution wrapper.
@@ -140,7 +174,11 @@ class LocalSQLiteRunStore:
 
                     if snapshot["display_text_policy"] != POLICY:
                         raise ValueError("DISPLAY_POLICY_MISMATCH")
-                from proofops.application.tagging.decisions import validate_decision_snapshot
+                from proofops.application.tagging.decisions import (
+                    validate_decision_snapshot as _validate_decision_snapshot,
+                )
+
+                validate_decision_snapshot: Callable[..., None] = _validate_decision_snapshot
 
                 validate_decision_snapshot(snapshot | {"tenant_id": tenant})
                 relation_fields = (
@@ -251,7 +289,8 @@ class LocalSQLiteRunStore:
                 ),
                 now=now,
             )
-            self.usage.create_budget_transaction(db, tenant, run_id, document_id, limits)
+            create_budget: Callable[..., None] = self.usage.create_budget_transaction
+            create_budget(db, tenant, run_id, document_id, limits)
             self.rulepacks.add_run_snapshot_transaction(
                 db, RunSnapshot(run_id, tenant, rulepack.rule_pack_id, rulepack.sha256, "queued")
             )
@@ -301,7 +340,7 @@ class LocalSQLiteRunStore:
             return response
 
     @staticmethod
-    def _snapshot(db, tenant, run_id):
+    def _snapshot(db: sqlite3.Connection, tenant: str, run_id: str) -> dict[str, Any]:
         if run_is_deleted(db, tenant, run_id):
             raise RunRejected("RESOURCE_NOT_FOUND", 404)
         row = db.execute(
@@ -309,14 +348,15 @@ class LocalSQLiteRunStore:
         ).fetchone()
         if row is None:
             raise RunRejected("RESOURCE_NOT_FOUND", 404)
-        return json.loads(row[0])
+        return_value: dict[str, Any] = json.loads(row[0])
+        return return_value
 
-    def snapshot(self, tenant, run_id):
+    def snapshot(self, tenant: str, run_id: str) -> dict[str, Any]:
         with self.jobs._transaction() as db:
             return self._snapshot(db, tenant, run_id)
 
     @staticmethod
-    def _project(run, snapshot):
+    def _project(run: dict[str, Any], snapshot: dict[str, Any]) -> dict[str, Any]:
         count = snapshot["document"]["page_count"]
         coverage = run.get(
             "coverage",
@@ -345,14 +385,17 @@ class LocalSQLiteRunStore:
             rule_pack_sha256=snapshot["rulepack"]["sha256"],
             created_at=snapshot["created_at"],
         )
-        return json.loads(canonical_json(projection))
+        return_value: dict[str, Any] = json.loads(canonical_json(projection))
+        return return_value
 
-    def get(self, tenant, run_id):
+    def get(self, tenant: str, run_id: str) -> dict[str, Any]:
         with self.jobs._transaction() as db:
             snapshot = self._snapshot(db, tenant, run_id)
             return self._project(self.jobs._get(db, tenant, run_id, "run", "META"), snapshot)
 
-    def list(self, tenant, *, cursor=None, limit=50, now):
+    def list(
+        self, tenant: str, *, cursor: str | None = None, limit: int = 50, now: int
+    ) -> dict[str, Any]:
         if type(limit) is not int or not 1 <= limit <= 100:
             raise RunRejected("VALIDATION_ERROR", 422)
         with self.jobs._transaction() as db:
@@ -383,7 +426,17 @@ class LocalSQLiteRunStore:
             except CatalogCapacityExceeded:
                 raise RunRejected("CATALOG_CAPACITY") from None
 
-    def action(self, auth, run_id, action, *, expected_revision, key, reason, now):
+    def action(
+        self,
+        auth: AuthContext,
+        run_id: str,
+        action: str,
+        *,
+        expected_revision: int,
+        key: str,
+        reason: str,
+        now: int,
+    ) -> dict[str, Any]:
         snapshot = self.snapshot(auth.tenant_id, run_id)
         method = self.jobs.cancel_run if action == "cancel" else self.jobs.retry_run
         try:
@@ -404,13 +457,22 @@ class LocalSQLiteRunStore:
             raise RunRejected(code, status) from None
         return self._project(result, snapshot)
 
-    def _encode_cursor(self, payload):
+    def _encode_cursor(self, payload: dict[str, Any]) -> str:
         data = canonical_json(payload).encode()
         return base64.urlsafe_b64encode(
             data + hmac.digest(self._cursor_key, data, "sha256")
         ).decode()
 
-    def _decode_cursor(self, cursor, tenant, run_id, limit, now, *, endpoint="audit"):
+    def _decode_cursor(
+        self,
+        cursor: str,
+        tenant: str,
+        run_id: str,
+        limit: int,
+        now: int,
+        *,
+        endpoint: str = "audit",
+    ) -> dict[str, Any]:
         try:
             if len(cursor) > 2048:
                 raise ValueError
@@ -421,11 +483,14 @@ class LocalSQLiteRunStore:
             payload = json.loads(data)
             if payload["scope"] != [tenant, run_id, endpoint, limit] or now >= payload["expires"]:
                 raise ValueError
-            return payload
+            return_value: dict[str, Any] = payload
+            return return_value
         except (ValueError, KeyError, TypeError):
             raise RunRejected("INVALID_CURSOR", 400) from None
 
-    def audit(self, tenant, run_id, *, cursor, limit, now):
+    def audit(
+        self, tenant: str, run_id: str, *, cursor: str | None, limit: int, now: int
+    ) -> dict[str, Any]:
         if type(limit) is not int or not 1 <= limit <= 100:
             raise RunRejected("VALIDATION_ERROR", 422)
         with self.jobs._transaction() as db:

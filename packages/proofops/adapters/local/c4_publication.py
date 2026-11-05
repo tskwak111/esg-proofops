@@ -1,5 +1,11 @@
 """Bounded C4 local lifecycle on the existing immutable SQLite revision store."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from proofops.application.tagging.fact_assembly_c2 import FactAssemblyReceiptV1
 import json
 from dataclasses import asdict, replace
 from hashlib import sha256
@@ -33,7 +39,7 @@ from proofops.domain.values import SourceRef
 
 
 class LocalC4Publication:
-    def __init__(self, path):
+    def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
         if self.path.is_symlink() or any(
             (self.path / name).is_symlink()
@@ -44,7 +50,14 @@ class LocalC4Publication:
         self.store = LocalSQLiteReviewStore(self.runs.jobs)
         self.service = ReviewService(self.store, load_inputs=self.load_inputs)
 
-    def initialize(self, case, receipt, *, source, parser_artifact):
+    def initialize(
+        self,
+        case: dict[str, Any],
+        receipt: FactAssemblyReceiptV1,
+        *,
+        source: bytes,
+        parser_artifact: dict[str, Any],
+    ) -> dict[str, Any]:
         claim, graph = case["context"].claim, case["graph"]
         base = fuse_candidates(
             candidates_from_snapshot(parser_artifact["candidates"]), tenant_id=claim.tenant_id
@@ -54,7 +67,9 @@ class LocalC4Publication:
         if canonical_hash(asdict(admitted)) != canonical_hash(asdict(graph)):
             raise ValueError("C4_SOURCE_ADMISSION_REPLAY_MISMATCH")
         consensus, decision = publication_values(
-            receipt.to_dict(), rulepack=case["rulepack"], tag_revision=1
+            receipt.to_dict(),
+            rulepack=case["rulepack"],
+            tag_revision=1,
         )
         run_id = case["packet"].to_dict()["run_id"]
         inputs = ReviewInputs(
@@ -134,7 +149,7 @@ class LocalC4Publication:
             self.runs.jobs.create_run(claim.tenant_id, run_id, claim.document_version_id)
         return self.service.publish(inputs)
 
-    def load_inputs(self, tenant, run, claim_id):
+    def load_inputs(self, tenant: str, run: str, claim_id: str) -> ReviewInputs:
         frozen = self.runs.snapshot(tenant, run)
         if (self.path / "original.pdf").is_symlink() or (
             self.path / "c4-evidence.json"
@@ -188,9 +203,13 @@ class LocalC4Publication:
             {k: v for k, v in raw["original_packet"].items() if k != "packet_sha256"}
         )
         pack = RulePackSnapshot(**frozen["rulepack"])
-        receipt = _fact_assembly_reader(raw["fact_assembly_receipt"])
+        receipt = _fact_assembly_reader(raw.get("fact_assembly_receipt"))
+        if receipt is None:
+            raise ValueError("C4_PUBLICATION_RECEIPT_REQUIRED")
         consensus, decision = publication_values(
-            receipt.to_dict(), rulepack=pack, tag_revision=raw["tag_revision"]
+            receipt.to_dict(),
+            rulepack=pack,
+            tag_revision=raw["tag_revision"],
         )
         inputs = ReviewInputs(
             run,
@@ -213,7 +232,7 @@ class LocalC4Publication:
             raise ValueError("C4_STORED_INPUT_REPLAY_MISMATCH")
         return inputs
 
-    def result(self, tenant, run, claim_id):
+    def result(self, tenant: str, run: str, claim_id: str) -> dict[str, Any]:
         inputs = self.load_inputs(tenant, run, claim_id)
         history = self.store.history(tenant, run, claim_id)
         tag, record = history["tags"][-1], history["decisions"][-1]
@@ -249,12 +268,12 @@ class LocalC4Publication:
                     else "human_review",
                     confirmation_policy_sha256=POLICY_HASH,
                     confirmation_display=confirmation_display(
-                        inputs.fact_assembly_receipt.to_dict()
+                        cast("FactAssemblyReceiptV1", inputs.fact_assembly_receipt).to_dict()
                     )
                     if auto
                     else "사람 태깅 검토 후 Python 재판정",
                     confirmation_basis=confirmation_display(
-                        inputs.fact_assembly_receipt.to_dict()
+                        cast("FactAssemblyReceiptV1", inputs.fact_assembly_receipt).to_dict()
                     ).split(" — ", 1)[1]
                     if auto
                     else None,
@@ -263,7 +282,7 @@ class LocalC4Publication:
             ],
         )
 
-    def export(self, tenant, run, claim_id):
+    def export(self, tenant: str, run: str, claim_id: str) -> dict[str, Any]:
         inputs = self.load_inputs(tenant, run, claim_id)
         history = self.store.history(tenant, run, claim_id)
         return encode_revision_record(

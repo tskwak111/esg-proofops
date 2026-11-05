@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from proofops.adapters.local.catalog_pages import initialize, page
 from proofops.adapters.local.run_artifacts import load_run_graph
+from proofops.application.assurance import ClaimContext, match_assurance
 from proofops.application.assurance import (
-    ClaimContext,
-    claim_context_from_review_inputs,
-    match_assurance,
+    claim_context_from_review_inputs as _claim_context_from_review_inputs,
 )
 from proofops.application.ingest.normalize import normalize_tables
 from proofops.domain.provenance import canonical_hash
@@ -18,12 +19,29 @@ from proofops.domain.rules.engine import ConfirmedFact, ConfirmedTags
 from proofops.domain.rules.safe_harbor import record_safe_harbor
 from proofops.domain.values import _source_ref_from_dict
 
+if TYPE_CHECKING:
+    import sqlite3
+    from collections.abc import Iterable
+    from typing import Any, NoReturn
+
+    from proofops.adapters.local.assurance_store import LocalAssuranceStore
+    from proofops.adapters.local.claim_store import LocalClaimStore
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops.adapters.local.tag_store import LocalTagStore
+    from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser
+    from proofops.application.claims import Claim
+    from proofops.application.reviews import ReviewInputs
+    from proofops.application.uploads import UploadService
+
+
+claim_context_from_review_inputs = _claim_context_from_review_inputs
+
 
 class SafeHarborPending(ValueError):
     """A confirmed head exists but its immutable inputs cannot be replayed."""
 
 
-def _missing_snapshot():
+def _missing_snapshot() -> NoReturn:
     raise ValueError("missing catalog snapshot")
 
 
@@ -32,7 +50,15 @@ class LocalAnalysisStore:
 
     kind = "local-synthetic-only"
 
-    def __init__(self, runs, uploads, parser, claims, tags=None, assurance=None):
+    def __init__(
+        self,
+        runs: LocalSQLiteRunStore,
+        uploads: UploadService,
+        parser: OpenDataLoaderParser,
+        claims: LocalClaimStore,
+        tags: LocalTagStore | None = None,
+        assurance: LocalAssuranceStore | None = None,
+    ) -> None:
         paths = {Path(runs.path).resolve(), Path(claims.store.path).resolve()}
         if tags is not None:
             paths.add(Path(tags.store.path).resolve())
@@ -44,7 +70,9 @@ class LocalAnalysisStore:
         # keeps receiving None and every claim stays "undetermined".
         self.assurance_store = assurance
 
-    def _continuation(self, tenant_id, run_id, endpoint, cursor, limit, now):
+    def _continuation(
+        self, tenant_id: str, run_id: str, endpoint: str, cursor: str | None, limit: int, now: float
+    ) -> dict[str, Any]:
         with self.runs.jobs._transaction() as db:
             initialize(db)
             return page(
@@ -58,7 +86,17 @@ class LocalAnalysisStore:
                 load_items=_missing_snapshot,
             )
 
-    def _first_page(self, tenant_id, run_id, endpoint, limit, now, prepared, snapshot, epoch):
+    def _first_page(
+        self,
+        tenant_id: str,
+        run_id: str,
+        endpoint: str,
+        limit: int,
+        now: float,
+        prepared: Callable[[sqlite3.Connection, dict[str, Any]], list[dict[str, Any]]],
+        snapshot: dict[str, Any],
+        epoch: int,
+    ) -> dict[str, Any]:
         with self.runs.jobs._transaction() as db:
             initialize(db)
             current_snapshot = self.runs._snapshot(db, tenant_id, run_id)
@@ -80,7 +118,9 @@ class LocalAnalysisStore:
                 load_items=lambda: {"items": items, "snapshot_epoch": epoch},
             )
 
-    def observations(self, tenant_id, run_id, *, cursor, limit, now):
+    def observations(
+        self, tenant_id: str, run_id: str, *, cursor: str | None, limit: int, now: float
+    ) -> dict[str, Any]:
         if cursor is not None:
             return self._continuation(tenant_id, run_id, "observations", cursor, limit, now)
         snapshot = self.runs.snapshot(tenant_id, run_id)
@@ -106,7 +146,9 @@ class LocalAnalysisStore:
             epoch,
         )
 
-    def assurance(self, tenant_id, run_id, *, cursor, limit, now):
+    def assurance(
+        self, tenant_id: str, run_id: str, *, cursor: str | None, limit: int, now: float
+    ) -> dict[str, Any]:
         if cursor is not None:
             return self._continuation(tenant_id, run_id, "assurance", cursor, limit, now)
         snapshot = self.runs.snapshot(tenant_id, run_id)
@@ -122,7 +164,7 @@ class LocalAnalysisStore:
             else None
         )
 
-        def _claim_context(claim):
+        def _claim_context(claim: Claim) -> ClaimContext:
             try:
                 review_inputs = (
                     self.tags.load_inputs(tenant_id, run_id, claim.claim_id)
@@ -132,14 +174,14 @@ class LocalAnalysisStore:
             except Exception:
                 review_inputs = None
             try:
-                return claim_context_from_review_inputs(
+                context = claim_context_from_review_inputs(
                     review_inputs,
                     tenant_id=claim.tenant_id,
                     document_version_id=claim.document_version_id,
                     claim_id=claim.claim_id,
                 )
             except Exception:
-                return ClaimContext(
+                context = ClaimContext(
                     tenant_id,
                     claim.document_version_id,
                     claim.claim_id,
@@ -148,6 +190,9 @@ class LocalAnalysisStore:
                     (),
                     (),
                 )
+            if context is None:
+                raise ValueError("invalid assurance claim identity")
+            return context
 
         matches = [match_assurance(statement, _claim_context(claim)).to_dict() for claim in claims]
         return self._first_page(
@@ -161,7 +206,9 @@ class LocalAnalysisStore:
             epoch,
         )
 
-    def safe_harbor(self, tenant_id, run_id, *, cursor, limit, now):
+    def safe_harbor(
+        self, tenant_id: str, run_id: str, *, cursor: str | None, limit: int, now: float
+    ) -> dict[str, Any]:
         if cursor is not None:
             return self._continuation(tenant_id, run_id, "safe-harbor", cursor, limit, now)
         snapshot = self.runs.snapshot(tenant_id, run_id)
@@ -178,7 +225,7 @@ class LocalAnalysisStore:
                 except KeyError:
                     pass
 
-        def records(db, _run):
+        def records(db: sqlite3.Connection, _run: dict[str, Any]) -> list[dict[str, Any]]:
             return [
                 self._safe_record(db, tenant_id, run_id, claim, inputs.get(claim.claim_id))
                 for claim in claims
@@ -196,7 +243,7 @@ class LocalAnalysisStore:
         )
 
     @staticmethod
-    def _ordered_claims(claims):
+    def _ordered_claims(claims: Iterable[Claim]) -> tuple[Claim, ...]:
         return tuple(
             sorted(
                 claims,
@@ -210,7 +257,7 @@ class LocalAnalysisStore:
         )
 
     @staticmethod
-    def _unknown_safe_harbor(claim_id):
+    def _unknown_safe_harbor(claim_id: str) -> dict[str, Any]:
         return {
             "claim_id": claim_id,
             "applicable": None,
@@ -222,7 +269,14 @@ class LocalAnalysisStore:
             "gap_ids": ["GAP-002"],
         }
 
-    def _safe_record(self, db, tenant_id, run_id, claim, prepared_inputs):
+    def _safe_record(
+        self,
+        db: sqlite3.Connection,
+        tenant_id: str,
+        run_id: str,
+        claim: Claim,
+        prepared_inputs: tuple[ReviewInputs, str] | None,
+    ) -> dict[str, Any]:
         raw_head = self.runs.jobs._raw(db, tenant_id, run_id, "claim_head", claim.claim_id)
         if raw_head is None:
             return self._unknown_safe_harbor(claim.claim_id)

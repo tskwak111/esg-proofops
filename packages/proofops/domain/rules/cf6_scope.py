@@ -1,11 +1,21 @@
 """DEC-127 scoped non-observation; historical DEC-85 rules stay immutable."""
 
+from collections.abc import Iterable
 from dataclasses import asdict, replace
+from typing import Any
 
 from proofops.domain.errors import DomainValidationError
 from proofops.domain.provenance import canonical_hash
+from proofops.domain.rulepacks import RulePackSnapshot
 from proofops.domain.rules.analysis_scope import ScopeDecision
-from proofops.domain.rules.engine import ConfirmedFact, _evaluate
+from proofops.domain.rules.engine import (
+    ConfirmedFact,
+    ConfirmedTags,
+    Decision,
+    RuleContext,
+    _evaluate,
+)
+from proofops.domain.values import SourceRef
 
 POLICY_V1 = dict(
     profile="cf6_dec127_scope_rules_v1",
@@ -23,7 +33,9 @@ POLICY = POLICY_V1 | dict(
 )
 
 
-def resolve_exception_facts(tags, *, claim_source_refs):
+def resolve_exception_facts(
+    tags: ConfirmedTags, *, claim_source_refs: Iterable[SourceRef]
+) -> ConfirmedTags:
     """After three completed replicas: retain positives/conflicts, close only operands.
 
     The caller verifies claim refs against the original graph. A superlative
@@ -31,7 +43,7 @@ def resolve_exception_facts(tags, *, claim_source_refs):
     receive scoped absence. Applicability triggers are deliberately unchanged.
     """
     facts = {f.name: f for f in tags.facts}
-    operands = set()
+    operands: set[str] = set()
     if tags.superlative_quote:
         refs = tuple(
             r
@@ -58,7 +70,9 @@ def resolve_exception_facts(tags, *, claim_source_refs):
     return replace(tags, facts=tuple(facts.values()))
 
 
-def gap_details(tags, pack, decision):
+def gap_details(
+    tags: ConfirmedTags, pack: RulePackSnapshot, decision: Decision
+) -> list[dict[str, Any]]:
     """Exact unsupported branch plus operands; no invented fallback grade."""
     if decision.decision_status != "blocked_rule_gap":
         return []
@@ -87,7 +101,15 @@ def gap_details(tags, pack, decision):
     ]
 
 
-def evaluate_scope(tags, context, pack, *, scope, policy_sha256, receipt_sha256):
+def evaluate_scope(
+    tags: ConfirmedTags,
+    context: RuleContext,
+    pack: RulePackSnapshot,
+    *,
+    scope: dict[str, Any],
+    policy_sha256: str,
+    receipt_sha256: str,
+) -> Decision:
     selected = next(
         (p for p in (POLICY_V1, POLICY) if canonical_hash(p) == scope.get("rule_policy_sha256")),
         None,

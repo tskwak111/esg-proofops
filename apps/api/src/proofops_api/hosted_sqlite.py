@@ -3,12 +3,16 @@
 import logging
 import sqlite3
 import time
+from collections.abc import Callable
+from typing import TypeVar
+
+T = TypeVar("T")
 
 BUSY_TIMEOUT_MS = 250
 LOCK_WAIT_SECONDS = 10
 
 
-def is_busy(exc):
+def is_busy(exc: BaseException) -> bool:
     if not isinstance(exc, sqlite3.OperationalError):
         return False
     code = getattr(exc, "sqlite_errorcode", None)
@@ -19,7 +23,7 @@ def is_busy(exc):
     )
 
 
-def retry_busy(operation, *, phase, wait_seconds=None):
+def retry_busy(operation: Callable[[], T], *, phase: str, wait_seconds: float | None = None) -> T:
     deadline = time.monotonic() + (LOCK_WAIT_SECONDS if wait_seconds is None else wait_seconds)
     retries = 0
     while True:

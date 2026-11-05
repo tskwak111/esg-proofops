@@ -1,10 +1,22 @@
 """Explicit K9 interpretation and local M4 attribution; old pins stay unchanged."""
 
+from __future__ import annotations
+
 import re
+from typing import TYPE_CHECKING
 
 from proofops.application.tagging.finals_i4 import K4_ELEMENTS, K4_PRELIMINARY, _require_k4_schema
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from proofops.application.claims import Claim
+    from proofops.application.evidence.binding import ClaimContext
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.domain.values import LlmElement, SourceRef
+
 
 PROFILE = "finals-20261012-k9-v1"
 PRELIMINARY = K4_PRELIMINARY + (
@@ -84,13 +96,20 @@ BINDING_POLICY = BINDING_V4_POLICY | dict(
 _DATE = re.compile(r"(?<!\d)(?:19|20)\d{2}년(?:\s*(?:1[0-2]|[1-9])월)?(?!\d)")
 
 
-def preliminary(schema, *, quote=None):
+def preliminary(schema: dict[str, Any], *, quote: str | None = None) -> str:
     _require_k4_schema(schema)
     prompt = PRELIMINARY if quote is None or named_equipment_target(quote) else K4_PRELIMINARY
     return prompt.replace("{{OUTPUT_SCHEMA_JSON}}", canonical_json(schema))
 
 
-def local_implementation_identity(context, ref, original, *, policy, element_id="M4"):
+def local_implementation_identity(
+    context: ClaimContext,
+    ref: SourceRef,
+    original: CanonicalDocumentGraph,
+    *,
+    policy: dict[str, Any],
+    element_id: str = "M4",
+) -> bool:
     """Check literal containment only; this never creates an M4 semantic vote."""
     if policy not in (
         BINDING_V1_POLICY,
@@ -139,7 +158,7 @@ _SCOPE_DEFINITION = re.compile(
 )
 
 
-def scope_definition_refs(claim, graph):
+def scope_definition_refs(claim: Claim, graph: CanonicalDocumentGraph) -> tuple[SourceRef, ...]:
     """Propose literal definitions in the same paragraph, never assign a Scope."""
     if len(claim.source_refs) != 1:
         return ()
@@ -163,7 +182,13 @@ def scope_definition_refs(claim, graph):
     return tuple(refs) if len(refs) == 1 else ()
 
 
-def scope_definition_identity(context, ref, graph, *, policy=BINDING_POLICY):
+def scope_definition_identity(
+    context: ClaimContext,
+    ref: SourceRef,
+    graph: CanonicalDocumentGraph,
+    *,
+    policy: dict[str, Any] = BINDING_POLICY,
+) -> bool:
     facility = context.dimensions.get("facility")
     if len(context.claim.source_refs) != 1 or (policy == BINDING_V1_POLICY and facility is None):
         return False
@@ -181,7 +206,7 @@ def scope_definition_identity(context, ref, graph, *, policy=BINDING_POLICY):
     )
 
 
-def _facility_citation(context, ref):
+def _facility_citation(context: ClaimContext, ref: SourceRef) -> bool:
     local = any(
         r.source_id == ref.source_id and r.char_start <= ref.char_start < ref.char_end <= r.char_end
         for r in context.claim.source_refs
@@ -197,7 +222,13 @@ def _facility_citation(context, ref):
     )
 
 
-def g4_complete(element, context, graph, *, policy=BINDING_POLICY):
+def g4_complete(
+    element: LlmElement,
+    context: ClaimContext,
+    graph: CanonicalDocumentGraph,
+    *,
+    policy: dict[str, Any] = BINDING_POLICY,
+) -> bool:
     """Veto incomplete compound tags; never create present or borrow a boundary."""
     if policy in (
         BINDING_V3_POLICY,
@@ -223,11 +254,11 @@ def g4_complete(element, context, graph, *, policy=BINDING_POLICY):
     ) and any(_facility_citation(context, r) for r in refs)
 
 
-def named_equipment_target(quote):
+def named_equipment_target(quote: str) -> bool:
     return any(cue in quote for cue in ("시스템 적용", "기존 설비·공정 개선"))
 
 
-def element_guidance_target(quote):
+def element_guidance_target(quote: str) -> bool:
     return (
         named_equipment_target(quote)
         or quote.startswith("직접 감축")
@@ -235,7 +266,7 @@ def element_guidance_target(quote):
     )
 
 
-def element_guidance_for(policy, quote):
+def element_guidance_for(policy: dict[str, Any], quote: str) -> str:
     """Keep historical wire renderers and each policy's guidance scope."""
     text = ""
     if policy not in (BINDING_V4_POLICY, BINDING_POLICY) or element_guidance_target(quote):

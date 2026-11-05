@@ -27,12 +27,23 @@ and process-local. No network, model, or AWS calls are made.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, TypedDict, cast
+
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 import importlib.util
 from hashlib import sha256
 from pathlib import Path
 from types import ModuleType
 
 from proofops.domain.provenance import canonical_hash
+
+
+class VerifierBundle(TypedDict):
+    policy_hash: str
+    dir: str
+    expected_files: dict[str, str]
+
 
 _FROZEN_ROOT = Path(__file__).with_name("_frozen_verifiers")
 
@@ -44,7 +55,7 @@ _FROZEN_ROOT = Path(__file__).with_name("_frozen_verifiers")
 # native_paragraph_glyph_v2 corresponds to git commit
 # d70dc8851e33c5bf2773df9ea5e51e340f78e89e
 # ("Verify paragraph crops against source-bound glyph geometry").
-_PINNED_VERIFIERS = {
+_PINNED_VERIFIERS: dict[str, VerifierBundle] = {
     "native_paragraph_glyph_v2": {
         "policy_hash": "2f68a213aa7c32ce25110bb57cb9dc5b03036d808956ffb417a243b85c07556e",
         "dir": "native_paragraph_glyph_v2",
@@ -93,7 +104,7 @@ class FrozenVerifierUnavailable(RuntimeError):
     """The pinned verifier bundle for a stored policy is missing or altered."""
 
 
-def _verify_bundle_bytes(bundle: dict) -> Path:
+def _verify_bundle_bytes(bundle: VerifierBundle) -> Path:
     """Confirm every vendored file still hashes to its pinned digest."""
     base = _FROZEN_ROOT / bundle["dir"]
     for name, digest in bundle["expected_files"].items():
@@ -118,7 +129,7 @@ def _exec_private(base: Path, filename: str, module_name: str) -> ModuleType:
     return module
 
 
-def find_pinned_verifier(stored_policy_hash: str) -> dict | None:
+def find_pinned_verifier(stored_policy_hash: str) -> VerifierBundle | None:
     """Return the pinned verifier bundle for a stored policy hash, if registered."""
     for bundle in _PINNED_VERIFIERS.values():
         if bundle["policy_hash"] == stored_policy_hash:
@@ -126,7 +137,7 @@ def find_pinned_verifier(stored_policy_hash: str) -> dict | None:
     return None
 
 
-def frozen_policy(bundle: dict) -> dict:
+def frozen_policy(bundle: VerifierBundle) -> dict[str, Any]:
     """Recompute the historical policy dict from the (hash-verified) vendored bytes."""
     _verify_bundle_bytes(bundle)
     from proofops.application.evidence import citations
@@ -140,7 +151,7 @@ def frozen_policy(bundle: dict) -> dict:
     )
 
 
-def _load_frozen_verifier(bundle: dict) -> ModuleType:
+def _load_frozen_verifier(bundle: VerifierBundle) -> ModuleType:
     """Load the pinned verifier with the pinned glyph geometry bound in.
 
     Both files are loaded under private module names. The historical
@@ -165,17 +176,34 @@ def _load_frozen_verifier(bundle: dict) -> ModuleType:
     return frozen_sv
 
 
-def replay_native_sources_frozen(bundle, receipt, graph, source, *, tenant_id):
+def replay_native_sources_frozen(
+    bundle: VerifierBundle,
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    *,
+    tenant_id: str,
+) -> CanonicalDocumentGraph:
     """Re-execute the pinned historical verifier to reproduce and replay the receipt."""
     frozen_sv = _load_frozen_verifier(bundle)
     from proofops.adapters.local.receipt_environment_compat import replay_receipt
 
-    return replay_receipt(
-        frozen_sv.replay_native_sources, receipt, graph, source, tenant_id=tenant_id
+    return cast(
+        "CanonicalDocumentGraph",
+        replay_receipt(
+            frozen_sv.replay_native_sources, receipt, graph, source, tenant_id=tenant_id
+        ),
     )
 
 
-def replay_native_with_policy(stored_policy, receipt, graph, source, *, tenant_id):
+def replay_native_with_policy(
+    stored_policy: dict[str, Any],
+    receipt: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    *,
+    tenant_id: str,
+) -> CanonicalDocumentGraph:
     """Replay a native receipt using the live verifier or a pinned historical one.
 
     Returns the replayed graph. Raises ValueError (matching the live replay
@@ -203,8 +231,11 @@ def replay_native_with_policy(stored_policy, receipt, graph, source, *, tenant_i
 
         if stored_policy != native_policy():
             raise ValueError("native attestation policy has no pinned verifier")
-        return for_run(receipt["run_id"]).replay_native_sources(
-            receipt, graph, source, tenant_id=tenant_id
+        return cast(
+            "CanonicalDocumentGraph",
+            for_run(receipt["run_id"]).replay_native_sources(
+                receipt, graph, source, tenant_id=tenant_id
+            ),
         )
     live_hash = canonical_hash(native_paragraph_policy())
     stored_hash = canonical_hash(stored_policy)

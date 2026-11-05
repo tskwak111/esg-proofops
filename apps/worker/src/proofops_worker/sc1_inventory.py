@@ -1,21 +1,30 @@
 """One hosted inventory per final graph, using existing money/lease/receipt fences."""
 
+from __future__ import annotations
+
 import json
 from contextlib import nullcontext
 from decimal import Decimal
 from functools import partial
 from threading import Event
+from typing import TYPE_CHECKING, Any, cast
 
 from proofops.adapters.local.sc1_inventory_store import SC1InventoryProvider
 from proofops.application.budget import BudgetCall, BudgetExceeded, TokenUsage
+from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.application.tagging.element_inventory import plan_inventory
 from proofops.application.tagging.i24_inventory import POLICY, transport_request
 from proofops.application.tagging.service import RawTagResponse, output_reservation_tokens
 from proofops.domain.provenance import canonical_hash
 from proofops_agent.sc1_inventory import SC1InventoryTransport
 
+if TYPE_CHECKING:
+    from proofops_worker.live_tagging import LiveTaggingRuntime
 
-def load_inventory(live, graph, selection):
+
+def load_inventory(
+    live: LiveTaggingRuntime, graph: CanonicalDocumentGraph, selection: dict[str, Any]
+) -> dict[str, Any]:
     policy = live.snapshot.get("analysis_profile_policy", {}).get("sc1_inventory_transport")
     if policy != POLICY or graph is not live.graph:
         raise ValueError("SC1_HOSTED_POLICY_OR_GRAPH_MISMATCH")
@@ -30,7 +39,7 @@ def load_inventory(live, graph, selection):
     failures = getattr(live.probe, "i27_inventory_failures", None)
     if optional and failures is None:
         failures = Failures()
-        live.probe.i27_inventory_failures = failures
+        setattr(live.probe, "i27_inventory_failures", failures)
     live._fence()
     plan = plan_inventory(graph, selection)
     calls = 3 * len(plan["chunks"])
@@ -41,7 +50,11 @@ def load_inventory(live, graph, selection):
     execution = selection.get("fxh_inventory_execution")
     output = min(
         live.settings.max_tokens,
-        (execution["inventory_output_tokens"] if execution else POLICY["max_output_tokens"]),
+        (
+            execution["inventory_output_tokens"]
+            if execution
+            else cast(int, POLICY["max_output_tokens"])
+        ),
     )
     reserve = (
         (
@@ -57,14 +70,16 @@ def load_inventory(live, graph, selection):
         / Decimal(1_000_000)
         * Decimal("1.10")
     )
-    estimated = reserve * calls * (1 + I27_POLICY["max_retries"] if optional else 1)
+    estimated = reserve * calls * (1 + cast(int, I27_POLICY["max_retries"]) if optional else 1)
     live.usage["sc1_inventory_plan"] = dict(
         planned_calls=calls,
         max_calls=POLICY["max_calls"],
         reserved_usd_upper_bound=str(estimated),
         max_reserved_usd=POLICY["max_reserved_usd"],
     )
-    if calls > POLICY["max_calls"] or estimated > Decimal(POLICY["max_reserved_usd"]):
+    if calls > cast(int, POLICY["max_calls"]) or estimated > Decimal(
+        cast(str, POLICY["max_reserved_usd"])
+    ):
         raise BudgetExceeded("SC1_INVENTORY_LIMIT_EXCEEDED")
     transport = SC1InventoryTransport(
         live.probe,
@@ -80,7 +95,7 @@ def load_inventory(live, graph, selection):
     stopped = False
     stop_event = Event()
 
-    def invoke(original):
+    def invoke(original: dict[str, Any]) -> dict[str, Any]:
         nonlocal stopped
         if stopped or (parallel and stop_event.is_set()):
             raise ValueError("SC1_INVENTORY_STOPPED")
@@ -147,7 +162,9 @@ def load_inventory(live, graph, selection):
                 )
                 with (
                     context,
-                    request_scope(optional, original, failures) if optional else nullcontext(),
+                    request_scope(optional, original, cast(Failures, failures))
+                    if optional
+                    else nullcontext(),
                 ):
                     response = transport.invoke(request)
             live.runner.store.usage.record_usage(call, response.usage, now=int(live.runner.clock()))
@@ -156,7 +173,7 @@ def load_inventory(live, graph, selection):
             if failure is not None:
                 if failure["request_id"] != request["request_id"]:
                     raise ValueError("I27_SC1_FAILURE_REQUEST_MISMATCH")
-                failures.record(failure)
+                cast(Failures, failures).record(failure)
             if response.usage.status != "succeeded" or not response.raw_response_json:
                 if failure is not None and failure["degraded"]:
                     # Preserve a failed vote and its reason in the immutable
@@ -207,7 +224,7 @@ def load_inventory(live, graph, selection):
         finally:
             live.account(request["request_id"])
 
-    build_options = {}
+    build_options: dict[str, Any] = {}
     if parallel:
         from proofops.adapters.local.s5_inventory_execution import build_inventory
 
@@ -220,7 +237,7 @@ def load_inventory(live, graph, selection):
         invoke=invoke,
         **build_options,
     )
-    result = provider(graph, selection)
+    result: dict[str, Any] = provider(graph, selection)
     live._fence()
     # Reopening a completed immutable artifact must also expose its settled usage.
     for request_id in result["raw_responses"]:
@@ -228,7 +245,7 @@ def load_inventory(live, graph, selection):
     if optional:
         for value in result["raw_responses"].values():
             if isinstance(value, dict) and value.get("i27_sc1_failure"):
-                failures.record(value["i27_sc1_failure"])
-        live.usage["i27_sc1_failures"] = failures.summary()
+                cast(Failures, failures).record(value["i27_sc1_failure"])
+        live.usage["i27_sc1_failures"] = cast(Failures, failures).summary()
     live.usage["sc1_inventory_plan"]["completed_calls"] = result["completed_calls"]
     return result

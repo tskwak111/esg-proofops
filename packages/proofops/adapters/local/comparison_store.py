@@ -6,6 +6,7 @@ import json
 from dataclasses import asdict
 from datetime import date
 from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from proofops.adapters.local.summary_store import LocalSummaryStore
@@ -19,6 +20,16 @@ from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import _require_uuid
 
+if TYPE_CHECKING:
+    import sqlite3
+    from typing import Any
+
+    from proofops.adapters.local.claim_store import LocalClaimStore
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops.application.authorization import AuthContext
+    from proofops.application.claims import Claim
+    from proofops.application.uploads import UploadService
+
 
 class ComparisonRejected(ValueError):
     def __init__(self, code: str, status: int = 409) -> None:
@@ -31,7 +42,14 @@ class LocalComparisonStore:
 
     kind = "local-synthetic-only"
 
-    def __init__(self, runs, uploads, claims, *, enabled: bool = False) -> None:
+    def __init__(
+        self,
+        runs: LocalSQLiteRunStore,
+        uploads: UploadService,
+        claims: LocalClaimStore,
+        *,
+        enabled: bool = False,
+    ) -> None:
         if type(enabled) is not bool:
             raise ValueError("enabled must be boolean")
         if Path(runs.path).resolve() != Path(claims.store.path).resolve():
@@ -57,7 +75,7 @@ class LocalComparisonStore:
                 BEGIN SELECT RAISE(ABORT, 'comparison receipt exists'); END""")
 
     @staticmethod
-    def _validate_body(body, key) -> str:
+    def _validate_body(body: dict[str, Any], key: str | None) -> str:
         if not isinstance(key, str) or not 16 <= len(key) <= 128:
             raise ComparisonRejected("IDEMPOTENCY_KEY_INVALID", 400)
         if not isinstance(body, dict) or set(body) != {"prior_document_version_id"}:
@@ -66,10 +84,11 @@ class LocalComparisonStore:
             _require_uuid("prior_document_version_id", body["prior_document_version_id"])
         except ValueError:
             raise ComparisonRejected("VALIDATION_ERROR", 422) from None
-        return body["prior_document_version_id"]
+        return_value: str = body["prior_document_version_id"]
+        return return_value
 
     @staticmethod
-    def _periods_compatible(current: dict, prior: dict) -> bool:
+    def _periods_compatible(current: dict[str, Any], prior: dict[str, Any]) -> bool:
         try:
             current_start = date.fromisoformat(current["metadata"]["period_start"])
             current_end = date.fromisoformat(current["metadata"]["period_end"])
@@ -87,7 +106,7 @@ class LocalComparisonStore:
             and prior_end.year == prior["report_year"]
         )
 
-    def _version(self, tenant: str, version_id: str) -> dict:
+    def _version(self, tenant: str, version_id: str) -> dict[str, Any]:
         try:
             visible = self.uploads.get_version(tenant, version_id)
             version = self.uploads.version_snapshot(tenant, version_id)
@@ -101,7 +120,9 @@ class LocalComparisonStore:
             raise ComparisonRejected("COMPARISON_SOURCE_UNAVAILABLE")
         return version
 
-    def _run_for_version(self, db, tenant: str, version_id: str) -> tuple[str, dict] | None:
+    def _run_for_version(
+        self, db: sqlite3.Connection, tenant: str, version_id: str
+    ) -> tuple[str, dict[str, Any]] | None:
         matches = []
         for run_id, raw in db.execute(
             "SELECT run_id,value FROM job_records WHERE tenant_id=? "
@@ -115,7 +136,9 @@ class LocalComparisonStore:
             raise ComparisonRejected("PRIOR_COMPARISON_ARTIFACT_AMBIGUOUS")
         return matches[0] if matches else None
 
-    def _replay(self, db, tenant, run_id, request_key, request_hash):
+    def _replay(
+        self, db: sqlite3.Connection, tenant: str, run_id: str, request_key: str, request_hash: str
+    ) -> dict[str, Any] | None:
         raw = self.jobs._raw(db, tenant, run_id, "comparison_request", request_key)
         if raw is None:
             return None
@@ -124,16 +147,17 @@ class LocalComparisonStore:
             raise ComparisonRejected("IDEMPOTENCY_CONFLICT")
         receipt = self.jobs._get(db, tenant, run_id, "comparison_receipt", request["comparison_id"])
         self._verify_access(tenant, receipt)
-        return request["response"]
+        return_value: dict[str, Any] | None = request["response"]
+        return return_value
 
     @staticmethod
-    def _verify_receipt(receipt: dict) -> None:
+    def _verify_receipt(receipt: dict[str, Any]) -> None:
         if receipt.get("execution_profile") != LocalComparisonStore.kind or receipt.get(
             "sha256"
         ) != canonical_hash(receipt.get("payload")):
             raise ComparisonRejected("COMPARISON_INTEGRITY_FAILED")
 
-    def _verify_access(self, tenant: str, receipt: dict) -> None:
+    def _verify_access(self, tenant: str, receipt: dict[str, Any]) -> None:
         self._verify_receipt(receipt)
         payload = receipt.get("payload")
         if not isinstance(payload, dict):
@@ -148,7 +172,14 @@ class LocalComparisonStore:
         for version_id in version_ids:
             self._version(tenant, version_id)
 
-    def _targets(self, db, tenant: str, run_id: str, version: dict, claims) -> tuple:
+    def _targets(
+        self,
+        db: sqlite3.Connection,
+        tenant: str,
+        run_id: str,
+        version: dict[str, Any],
+        claims: tuple[Claim, ...],
+    ) -> tuple[TargetSnapshot, ...]:
         targets = []
         run = self.jobs._get(db, tenant, run_id, "run", "META")
         for claim in claims:
@@ -219,7 +250,9 @@ class LocalComparisonStore:
         return tuple(targets)
 
     @staticmethod
-    def _approved(tenant: str, version: dict, targets: tuple) -> ApprovedVersion:
+    def _approved(
+        tenant: str, version: dict[str, Any], targets: tuple[TargetSnapshot, ...]
+    ) -> ApprovedVersion:
         return ApprovedVersion(
             tenant_id=tenant,
             company_id=version["company"]["company_id"],
@@ -231,15 +264,15 @@ class LocalComparisonStore:
 
     def _save(
         self,
-        db,
+        db: sqlite3.Connection,
         *,
-        tenant,
-        run_id,
-        request_key,
-        request_hash,
-        response,
-        payload,
-    ):
+        tenant: str,
+        run_id: str,
+        request_key: str,
+        request_hash: str,
+        response: dict[str, Any],
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
         replay = self._replay(db, tenant, run_id, request_key, request_hash)
         if replay is not None:
             return replay
@@ -272,7 +305,9 @@ class LocalComparisonStore:
         )
         return response
 
-    def create(self, actor, run_id: str, body: dict, key: str) -> dict:
+    def create(
+        self, actor: AuthContext, run_id: str, body: dict[str, Any], key: str | None
+    ) -> dict[str, Any]:
         if not self.enabled:
             raise ComparisonRejected("YEAR_COMPARISON_DISABLED")
         if not actor.has_capability("editor"):
@@ -401,7 +436,7 @@ class LocalComparisonStore:
                 payload=payload,
             )
 
-    def get(self, actor, comparison_id: str) -> dict:
+    def get(self, actor: AuthContext, comparison_id: str) -> dict[str, Any]:
         try:
             _require_uuid("comparison_id", comparison_id)
         except ValueError:
@@ -416,4 +451,5 @@ class LocalComparisonStore:
             raise ComparisonRejected("RESOURCE_NOT_FOUND", 404)
         receipt = json.loads(row[0])
         self._verify_access(actor.tenant_id, receipt)
-        return receipt["payload"]["comparison"]
+        return_value: dict[str, Any] = receipt["payload"]["comparison"]
+        return return_value

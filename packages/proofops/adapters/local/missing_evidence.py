@@ -2,6 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from pypdf import PageObject
+
+    from proofops.adapters.local.claim_store import LocalClaimStore
+    from proofops.application.claims import Claim
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.reviews import ReviewInputs
 import json
 from dataclasses import asdict, replace
 from hashlib import sha256
@@ -29,7 +39,7 @@ from proofops.domain.rulepacks import canonical_json
 from proofops.domain.values import SourceRef
 
 
-def image_area_ratios(page) -> list[float]:
+def image_area_ratios(page: PageObject) -> list[float]:
     """Rendered image area upper bounds from native operators; no pixels/OCR.
 
     Track determinant through q/Q/cm and nested Form matrices. Clipping is not
@@ -40,10 +50,10 @@ def image_area_ratios(page) -> list[float]:
     area = float(page.cropbox.width) * float(page.cropbox.height)
     ratios = []
 
-    def determinant(matrix):
+    def determinant(matrix: Sequence[Any]) -> float:
         return abs(float(matrix[0]) * float(matrix[3]) - float(matrix[1]) * float(matrix[2]))
 
-    def walk(stream, resources, scale, depth):
+    def walk(stream: Any, resources: Any, scale: float, depth: int) -> None:
         if depth > READABILITY_POLICY["image_geometry_max_depth"]:
             raise ValueError("image geometry nesting limit")
         if stream is None:
@@ -86,7 +96,7 @@ def image_area_ratios(page) -> list[float]:
     return ratios
 
 
-def page_readability(text: str, ratios: list[float]) -> dict:
+def page_readability(text: str, ratios: list[float]) -> dict[str, Any]:
     count = sum(not char.isspace() for char in text)
     valid = not any(token in text for token in ("\ufffd", "\x00", "(cid:"))
     largest = max(ratios, default=0.0)
@@ -117,8 +127,13 @@ def page_readability(text: str, ratios: list[float]) -> dict:
 
 
 def document_search(
-    content: bytes, *, identity: dict, graph=None, selected_pages=(), environment_pages=()
-) -> dict:
+    content: bytes,
+    *,
+    identity: dict[str, Any],
+    graph: CanonicalDocumentGraph | None = None,
+    selected_pages: Sequence[int] = (),
+    environment_pages: Sequence[int] = (),
+) -> dict[str, Any]:
     """Read all native PDF pages without claiming whole-page visual review.
 
     Native text is search context, never a verified SourceRef. Missing parser or
@@ -246,9 +261,14 @@ def document_search(
     return payload | {"artifact_sha256": canonical_hash(payload)}
 
 
-def validated_present_refs(elements, inputs, claim, graph):
+def validated_present_refs(
+    elements: list[dict[str, Any]],
+    inputs: ReviewInputs | None,
+    claim: Claim,
+    graph: CanonicalDocumentGraph,
+) -> dict[str, list[dict[str, Any]]]:
     """Replay existing citation/binding gates; search output cannot enter this path."""
-    confirmed: dict[str, list[dict]] = {}
+    confirmed: dict[str, list[dict[str, Any]]] = {}
     if inputs is None:
         return confirmed
     inputs.validate()
@@ -302,8 +322,16 @@ def validated_present_refs(elements, inputs, claim, graph):
 
 
 def missing_evidence(
-    claims, tenant, run_id, claim, *, track, elements, inputs=None, original_graph=None
-):
+    claims: LocalClaimStore,
+    tenant: str,
+    run_id: str,
+    claim: Claim,
+    *,
+    track: str,
+    elements: list[dict[str, Any]],
+    inputs: ReviewInputs | None = None,
+    original_graph: CanonicalDocumentGraph | None = None,
+) -> list[dict[str, Any]]:
     # Publication may reuse the graph it fully replayed under analysis.lock.
     # This is an internal input, never a graph supplied by an HTTP caller.
     if inputs is not None:
@@ -411,7 +439,7 @@ def missing_evidence(
             "artifact_sha256"
         ) != canonical_hash({k: v for k, v in artifact.items() if k != "artifact_sha256"}):
             raise ValueError("element search artifact mismatch")
-        return json.loads(canonical_json(artifact["elements"]))
+        return cast("list[dict[str, Any]]", json.loads(canonical_json(artifact["elements"])))
     search = LocalEvidenceSearch(
         graph,
         tenant_id=tenant,
@@ -475,4 +503,4 @@ def missing_evidence(
     payload = pins | {"elements": result}
     artifact = payload | {"artifact_sha256": canonical_hash(payload)}
     put_search(jobs, tenant, run_id, "element_evidence_search", element_key, artifact, projection)
-    return result
+    return cast("list[dict[str, Any]]", result)

@@ -15,19 +15,24 @@ from __future__ import annotations
 import re
 import sqlite3
 import time
-from typing import Annotated, Literal
+from collections.abc import Callable
+from typing import Annotated, Any, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Request, Security
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyCookie
-from proofops.adapters.local.classification_store import ClassificationStoreError
+from proofops.adapters.local.classification_store import (
+    ClassificationStoreError,
+    LocalSQLiteClassificationStore,
+)
 from proofops.application.tagging.manual_classification import (
     HUMAN_ORIGIN,
     ClassificationRejected,
 )
 from proofops_api.auth import (
     SESSION_COOKIE_NAME,
+    AuthStore,
     _authorize,
     _error_response,
     _request_limit_response,
@@ -85,20 +90,26 @@ class ClassificationView(StrictDTO):
     etag: str | None
     sources: list[ClassificationSource]
     dimension_axes: list[str]
-    preliminary_agreement: dict
-    current_classification: dict | None
-    pending_job: dict | None
+    preliminary_agreement: dict[str, Any]
+    current_classification: dict[str, Any] | None
+    pending_job: dict[str, Any] | None
     allowed_tracks: list[str]
     allowed_safe_harbor_categories: list[str | None]
 
 
 class ClassificationAccepted(StrictDTO):
     schema_version: Literal[1]
-    classification: dict
-    reprocess_job: dict
+    classification: dict[str, Any]
+    reprocess_job: dict[str, Any]
 
 
-def build_classification_router(store, auth_store, *, allowed_origin: str, clock=time.time):
+def build_classification_router(
+    store: LocalSQLiteClassificationStore,
+    auth_store: AuthStore,
+    *,
+    allowed_origin: str,
+    clock: Callable[[], float] = time.time,
+) -> APIRouter:
     router = APIRouter(
         responses=_ERROR_RESPONSES,
         dependencies=[
@@ -123,7 +134,7 @@ def build_classification_router(store, auth_store, *, allowed_origin: str, clock
         }
     )
 
-    def _fail(exc):
+    def _fail(exc: Exception) -> JSONResponse:
         if isinstance(exc, ClassificationStoreError | ClassificationRejected):
             return _error_response(
                 getattr(exc, "status", 422),
@@ -144,7 +155,7 @@ def build_classification_router(store, auth_store, *, allowed_origin: str, clock
             "x-rate-limit": "120/min/user",
         },
     )
-    def get_classification(request: Request, run_id: UUID, claim_id: UUID):
+    def get_classification(request: Request, run_id: UUID, claim_id: UUID) -> JSONResponse:
         now = clock()
         auth = _authorize(request, auth_store, now, "viewer")
         if isinstance(auth, JSONResponse):
@@ -176,7 +187,7 @@ def build_classification_router(store, auth_store, *, allowed_origin: str, clock
         response_model=ClassificationAccepted,
         openapi_extra=request_schema,
     )
-    async def create_classification(request: Request, run_id: UUID, claim_id: UUID):
+    async def create_classification(request: Request, run_id: UUID, claim_id: UUID) -> JSONResponse:
         now = clock()
         auth = _authorize(request, auth_store, now, "reviewer")
         if isinstance(auth, JSONResponse):
@@ -198,7 +209,7 @@ def build_classification_router(store, auth_store, *, allowed_origin: str, clock
         try:
             body = await read_bounded_json(request)
             ClassificationRequest.model_validate(body)
-            if_match = request.headers.get("If-Match")
+            if_match = cast(str, request.headers.get("If-Match"))
             if if_match is None or re.fullmatch(r'"[a-f0-9]{64}"', if_match) is None:
                 return _error_response(
                     400, "IF_MATCH_REQUIRED", "A quoted lineage ETag is required."

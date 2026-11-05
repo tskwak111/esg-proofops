@@ -5,13 +5,26 @@ row, year, unit or tenant never qualifies. Whole-row P1 selections are narrowed
 only when the model's own normalized selection covers the current value.
 """
 
+from __future__ import annotations
+
 from dataclasses import asdict, replace
+from typing import TYPE_CHECKING, cast
 
 from proofops.application.evidence.span_citations import verify_source_ref
+from proofops.application.ingest.graph_fusion import CanonicalBlock
 from proofops.application.ingest.w9_tables import observations_for
+from proofops.application.tagging.contracts import CellSpec
 from proofops.domain.provenance import canonical_hash
 
-POLICY = dict(
+if TYPE_CHECKING:
+    from typing import Any
+
+    from proofops.application.claims import Claim
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.domain.values import LlmElement, SourceRef
+
+
+POLICY: dict[str, Any] = dict(
     profile="table-selected-evidence-pb2-v1",
     elements=["P1", "P2"],
     source="attested-row-and-cells",
@@ -28,13 +41,20 @@ OBSERVED_POLICY = ROW_UNIT_POLICY | dict(
 )
 
 
-def _observed_header(text, year):
+def _observed_header(text: str, year: str) -> bool:
     from proofops.application.ingest.k6_coverage import YEAR
 
     return YEAR.fullmatch(text.strip()) is not None and text.strip().startswith(year)
 
 
-def observation_sources(claim, graph, *, tenant_id, recover_row_unit=False, observed_headers=False):
+def observation_sources(
+    claim: Claim,
+    graph: CanonicalDocumentGraph,
+    *,
+    tenant_id: str,
+    recover_row_unit: bool = False,
+    observed_headers: bool = False,
+) -> dict[str, Any] | None:
     if tenant_id != graph.tenant_id or claim.tenant_id != tenant_id or len(claim.source_refs) != 1:
         return None
     ref = claim.source_refs[0]
@@ -65,7 +85,8 @@ def observation_sources(claim, graph, *, tenant_id, recover_row_unit=False, obse
         for e in graph.edges
         if e.relation == "table_parent" and e.target_id == table.source_id
     }
-    grid = {}
+    grid: dict[tuple[int | None, int | None], CanonicalBlock] = {}
+    b: CanonicalBlock | None
     for sid in ids:
         b = blocks[sid]
         if b.kind != "table_cell" or b.winner is None:
@@ -81,14 +102,16 @@ def observation_sources(claim, graph, *, tenant_id, recover_row_unit=False, obse
         if key in grid:
             return None
         grid[key] = b
-    specs = []
+    specs: list[CellSpec] = []
     cursor = ref.char_start
     for col, text in enumerate(ref.quote.split("\t")):
         b = grid.get((obs["row"], col))
         if text != (b.raw_text if b else ""):
             return None
         if text:
-            cell_ref = verify_source_ref(b.source_ref(), graph, tenant_id=tenant_id)
+            cell_ref = verify_source_ref(
+                cast("CanonicalBlock", b).source_ref(), graph, tenant_id=tenant_id
+            )
             specs.append(dict(column=col, start=cursor, end=cursor + len(text), ref=cell_ref))
         cursor += len(text) + 1
     value = next((s for s in specs if s["column"] == obs["value_column"]), None)
@@ -142,7 +165,14 @@ def observation_sources(claim, graph, *, tenant_id, recover_row_unit=False, obse
     )
 
 
-def augment_packet(data, claim, graph, *, tenant_id, policy=POLICY):
+def augment_packet(
+    data: dict[str, Any],
+    claim: Claim,
+    graph: CanonicalDocumentGraph,
+    *,
+    tenant_id: str,
+    policy: dict[str, Any] = POLICY,
+) -> dict[str, Any]:
     if policy not in (POLICY, ROW_UNIT_POLICY, OBSERVED_POLICY):
         raise ValueError("TABLE_EVIDENCE_POLICY_MISMATCH")
     data["table_evidence_policy"] = policy
@@ -194,7 +224,14 @@ def augment_packet(data, claim, graph, *, tenant_id, policy=POLICY):
     return data
 
 
-def prepare_element(element, claim, graph, *, tenant_id, policy=POLICY):
+def prepare_element(
+    element: LlmElement,
+    claim: Claim,
+    graph: CanonicalDocumentGraph,
+    *,
+    tenant_id: str,
+    policy: dict[str, Any] = POLICY,
+) -> tuple[LlmElement, bool]:
     if element.state != "present" or element.element_id not in ("P1", "P2"):
         return element, False
     sources = observation_sources(
@@ -211,7 +248,7 @@ def prepare_element(element, claim, graph, *, tenant_id, policy=POLICY):
     allowed = [s["ref"] for s in sources["specs"]] + [sources["year"]]
     allowed += [c["year"] for c in sources["comparisons"]]
 
-    def covers(target, selected):
+    def covers(target: SourceRef, selected: SourceRef) -> bool:
         return target.source_id == selected.source_id and (
             selected.char_start <= target.char_start < target.char_end <= selected.char_end
         )
@@ -223,7 +260,7 @@ def prepare_element(element, claim, graph, *, tenant_id, policy=POLICY):
     ):
         return element, False
 
-    def selected(spec):
+    def selected(spec: dict[str, Any]) -> bool:
         return any(
             covers(spec["ref"], r)
             or (
@@ -234,13 +271,15 @@ def prepare_element(element, claim, graph, *, tenant_id, policy=POLICY):
             for r in refs
         )
 
-    def normalized_selects(spec):
+    def normalized_selects(spec: dict[str, Any]) -> bool:
         # A model may quote the entire row and normalize to its selected value.
         # Only the exact already-attested focal cell is a valid narrowing.
-        if " ".join(element.normalized_value.split()) == " ".join(spec["ref"].quote.split()):
+        if " ".join(cast(str, element.normalized_value).split()) == " ".join(
+            spec["ref"].quote.split()
+        ):
             return selected(spec)
         for r in refs:
-            if " ".join(r.quote.split()) != " ".join(element.normalized_value.split()):
+            if " ".join(r.quote.split()) != " ".join(cast(str, element.normalized_value).split()):
                 continue
             if covers(spec["ref"], r) or (
                 r.source_id == row.source_id
@@ -272,7 +311,9 @@ def prepare_element(element, claim, graph, *, tenant_id, policy=POLICY):
     return element, False
 
 
-def validated_observation(data, claim, graph, *, tenant_id):
+def validated_observation(
+    data: dict[str, Any], claim: Claim, graph: CanonicalDocumentGraph, *, tenant_id: str
+) -> dict[str, Any] | None:
     from proofops.domain.errors import DomainValidationError
 
     expected = augment_packet(
@@ -287,7 +328,9 @@ def validated_observation(data, claim, graph, *, tenant_id):
     return expected
 
 
-def structural_relation_ids(data, claim, graph, *, tenant_id):
+def structural_relation_ids(
+    data: dict[str, Any], claim: Claim, graph: CanonicalDocumentGraph, *, tenant_id: str
+) -> frozenset[str]:
     """Only appended P1/P2 sources whose literal attribution is already proven.
 
     Skipping a relation model is not an element vote. prepare_element still

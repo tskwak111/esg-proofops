@@ -5,6 +5,7 @@ are protected. This module never attests a citation or guesses deletion offsets.
 """
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -126,7 +127,7 @@ class DisplayAlignment(SpanAlignment):
             raise DomainValidationError("SPAN_SPLIT_CODEPOINT_MAP") from exc
 
 
-def display_alignment(raw: str, deleted_offsets) -> DisplayAlignment:
+def display_alignment(raw: str, deleted_offsets: Iterable[int]) -> DisplayAlignment:
     deleted = tuple(deleted_offsets)
     if deleted != tuple(sorted(set(deleted))) or any(
         type(i) is not int or not join_allowed(raw, i) for i in deleted
@@ -150,11 +151,13 @@ def locate_display(quote: str, mapping: SpanAlignment) -> tuple[int, int, str]:
     return raw_start, raw_end, mapping.raw[raw_start:raw_end]
 
 
-def _deleted(mapping):
+def _deleted(mapping: SpanAlignment) -> set[int]:
     return set(range(len(mapping.raw))) - {i - 1 for i in mapping.raw_boundaries[1:]}
 
 
-def mapping_pin(mapping: SpanAlignment, *, identity: dict, boundaries: list) -> dict:
+def mapping_pin(
+    mapping: SpanAlignment, *, identity: dict[str, Any], boundaries: list[dict[str, Any]]
+) -> dict[str, Any]:
     return dict(
         policy=POLICY,
         identity=identity,

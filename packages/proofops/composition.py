@@ -96,6 +96,7 @@ def build_composition(*, app_env: str, model_adapter: str) -> LocalComposition:
             "binding is wired yet, and string selection alone does not "
             "certify readiness"
         )
+    # The checks above restrict both strings; tuple membership does not narrow Literals.
     return build_local_composition(
         app_env=app_env,  # type: ignore[arg-type]
         model_adapter=model_adapter,  # type: ignore[arg-type]

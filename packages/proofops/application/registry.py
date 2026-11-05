@@ -9,14 +9,14 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import RLock
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Protocol, TypeVar, cast
 from uuid import UUID, uuid4
 
 from proofops.adapters.local.sqlite_busy import connection, retry_busy
@@ -502,7 +502,7 @@ class Registry:
         self._epoch += 1
 
     @contextmanager
-    def _write_operation(self):
+    def _write_operation(self) -> Iterator[None]:
         """Reload under a SQLite write lock and commit one complete registry state.
 
         # ponytail: one local state row and BEGIN IMMEDIATE serialize all local
@@ -514,12 +514,14 @@ class Registry:
                 return
             begun = False
             try:
-                retry_busy(lambda: self._database.execute("BEGIN IMMEDIATE"))
+                (retry_busy)(
+                    lambda: cast(sqlite3.Connection, self._database).execute("BEGIN IMMEDIATE")
+                )
                 begun = True
                 self._load()
                 yield
                 self._persist()
-                retry_busy(self._database.commit)
+                (retry_busy)(self._database.commit)
             except BaseException:
                 if begun:
                     self._database.execute("ROLLBACK")
@@ -527,7 +529,7 @@ class Registry:
                 raise
 
     @contextmanager
-    def _read_operation(self):
+    def _read_operation(self) -> Iterator[None]:
         """Refresh from SQLite so a long-lived registry instance never serves stale state."""
         with self._lock:
             if self._database is not None:
@@ -536,10 +538,10 @@ class Registry:
 
     def _load(self) -> None:
         assert self._database is not None
-        row = retry_busy(
-            lambda: self._database.execute(
-                "SELECT value FROM registry_state WHERE key = 'state'"
-            ).fetchone()
+        row = (retry_busy)(
+            lambda: cast(sqlite3.Connection, self._database)
+            .execute("SELECT value FROM registry_state WHERE key = 'state'")
+            .fetchone()
         )
         data: dict[str, Any] = json.loads(row[0]) if row is not None else _empty_state()
         self._epoch = int(data["epoch"])
@@ -670,6 +672,7 @@ class Registry:
 
 
 def create_company(registry: Registry, **kwargs: object) -> tuple[Registry, Company]:
+    # Compatibility facade forwards keyword arguments; create_company validates them.
     return registry, registry.create_company(**kwargs)  # type: ignore[arg-type]
 
 
@@ -724,7 +727,7 @@ def _detached_artifact(artifact: Mapping[str, object]) -> dict[str, object]:
     return loaded
 
 
-def _json_mapping(value: object) -> dict:
+def _json_mapping(value: object) -> dict[str, Any]:
     if isinstance(value, Mapping):
         return dict(value)
     raise TypeError("unsupported JSON value")
@@ -777,3 +780,10 @@ def _empty_state() -> dict[str, Any]:
         "snapshots": [],
         "idempotency": [],
     }
+
+
+_RetryResult = TypeVar("_RetryResult")
+
+
+class _RetryBusy(Protocol):
+    def __call__(self, operation: Callable[[], _RetryResult]) -> _RetryResult: ...

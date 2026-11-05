@@ -248,7 +248,7 @@ def _reservation_policy(value: object) -> dict[str, Any]:
     return frozen
 
 
-def _extraction(value: object, *, synthetic=True) -> ExtractionProfile:
+def _extraction(value: object, *, synthetic: bool = True) -> ExtractionProfile:
     if (
         not isinstance(value, dict)
         or set(value) != _EXTRACTION_FIELDS

@@ -5,9 +5,12 @@ from __future__ import annotations
 import os
 import secrets
 import sys
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import cast
 
 from fastapi import FastAPI
+from proofops.adapters.local.run_store import LocalSQLiteRunStore
 from proofops.application.telemetry import Telemetry
 from starlette.middleware.cors import CORSMiddleware
 
@@ -46,7 +49,7 @@ def create_app() -> FastAPI:
     composition = build_composition()
 
     @asynccontextmanager
-    async def lifespan(app: FastAPI):
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         try:
             yield
         finally:
@@ -90,7 +93,7 @@ def create_app() -> FastAPI:
             composition.reviews,
             composition.auth_store,
             allowed_origin=app_origin or "",
-            run_store=composition.runs.store,
+            run_store=cast(LocalSQLiteRunStore, composition.runs.store),
         )
     )
     app.include_router(
@@ -133,7 +136,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(
         build_sources_router(
-            composition.runs.store,
+            cast(LocalSQLiteRunStore, composition.runs.store),
             composition.uploads,
             composition.parser,
             composition.auth_store,

@@ -1,9 +1,18 @@
 """Local GRI candidate routing; index matches never establish evidence or applicability."""
 
+from __future__ import annotations
+
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.ingest.gri import IndexEntry
 import re
 from dataclasses import replace
 from hashlib import sha256
 from io import BytesIO
+from typing import TYPE_CHECKING, cast
 
 import pdfplumber
 from pypdf import PdfReader
@@ -11,9 +20,19 @@ from pypdf import PdfReader
 from proofops.adapters.local.evidence_search import LocalEvidenceSearch
 from proofops.application.ingest.gri import _validate_graph, build_gri_index
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
 
 class LocalGRIRouting:
-    def __init__(self, graph, original_pdf: bytes, *, tenant_id: str, pages):
+    def __init__(
+        self,
+        graph: CanonicalDocumentGraph,
+        original_pdf: bytes,
+        *,
+        tenant_id: str,
+        pages: Iterable[int],
+    ) -> None:
         _validate_graph(graph, tenant_id)
         if sha256(original_pdf).hexdigest() != graph.source_sha256:
             raise ValueError("SOURCE_INTEGRITY_MISMATCH")
@@ -64,7 +83,9 @@ class LocalGRIRouting:
                 page_map = {}
         self.entries = tuple(
             entry
-            for entry in build_gri_index(graph, page_map, tenant_id=tenant_id)
+            for entry in build_gri_index(
+                graph, cast("Mapping[object, object]", page_map), tenant_id=tenant_id
+            )
             if entry.source_ref.page_num in selected
         )
         row_ids = {entry.source_ref.source_id for entry in self.entries}
@@ -76,7 +97,7 @@ class LocalGRIRouting:
             index_generation="local-gri-index-v1:" + graph.parse_manifest_id,
         )
 
-    def for_claim(self, quote: str):
+    def for_claim(self, quote: str) -> tuple[tuple[IndexEntry, ...], tuple[str, ...]]:
         hits = self.search.search(self.search.scope, quote).hits
         by_source = {entry.source_ref.source_id: entry for entry in self.entries}
         codes = tuple(dict.fromkeys(by_source[hit.source_id].indicator_code for hit in hits))
