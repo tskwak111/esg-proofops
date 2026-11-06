@@ -1,5 +1,7 @@
 """Safe public explanations of pipeline stops; no evidence or grade inference."""
 
+from collections.abc import Iterable
+
 MESSAGES = {
     "TIME_BUDGET": (
         "분석 시간 한도로 새 처리를 중단했습니다. 완료된 결과와 미처리 주장을 구분해 "
@@ -86,7 +88,7 @@ MESSAGES = {
 PUBLIC_CODES = frozenset(MESSAGES) | {"BUDGET_EXHAUSTED", "ACCOUNTING_UNAVAILABLE"}
 
 
-def public_reason_details(codes):
+def public_reason_details(codes: Iterable[str]) -> list[dict[str, str]]:
     """Display metadata only: do not rewrite historical result/decision bytes."""
     return [
         dict(

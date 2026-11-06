@@ -1,5 +1,8 @@
 """Opt-in lifetimes for verified receipt buffers; no proof or output changes."""
 
+from collections.abc import Mapping
+from typing import Any
+
 POLICY = dict(
     profile="rb4_receipt_lifetimes_v1",
     extraction="release-verified-prior-envelope-before-next-batch",
@@ -17,7 +20,7 @@ PUBLICATION_POLICY = dict(
 )
 
 
-def enabled(snapshot):
+def enabled(snapshot: Mapping[str, Any]) -> bool:
     policy = snapshot.get("analysis_profile_policy", {}).get("rb4_memory")
     if policy is None:
         return False
@@ -26,7 +29,7 @@ def enabled(snapshot):
     return True
 
 
-def publication_enabled(policy):
+def publication_enabled(policy: Mapping[str, Any]) -> bool:
     value = policy.get("rb4_publication_digest")
     if value is None:
         return False

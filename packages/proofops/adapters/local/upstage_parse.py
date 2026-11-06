@@ -23,6 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from decimal import Decimal
 from time import monotonic, sleep
+from typing import Any, cast
 from urllib.parse import urlsplit
 
 from proofops.adapters.local.upstage import PRICE_RECHECK_AT, UpstageProbe
@@ -38,7 +39,7 @@ MIN_PAGES = 1
 MAX_RESPONSE_BYTES = 1_048_576
 
 
-def transport_failure(error):
+def transport_failure(error: BaseException) -> str:
     """Closed codes and exception classes only; exception messages can contain keys."""
     import re
 
@@ -73,7 +74,8 @@ class UpstageParseProbe(UpstageProbe):
 
     download_workers = 1
 
-    def _download_retry(self, url):
+    # range(3) always returns or raises on its final iteration.
+    def _download_retry(self, url: str) -> dict[str, Any]:  # type: ignore[return]
         # GET is safe to repeat against the accepted job. Never repeat its POST.
         for attempt in range(3):
             try:
@@ -88,7 +90,7 @@ class UpstageParseProbe(UpstageProbe):
                     raise
                 sleep(1)
 
-    def _download_batches(self, items):
+    def _download_batches(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if type(self.download_workers) is not int or not 1 <= self.download_workers <= 4:
             raise ValueError("UPSTAGE_DOWNLOAD_CONCURRENCY_INVALID")
         urls = [item["download_url"] for item in items]
@@ -99,7 +101,7 @@ class UpstageParseProbe(UpstageProbe):
         with ThreadPoolExecutor(max_workers=self.download_workers) as pool:
             return list(pool.map(self._download_retry, urls))
 
-    def _reserve_async(self, request_id, body, cost):
+    def _reserve_async(self, request_id: str, body: dict[str, Any], cost: Decimal) -> None:
         """Additive metadata; retain every historical USD1 reservation and policy."""
         with sqlite3.connect(self.ledger, timeout=10) as db:
             db.execute("BEGIN IMMEDIATE")
@@ -121,7 +123,7 @@ class UpstageParseProbe(UpstageProbe):
                 (request_id, canonical_hash(body), str(cost)),
             )
 
-    def _settle_async(self, request_id, cost, receipt):
+    def _settle_async(self, request_id: str, cost: Decimal, receipt: dict[str, Any]) -> None:
         with sqlite3.connect(self.ledger) as db:
             if (
                 db.execute(
@@ -133,7 +135,7 @@ class UpstageParseProbe(UpstageProbe):
             ):
                 raise ValueError("BUDGET_SETTLEMENT_INVALID")
 
-    def _dispatch_audit(self, request_id, **fields):
+    def _dispatch_audit(self, request_id: str, **fields: Any) -> None:
         # No credentials, signed URLs, document text or provider error bodies.
         directory = self.ledger.parent / "parse-dispatch"
         directory.mkdir(exist_ok=True, mode=0o700)
@@ -152,7 +154,7 @@ class UpstageParseProbe(UpstageProbe):
             raise ValueError("INVALID_PROBE_REQUEST")
         # actual PDF parsing with pypdf
         try:
-            import pypdf  # type: ignore
+            import pypdf
 
             reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
             if getattr(reader, "is_encrypted", False):
@@ -164,7 +166,9 @@ class UpstageParseProbe(UpstageProbe):
             raise ValueError("INVALID_PROBE_REQUEST")
         return num_pages
 
-    def _post_parse(self, pdf_bytes: bytes, mode: str, path="/v1/document-digitization") -> dict:
+    def _post_parse(
+        self, pdf_bytes: bytes, mode: str, path: str = "/v1/document-digitization"
+    ) -> dict[str, Any]:
         boundary = uuid.uuid4().hex
         # Build multipart body
         # Fields: document (file), model, mode, ocr, coordinates, output_formats
@@ -213,11 +217,11 @@ class UpstageParseProbe(UpstageProbe):
             raw = response.read(MAX_RESPONSE_BYTES + 1)
             if len(raw) > MAX_RESPONSE_BYTES:
                 raise ValueError("UPSTAGE_RESPONSE_TOO_LARGE")
-            return json.loads(raw)
+            return cast("dict[str, Any]", json.loads(raw))
         finally:
             connection.close()
 
-    def _async_status(self, provider_id: str) -> dict:
+    def _async_status(self, provider_id: str) -> dict[str, Any]:
         connection = http.client.HTTPSConnection("api.upstage.ai", timeout=30)
         try:
             connection.request(
@@ -233,12 +237,12 @@ class UpstageParseProbe(UpstageProbe):
             raw = response.read(MAX_RESPONSE_BYTES + 1)
             if len(raw) > MAX_RESPONSE_BYTES:
                 raise ValueError("UPSTAGE_RESPONSE_TOO_LARGE")
-            return json.loads(raw)
+            return cast("dict[str, Any]", json.loads(raw))
         finally:
             connection.close()
 
     @staticmethod
-    def _async_download(url: str) -> dict:
+    def _async_download(url: str) -> dict[str, Any]:
         parsed = urlsplit(url)
         if (
             parsed.scheme != "https"
@@ -258,11 +262,13 @@ class UpstageParseProbe(UpstageProbe):
             raw = response.read(4_000_001)
             if len(raw) > 4_000_000:
                 raise ValueError("UPSTAGE_RESPONSE_TOO_LARGE")
-            return json.loads(raw)
+            return cast("dict[str, Any]", json.loads(raw))
         finally:
             connection.close()
 
-    def parse_async(self, pdf_bytes: bytes, *, request_id: str, mode: str = "standard") -> dict:
+    def parse_async(
+        self, pdf_bytes: bytes, *, request_id: str, mode: str = "standard"
+    ) -> dict[str, Any]:
         """One ledger-reserved async job; failures retain the reservation."""
         if datetime.now(UTC) >= PRICE_RECHECK_AT:
             raise ValueError("PRICE_RECHECK_REQUIRED")
@@ -426,7 +432,7 @@ class UpstageParseProbe(UpstageProbe):
         self._dispatch_audit(request_id, phase="settled")
         return dict(receipt, raw_batches=batches)
 
-    def parse(self, pdf_bytes: bytes, *, request_id: str, mode: str) -> dict:
+    def parse(self, pdf_bytes: bytes, *, request_id: str, mode: str) -> dict[str, Any]:
         if datetime.now(UTC) >= PRICE_RECHECK_AT:
             raise ValueError("PRICE_RECHECK_REQUIRED")
         if (
@@ -496,7 +502,7 @@ class UpstageParseProbe(UpstageProbe):
             pages = pages_val
 
             # Validate mode-page lists if provided
-            def _validate_list(lst, label: str) -> set[int]:
+            def _validate_list(lst: object, label: str) -> set[int]:
                 if not isinstance(lst, list):
                     raise ValueError(f"invalid {label}")
                 seen: set[int] = set()

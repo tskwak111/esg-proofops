@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING, cast
 from uuid import uuid4
 
 from proofops.adapters.local.audit_store import append_audit_transaction, read_audit_head
@@ -19,11 +20,20 @@ from proofops.application.reviews import ReviewRejected
 from proofops.domain.audit import ChangeSet
 from proofops.domain.provenance import canonical_hash
 
+if TYPE_CHECKING:
+    import sqlite3
+    from collections.abc import Callable
+    from typing import Any
+
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops.application.reviews import ReviewInputs
+    from proofops.application.tagging.fact_assembly_c2 import FactAssemblyReceiptV1
+
 
 class LocalSQLiteReviewStore:
     kind = "local-synthetic-only"
 
-    def __init__(self, jobs: LocalSQLiteJobStore):
+    def __init__(self, jobs: LocalSQLiteJobStore) -> None:
         self.jobs = jobs
         with jobs._transaction() as db:
             db.execute("CREATE TABLE IF NOT EXISTS review_schema (version INTEGER PRIMARY KEY)")
@@ -46,7 +56,7 @@ class LocalSQLiteReviewStore:
                 AND kind=NEW.kind AND record_id=NEW.record_id)
                 BEGIN SELECT RAISE(ABORT, 'review artifact already exists'); END""")
 
-    def _lookup(self, db, tenant, review_id):
+    def _lookup(self, db: sqlite3.Connection, tenant: str, review_id: str) -> dict[str, Any]:
         rows = db.execute(
             """SELECT value FROM job_records
             WHERE tenant_id=? AND kind='review_head' AND record_id=?""",
@@ -56,9 +66,10 @@ class LocalSQLiteReviewStore:
             raise ReviewRejected("RESOURCE_NOT_FOUND", 404)
         review = json.loads(rows[0][0])
         self._run(db, tenant, review["run_id"])
-        return review
+        return_value: dict[str, Any] = review
+        return return_value
 
-    def _source_schema(self, db):
+    def _source_schema(self, db: sqlite3.Connection) -> None:
         db.execute(
             "CREATE TABLE IF NOT EXISTS source_condition_schema (version INTEGER PRIMARY KEY)"
         )
@@ -80,7 +91,9 @@ class LocalSQLiteReviewStore:
             AND kind=NEW.kind AND record_id=NEW.record_id)
             BEGIN SELECT RAISE(ABORT, 'source condition artifact already exists'); END""")
 
-    def publish_source_conditions(self, inputs, *, expected_epoch=None):
+    def publish_source_conditions(
+        self, inputs: dict[str, Any], *, expected_epoch: int | None = None
+    ) -> dict[str, Any]:
         """Persist a trusted loader snapshot, not source or condition approval."""
         tenant, run_id = inputs["tenant_id"], inputs["run_id"]
         with self.jobs._transaction() as db:
@@ -155,11 +168,15 @@ class LocalSQLiteReviewStore:
             self.jobs._bump_run(db, run)
             return initial
 
-    def source_conditions(self, tenant, run_id, *, revision=None):
+    def source_conditions(
+        self, tenant: str, run_id: str, *, revision: int | None = None
+    ) -> dict[str, Any]:
         with self.jobs._transaction() as db:
             return self._source_record(db, tenant, run_id, revision)
 
-    def _source_record(self, db, tenant, run_id, revision=None):
+    def _source_record(
+        self, db: sqlite3.Connection, tenant: str, run_id: str, revision: int | None = None
+    ) -> dict[str, Any]:
         run = self._run(db, tenant, run_id)
         if not db.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='source_condition_schema'"
@@ -209,7 +226,7 @@ class LocalSQLiteReviewStore:
         return result
 
     @staticmethod
-    def _source_request(actor, body, expected, key):
+    def _source_request(actor: AuthContext, body: dict[str, Any], expected: int, key: str) -> None:
         if not isinstance(actor, AuthContext) or not actor.has_capability("reviewer"):
             raise ReviewRejected("FORBIDDEN", 403)
         if (
@@ -228,13 +245,23 @@ class LocalSQLiteReviewStore:
         ):
             raise ReviewRejected("VALIDATION_ERROR", 422)
 
-    def source_condition_retry(self, actor, run_id, body, expected, key):
+    def source_condition_retry(
+        self, actor: AuthContext, run_id: str, body: dict[str, Any], expected: int, key: str
+    ) -> dict[str, Any] | None:
         self._source_request(actor, body, expected, key)
         with self.jobs._transaction() as db:
             self._source_record(db, actor.tenant_id, run_id, revision=1)
             return self._source_retry(db, actor, run_id, body, expected, key)
 
-    def _source_retry(self, db, actor, run_id, body, expected, key):
+    def _source_retry(
+        self,
+        db: sqlite3.Connection,
+        actor: AuthContext,
+        run_id: str,
+        body: dict[str, Any],
+        expected: int,
+        key: str,
+    ) -> dict[str, Any] | None:
         replay_key = canonical_hash([actor.user_sub, "source_condition_resolve", key])
         row = db.execute(
             "SELECT value FROM job_records WHERE tenant_id=? "
@@ -245,12 +272,21 @@ class LocalSQLiteReviewStore:
             replay = json.loads(row[0])
             if replay["request_hash"] != canonical_hash([run_id, body, expected]):
                 raise ReviewRejected("IDEMPOTENCY_CONFLICT", 409)
-            return replay["response"]
+            return_value: dict[str, Any] | None = replay["response"]
+            return return_value
         return None
 
     def resolve_source_conditions(
-        self, actor, run_id, body, expected, key, build, *, expected_epoch=None
-    ):
+        self,
+        actor: AuthContext,
+        run_id: str,
+        body: dict[str, Any],
+        expected: int,
+        key: str,
+        build: Callable[[dict[str, Any]], dict[str, Any]],
+        *,
+        expected_epoch: int | None = None,
+    ) -> dict[str, Any]:
         """Atomic persistence boundary; build validates factual upserts, never HTTP outcomes.
 
         No source issue, claim tag or grade is changed here. The application must
@@ -355,17 +391,17 @@ class LocalSQLiteReviewStore:
             self.jobs._bump_run(db, run)
             return successor
 
-    def _run(self, db, tenant, run_id):
+    def _run(self, db: sqlite3.Connection, tenant: str, run_id: str) -> dict[str, Any]:
         try:
             return self.jobs._get(db, tenant, run_id, "run", "META")
         except KeyError:
             raise ReviewRejected("RESOURCE_NOT_FOUND", 404) from None
 
-    def get(self, tenant_id, review_id):
+    def get(self, tenant_id: str, review_id: str) -> dict[str, Any]:
         with self.jobs._transaction() as db:
             return self._lookup(db, tenant_id, review_id)
 
-    def publish(self, inputs, review):
+    def publish(self, inputs: ReviewInputs, review: dict[str, Any]) -> dict[str, Any]:
         with self.jobs._transaction() as db:
             tenant, run_id = inputs.context.claim.tenant_id, inputs.run_id
             previous = self.jobs._raw(db, tenant, run_id, "review_head", review["review_id"])
@@ -374,7 +410,7 @@ class LocalSQLiteReviewStore:
                 self.jobs._bump_run(db, self._run(db, tenant, run_id))
             return result
 
-    def _validate_live_publication(self, db, inputs):
+    def _validate_live_publication(self, db: sqlite3.Connection, inputs: ReviewInputs) -> None:
         from proofops.adapters.local.tag_store import tagging_settings
 
         try:
@@ -394,11 +430,15 @@ class LocalSQLiteReviewStore:
             if inputs.fact_assembly_profile == C3_V2_PROFILE:
                 from proofops.application.tagging import fact_assembly_c3_v2 as c3_v2
 
-                POLICY_HASH = inputs.fact_assembly_receipt.to_dict()["policy_sha256"]
-                POLICY = c3_v2.publication_policy_for(C3_V2_PROFILE, pinned_hash=POLICY_HASH)
+                receipt_payload: Callable[[], dict[str, Any]] = cast(
+                    "FactAssemblyReceiptV1", inputs.fact_assembly_receipt
+                ).to_dict
+                POLICY_HASH = receipt_payload()["policy_sha256"]
+                publication_policy: Callable[..., dict[str, Any]] = c3_v2.publication_policy_for
+                POLICY = publication_policy(C3_V2_PROFILE, pinned_hash=POLICY_HASH)
                 PROFILE = C3_V2_PROFILE
                 if (
-                    POLICY_HASH == c3_v2.legacy.POLICY_HASH
+                    POLICY_HASH == getattr(c3_v2, "legacy").POLICY_HASH
                     and self.jobs._raw(
                         db,
                         inputs.context.claim.tenant_id,
@@ -472,7 +512,9 @@ class LocalSQLiteReviewStore:
         except (KeyError, TypeError, ValueError):
             raise ReviewRejected("REVIEW_INPUT_MISMATCH", 409) from None
 
-    def publish_transaction(self, db, inputs, review):
+    def publish_transaction(
+        self, db: sqlite3.Connection, inputs: ReviewInputs, review: dict[str, Any]
+    ) -> dict[str, Any]:
         """Join the fenced tag checkpoint transaction; no commit or epoch bump."""
         if not db.in_transaction:
             raise ValueError("active transaction required")
@@ -488,7 +530,8 @@ class LocalSQLiteReviewStore:
             stored = self.jobs._get(db, tenant, run_id, "review_inputs", review["review_id"])
             if canonical_hash(stored) != canonical_hash(snapshot):
                 raise ReviewRejected("REVIEW_PUBLICATION_CONFLICT", 409)
-            return json.loads(prior)
+            return_value: dict[str, Any] = json.loads(prior)
+            return return_value
         head = self.jobs._raw(db, tenant, run_id, "claim_head", claim_id)
         if head is not None:
             raise ReviewRejected("REVIEW_ALREADY_PUBLISHED", 409)
@@ -578,7 +621,19 @@ class LocalSQLiteReviewStore:
         )
         return review
 
-    def resolve(self, actor, review_id, body, expected, key, build, *, reopen=False):
+    def resolve(
+        self,
+        actor: AuthContext,
+        review_id: str,
+        body: dict[str, Any],
+        expected: int,
+        key: str,
+        build: Callable[
+            [dict[str, Any], dict[str, Any], int], tuple[dict[str, Any], dict[str, Any]]
+        ],
+        *,
+        reopen: bool = False,
+    ) -> dict[str, Any]:
         with self.jobs._transaction() as db:
             review = self._lookup(db, actor.tenant_id, review_id)
             tenant, run_id, claim_id = actor.tenant_id, review["run_id"], review["claim_id"]
@@ -599,7 +654,8 @@ class LocalSQLiteReviewStore:
                 previous = json.loads(replay)
                 if previous["request_hash"] != request_hash:
                     raise ReviewRejected("IDEMPOTENCY_CONFLICT", 409)
-                return previous["response"]
+                return_value: dict[str, Any] = previous["response"]
+                return return_value
             head = self.jobs._get(db, tenant, run_id, "claim_head", claim_id)
             # Two explicit lifecycle transitions, both strict-CAS on the review
             # revision and both anchored to the CURRENT tag head (never a stale
@@ -704,7 +760,16 @@ class LocalSQLiteReviewStore:
             )
             return response
 
-    def page(self, tenant_id, run_id, *, cursor, limit, now, cursors):
+    def page(
+        self,
+        tenant_id: str,
+        run_id: str,
+        *,
+        cursor: str | None,
+        limit: int,
+        now: float,
+        cursors: LocalSQLiteRunStore,
+    ) -> dict[str, Any]:
         from proofops.adapters.local.catalog_pages import initialize, page
 
         with self.jobs._transaction() as db:
@@ -731,11 +796,11 @@ class LocalSQLiteReviewStore:
                 ),
             )
 
-    def history(self, tenant_id, run_id, claim_id):
+    def history(self, tenant_id: str, run_id: str, claim_id: str) -> dict[str, Any]:
         with self.jobs._transaction() as db:
             self._run(db, tenant_id, run_id)
 
-            def revisions(kind):
+            def revisions(kind: str) -> list[dict[str, Any]]:
                 return [
                     json.loads(row[0])
                     for row in db.execute(

@@ -45,6 +45,8 @@ Hosted 비용은 **실행 USD1·일 USD15 코드 상한**이며 **일일 설정 
 
 ## 디렉터리 안내
 
+현재 hosted·로컬·검증·역사적 실험 경로와 새 파일 배치 규칙은 [코드베이스 실행 지도](docs/CODEBASE_MAP.md)를 참고하세요.
+
 | 경로 | 먼저 볼 내용 |
 | --- | --- |
 | [packages/proofops/domain](packages/proofops/domain) | 네트워크·AWS SDK와 분리된 판정/근거 도메인 |

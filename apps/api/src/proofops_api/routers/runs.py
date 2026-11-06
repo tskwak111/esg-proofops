@@ -12,6 +12,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query, Request, Security
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyCookie
+from proofops.application.authorization import AuthContext
 from proofops.application.runs import RunRejected, RunService
 from proofops.domain.errors import DomainValidationError
 from proofops_api.auth import (
@@ -121,7 +122,9 @@ def build_runs_router(
         ],
     )
 
-    def authorize(request, operation_id, write=False):
+    def authorize(
+        request: Request, operation_id: str, write: bool = False
+    ) -> AuthContext | JSONResponse:
         now = now_fn()
         auth = _authorize(request, auth_store, now, "editor" if write else "viewer")
         if isinstance(auth, JSONResponse):
@@ -143,7 +146,7 @@ def build_runs_router(
             return limited
         return auth
 
-    def failure(exc):
+    def failure(exc: Exception) -> JSONResponse:
         if isinstance(exc, RunRejected):
             response = _error_response(exc.status, exc.code, "Run request could not be processed.")
             if exc.status == 429:
@@ -153,7 +156,7 @@ def build_runs_router(
             return _error_response(422, "VALIDATION_ERROR", "Invalid run request.")
         return _error_response(409, "RUN_CONFLICT", "Run transaction could not be committed.")
 
-    async def payload(request, model: type[BaseModel]):
+    async def payload(request: Request, model: type[BaseModel]) -> dict[str, Any]:
         if not 16 <= len(request.headers.get("Idempotency-Key", "")) <= 128:
             raise RunRejected("IDEMPOTENCY_KEY_INVALID", 400)
         try:
@@ -169,7 +172,7 @@ def build_runs_router(
         operation_id="run_create",
         openapi_extra=_request_schema(RunCreate),
     )
-    async def create_run(request: Request):
+    async def create_run(request: Request) -> JSONResponse:
         auth = authorize(request, "run_create", True)
         if isinstance(auth, JSONResponse):
             return auth
@@ -197,7 +200,7 @@ def build_runs_router(
         request: Request,
         cursor: str | None = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
-    ):
+    ) -> JSONResponse:
         auth = authorize(request, "runs_list")
         if isinstance(auth, JSONResponse):
             return auth
@@ -212,7 +215,7 @@ def build_runs_router(
     @router.get(
         "/v1/runs/{run_id}", response_model=Run, operation_id="run_get", openapi_extra=read_contract
     )
-    def get_run(request: Request, run_id: UUID):
+    def get_run(request: Request, run_id: UUID) -> JSONResponse:
         auth = authorize(request, "run_get")
         if isinstance(auth, JSONResponse):
             return auth
@@ -222,7 +225,7 @@ def build_runs_router(
         except (ValueError, DomainValidationError, sqlite3.DatabaseError) as exc:
             return failure(exc)
 
-    async def mutate(request, run_id, action):
+    async def mutate(request: Request, run_id: UUID, action: str) -> JSONResponse:
         auth = authorize(request, f"run_{action}", True)
         if isinstance(auth, JSONResponse):
             return auth
@@ -258,7 +261,7 @@ def build_runs_router(
         operation_id="run_cancel",
         openapi_extra=action_contract,
     )
-    async def cancel(request: Request, run_id: UUID):
+    async def cancel(request: Request, run_id: UUID) -> JSONResponse:
         return await mutate(request, run_id, "cancel")
 
     @router.post(
@@ -268,7 +271,7 @@ def build_runs_router(
         operation_id="run_retry",
         openapi_extra=action_contract,
     )
-    async def retry(request: Request, run_id: UUID):
+    async def retry(request: Request, run_id: UUID) -> JSONResponse:
         return await mutate(request, run_id, "retry")
 
     @router.get(
@@ -277,7 +280,7 @@ def build_runs_router(
         operation_id="cost_get",
         openapi_extra=read_contract,
     )
-    def cost(request: Request, run_id: UUID):
+    def cost(request: Request, run_id: UUID) -> JSONResponse:
         auth = authorize(request, "cost_get")
         if isinstance(auth, JSONResponse):
             return auth
@@ -297,7 +300,7 @@ def build_runs_router(
         run_id: UUID,
         cursor: str | None = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
-    ):
+    ) -> JSONResponse:
         auth = authorize(request, "audit_get")
         if isinstance(auth, JSONResponse):
             return auth

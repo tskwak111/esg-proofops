@@ -1,6 +1,9 @@
 """Opt-in, run-pinned deterministic M3 fact assembly."""
 
+from __future__ import annotations
+
 from dataclasses import asdict, replace
+from typing import TYPE_CHECKING
 
 from proofops.application.evidence.report_level import GRI_ASSURED_PAGE_V1, check_report_level
 from proofops.application.evidence.span_citations import span_verified_graph, verify_source_ref
@@ -8,18 +11,38 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.rules.engine import MAPPINGS, ConfirmedFact
 from proofops.domain.values import SourceRef
 
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+    from typing import Any
+
+    from proofops.application.evidence.binding import ClaimContext
+    from proofops.application.evidence.retrieval import EvidencePacket
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.tagging.consensus import ConsensusResult
+    from proofops.application.tagging.contracts import TagRun
+    from proofops.domain.rulepacks import RulePackSnapshot
+    from proofops.domain.rules.engine import ConfirmedTags
+
+
 POLICY = "report-level-link-v1"
 POLICIES = {"M3": GRI_ASSURED_PAGE_V1}
 POLICY_HASH = canonical_hash({"policy": POLICY, "bindings": POLICIES})
 
 
-def _bindings(config, *, replay=False):
+def _bindings(config: dict[str, Any], *, replay: bool = False) -> dict[str, str]:
     if (config.get("policy"), config.get("policy_hash")) == (POLICY, POLICY_HASH):
         return POLICIES
     raise ValueError("REPORT_LEVEL_LINK_CONFIG_INVALID")
 
 
-def strict_fallback(runs, packet, rulepack, tenant_id, tag_revision, profile):
+def strict_fallback(
+    runs: tuple[TagRun, ...],
+    packet: EvidencePacket,
+    rulepack: RulePackSnapshot,
+    tenant_id: str,
+    tag_revision: int,
+    profile: str,
+) -> ConfirmedTags | None:
     """Use guarded primitive facts only for an explicitly opted-in strict run."""
     if profile != "strict-v1":
         return None
@@ -35,7 +58,7 @@ def strict_fallback(runs, packet, rulepack, tenant_id, tag_revision, profile):
     ).confirmed_tags
 
 
-def validate_config(config, *, replay=False):
+def validate_config(config: dict[str, Any], *, replay: bool = False) -> dict[str, Any]:
     """The run creator pins exact source refs or post-parse span locators."""
     if not isinstance(config, dict) or set(config) != {"policy", "policy_hash", "refs"}:
         raise ValueError("REPORT_LEVEL_LINK_CONFIG_INVALID")
@@ -75,7 +98,9 @@ def validate_config(config, *, replay=False):
     return config
 
 
-def resolve_refs(graph, configured):
+def resolve_refs(
+    graph: CanonicalDocumentGraph, configured: list[dict[str, Any]]
+) -> tuple[SourceRef, ...]:
     refs = []
     for item in configured:
         if "source_id" in item:
@@ -102,15 +127,22 @@ def resolve_refs(graph, configured):
 
 
 def apply_report_level_link(
-    consensus, *, config, context, graph, attest, fallback_tags=None, replay=False
-):
+    consensus: ConsensusResult,
+    *,
+    config: dict[str, Any],
+    context: ClaimContext,
+    graph: CanonicalDocumentGraph,
+    attest: Callable[[tuple[SourceRef, ...]], tuple[CanonicalDocumentGraph, dict[str, Any]]],
+    fallback_tags: ConfirmedTags | None = None,
+    replay: bool = False,
+) -> tuple[ConsensusResult, tuple[dict[str, Any], ...]]:
     """Credit only unknown M3 after source attestation and literal binding."""
     validate_config(config, replay=replay)
     bindings = _bindings(config, replay=replay)
     tags = consensus.confirmed_tags or fallback_tags
     if tags is None or tags.track != "management":
         return consensus, ()
-    page_texts = {}
+    page_texts: dict[int, list[str]] = {}
     for block in graph.blocks:
         page_texts.setdefault(block.page_num, []).append(block.raw_text)
     claim_refs = tuple(
@@ -197,7 +229,15 @@ def apply_report_level_link(
     ), tuple(receipts)
 
 
-def replay_report_level_link(consensus, *, config, context, graph, receipts, fallback_tags=None):
+def replay_report_level_link(
+    consensus: ConsensusResult,
+    *,
+    config: dict[str, Any],
+    context: ClaimContext,
+    graph: CanonicalDocumentGraph,
+    receipts: Sequence[dict[str, Any]],
+    fallback_tags: ConfirmedTags | None = None,
+) -> ConsensusResult:
     """Rebuild linked facts from frozen refs; storage additionally reattests PDF bytes."""
     validate_config(config, replay=True)
     bindings = _bindings(config, replay=True)
@@ -227,7 +267,7 @@ def replay_report_level_link(consensus, *, config, context, graph, receipts, fal
             raise ValueError("REPORT_LEVEL_LINK_REPLAY_MISMATCH")
         by_element[element_id] = receipt
 
-    def attest(refs):
+    def attest(refs: tuple[SourceRef, ...]) -> tuple[CanonicalDocumentGraph, dict[str, Any]]:
         element_id = "M3"
         if element_id not in by_element:
             raise ValueError("uncredited")

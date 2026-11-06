@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import builtins
 import json
+from collections.abc import Callable, Iterator
 from contextvars import ContextVar
 from copy import deepcopy
 from dataclasses import asdict
 from hashlib import sha256
+from typing import TYPE_CHECKING
 
 from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 from proofops.adapters.local.run_artifacts import load_run_graph
@@ -19,11 +22,28 @@ from proofops.application.claims import (
     discover_atomic_claims,
 )
 from proofops.application.ports.jobs import JobMessage
-from proofops.application.rb4_memory import enabled as rb4_memory_enabled
+from proofops.application.rb4_memory import enabled as _rb4_memory_enabled
 from proofops.domain.provenance import canonical_hash
 
+if TYPE_CHECKING:
+    import sqlite3
+    from collections.abc import Iterable, Sequence
+    from types import ModuleType
+    from typing import Any
 
-def extraction_profile(snapshot):
+    from proofops.adapters.local.job_store import LocalSQLiteJobStore
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser
+    from proofops.application.claims import Claim, ClaimDiscovery
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.reviews import ReviewInputs
+    from proofops.application.uploads import UploadService
+
+
+rb4_memory_enabled: Callable[..., bool] = _rb4_memory_enabled
+
+
+def extraction_profile(snapshot: dict[str, Any]) -> ExtractionProfile:
     profile = ExtractionProfile(**snapshot["extraction_profile"])
     if canonical_hash(asdict(profile)) != snapshot["extraction_profile_hash"] or (
         profile.synthetic and snapshot.get("extraction_mode") != "local_synthetic"
@@ -32,7 +52,7 @@ def extraction_profile(snapshot):
     return profile
 
 
-def claim_scope(snapshot, graph):
+def claim_scope(snapshot: dict[str, Any], graph: CanonicalDocumentGraph) -> ClaimScope:
     """Discovery scope for the extractor only; the parsed graph/evidence stay broad.
 
     When ``extraction_limits.claim_pages`` is frozen, discovery narrows to that
@@ -55,14 +75,20 @@ def claim_scope(snapshot, graph):
 
 
 class _RecordedExtractor:
-    def __init__(self, profile, receipts, *, failures=None):
+    def __init__(
+        self,
+        profile: ExtractionProfile,
+        receipts: Sequence[dict[str, Any]],
+        *,
+        failures: dict[str, str] | None = None,
+    ) -> None:
         self.profile = profile
         self.receipts = {item["packet_sha256"]: item for item in receipts}
         self.failures = failures or {}
         if len(self.receipts) != len(receipts):
             raise ValueError("duplicate extraction receipts")
 
-    def extract(self, packet):
+    def extract(self, packet: dict[str, Any]) -> dict[str, Any]:
         receipt = self.receipts[canonical_hash(packet)]
         if receipt["status"] == "failed":
             source_id = packet["untrusted_document_data"]["source_id"]
@@ -70,20 +96,31 @@ class _RecordedExtractor:
             if reason != "extraction_failed":
                 raise ExtractionOutputError(reason, failure_code=reason)
             raise TimeoutError
-        return json.loads(receipt["raw_response_json"])
+        return_value: dict[str, Any] = json.loads(receipt["raw_response_json"])
+        return return_value
 
 
 class LocalClaimStore:
-    def __init__(self, store, uploads, parser):
+    def __init__(
+        self, store: LocalSQLiteRunStore, uploads: UploadService, parser: OpenDataLoaderParser
+    ) -> None:
         self.store, self.uploads, self.parser = store, uploads, parser
-        self._read_compatibility: ContextVar[list] = ContextVar("claim_receipt_read", default=[])
+        self._read_compatibility: ContextVar[list[dict[str, Any]]] = ContextVar(
+            "claim_receipt_read", default=[]
+        )
 
     @property
-    def receipt_read_compatibility(self):
+    def receipt_read_compatibility(self) -> builtins.list[dict[str, Any]]:
         return deepcopy(self._read_compatibility.get())
 
-    def load_evidence(self, tenant_id, run_id, *, for_extraction=False):
-        from proofops.adapters.local.spg_verified_evidence import read_evidence
+    def load_evidence(
+        self, tenant_id: str, run_id: str, *, for_extraction: bool = False
+    ) -> tuple[dict[str, Any], ClaimDiscovery, CanonicalDocumentGraph]:
+        from proofops.adapters.local.spg_verified_evidence import read_evidence as _read_evidence
+
+        read_evidence: Callable[
+            ..., tuple[dict[str, Any], ClaimDiscovery, CanonicalDocumentGraph]
+        ] = _read_evidence
 
         return read_evidence(
             self,
@@ -93,7 +130,9 @@ class LocalClaimStore:
             cold=lambda: self._load_evidence(tenant_id, run_id, for_extraction=for_extraction),
         )
 
-    def _load_evidence(self, tenant_id, run_id, *, for_extraction=False):
+    def _load_evidence(
+        self, tenant_id: str, run_id: str, *, for_extraction: bool = False
+    ) -> tuple[dict[str, Any], ClaimDiscovery, CanonicalDocumentGraph]:
         """Replay once; extraction reuses the parse graph without claim-span annotations.
 
         The default graph retains verified claim spans for evidence consumers. The
@@ -168,7 +207,11 @@ class LocalClaimStore:
         if release_inputs:
             del parse_checkpoint
         if "claim_source_policy" in snapshot:
-            from proofops.adapters.local.claim_source_policies import claim_source_reader
+            from proofops.adapters.local.claim_source_policies import (
+                claim_source_reader as _claim_source_reader,
+            )
+
+            claim_source_reader: Callable[..., ModuleType] = _claim_source_reader
             from proofops.adapters.local.native_replay_cache import replay_claims_cached
             from proofops.adapters.local.run_artifacts import load_run_inputs
 
@@ -205,9 +248,14 @@ class LocalClaimStore:
         ):
             raise ValueError("CLAIM_SNAPSHOT_HEAD_CHANGED")
         from proofops.adapters.local.receipt_environment_compat import (
-            receipt_read_metadata,
-            table_read_metadata,
+            receipt_read_metadata as _receipt_read_metadata,
         )
+        from proofops.adapters.local.receipt_environment_compat import (
+            table_read_metadata as _table_read_metadata,
+        )
+
+        receipt_read_metadata: Callable[..., dict[str, Any] | None] = _receipt_read_metadata
+        table_read_metadata: Callable[..., dict[str, Any] | None] = _table_read_metadata
 
         compatibility = [table_read_metadata(graph)]
         if "claim_source_attestation" in envelope:
@@ -215,25 +263,35 @@ class LocalClaimStore:
         self._read_compatibility.set([item for item in compatibility if item is not None])
         return envelope, discovery, parse_graph if for_extraction else graph
 
-    def load_snapshot(self, tenant_id: str, run_id: str) -> dict:
+    def load_snapshot(self, tenant_id: str, run_id: str) -> dict[str, Any]:
         return self.load_evidence(tenant_id, run_id)[0]
 
-    def load(self, tenant_id: str, run_id: str):
+    def load(self, tenant_id: str, run_id: str) -> ClaimDiscovery:
         return self.load_evidence(tenant_id, run_id)[1]
 
-    def list(self, tenant_id: str, run_id: str):
+    def list(self, tenant_id: str, run_id: str) -> tuple[Claim, ...]:
         return self.load(tenant_id, run_id).claims
 
-    def get(self, tenant_id: str, run_id: str, claim_id: str):
+    def get(self, tenant_id: str, run_id: str, claim_id: str) -> Claim:
         for claim in self.list(tenant_id, run_id):
             if claim.claim_id == claim_id:
                 return claim
         raise KeyError("claim not found")
 
     def missing_evidence(
-        self, tenant_id, run_id, claim, *, track, elements, inputs=None, original_graph=None
-    ):
-        from proofops.adapters.local.missing_evidence import missing_evidence
+        self,
+        tenant_id: str,
+        run_id: str,
+        claim: Claim,
+        *,
+        track: str | None,
+        elements: builtins.list[dict[str, Any]],
+        inputs: ReviewInputs | None = None,
+        original_graph: CanonicalDocumentGraph | None = None,
+    ) -> builtins.list[dict[str, Any]]:
+        from proofops.adapters.local.missing_evidence import missing_evidence as _missing_evidence
+
+        missing_evidence: Callable[..., list[dict[str, Any]]] = _missing_evidence
 
         return missing_evidence(
             self,
@@ -246,12 +304,28 @@ class LocalClaimStore:
             original_graph=original_graph,
         )
 
-    def submitted_reviews(self, tenant_id, run_id, claim_id=None, *, connection=None):
-        from proofops.adapters.local.submitted_review import read_submissions
+    def submitted_reviews(
+        self,
+        tenant_id: str,
+        run_id: str,
+        claim_id: str | None = None,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> builtins.list[dict[str, Any]]:
+        from proofops.adapters.local.submitted_review import read_submissions as _read_submissions
+
+        read_submissions: Callable[..., list[dict[str, Any]]] = _read_submissions
 
         return read_submissions(self, tenant_id, run_id, claim_id, connection=connection)
 
-    def current_tag(self, tenant_id: str, run_id: str, claim_id: str, *, connection=None):
+    def current_tag(
+        self,
+        tenant_id: str,
+        run_id: str,
+        claim_id: str,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[str, Any] | None:
         """Read one atomic head; immutable prior revisions are never scanned."""
         if connection is None:
             with self.store.jobs._transaction() as db:
@@ -281,7 +355,7 @@ class LocalClaimStore:
         )
 
     @staticmethod
-    def summary(claim, current):
+    def summary(claim: Claim, current: dict[str, Any] | None) -> dict[str, Any]:
         if current is None:
             return claim.to_summary()
         tag = current["tag"]
@@ -292,7 +366,9 @@ class LocalClaimStore:
             track=track, decision=current["decision"], revision=tag["tag_revision"]
         )
 
-    def outcome_projection(self, tenant_id, run_id, *, admitted_checkpoint=None):
+    def outcome_projection(
+        self, tenant_id: str, run_id: str, *, admitted_checkpoint: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Expose only the same immutable checkpoint already admitted by load()."""
         run = self.store.jobs.get_run(tenant_id, run_id)
         checkpoint = self.store.jobs.read_checkpoint(JobMessage(**run["extract_job"]))
@@ -330,7 +406,18 @@ class LocalClaimStore:
             else {}
         )
 
-    def page(self, discovery, run_id, *, cursor, limit, now, track, grade, review_status):
+    def page(
+        self,
+        discovery: ClaimDiscovery,
+        run_id: str,
+        *,
+        cursor: str | None,
+        limit: int,
+        now: int,
+        track: str | None,
+        grade: str | None,
+        review_status: str | None,
+    ) -> dict[str, Any]:
         from proofops.adapters.local.catalog_pages import initialize, page
 
         tenant_id = discovery.scope.tenant_id
@@ -338,7 +425,7 @@ class LocalClaimStore:
             initialize(db)
             run = self.store.jobs._get(db, tenant_id, run_id, "run", "META")
 
-            def items():
+            def items() -> Iterator[dict[str, Any]]:
                 for claim in sorted(
                     discovery.claims,
                     key=lambda c: (
@@ -377,7 +464,12 @@ class LocalClaimStore:
             )
 
 
-def snapshot_pins(snapshot, graph, profile, parse_checkpoint):
+def snapshot_pins(
+    snapshot: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    profile: ExtractionProfile,
+    parse_checkpoint: bytes,
+) -> dict[str, Any]:
     return dict(
         schema="local_extract_checkpoint_v2"
         if "claim_source_policy" in snapshot
@@ -404,7 +496,14 @@ def snapshot_pins(snapshot, graph, profile, parse_checkpoint):
     )
 
 
-def guard_extract_continuation(db, jobs, run, *, now, supersede=False):
+def guard_extract_continuation(
+    db: sqlite3.Connection,
+    jobs: LocalSQLiteJobStore,
+    run: dict[str, Any],
+    *,
+    now: int,
+    supersede: bool = False,
+) -> None:
     """Check downstream ownership under the extraction lease/publication transaction."""
     tenant, run_id = run["tenant_id"], run["run_id"]
     if (
@@ -434,7 +533,16 @@ def guard_extract_continuation(db, jobs, run, *, now, supersede=False):
             jobs._put(db, tenant, run_id, "outbox", event["event_id"], event)
 
 
-def validate_extract_commit(db, jobs, run, message, envelope, next_job, *, now):
+def validate_extract_commit(
+    db: sqlite3.Connection,
+    jobs: LocalSQLiteJobStore,
+    run: dict[str, Any],
+    message: JobMessage,
+    envelope: dict[str, Any],
+    next_job: JobMessage | None,
+    *,
+    now: int,
+) -> None:
     """Validate publication pins inside the same transaction as checkpoint/outbox."""
     row = db.execute(
         "SELECT payload FROM run_snapshots WHERE tenant_id=? AND run_id=?",
@@ -545,7 +653,9 @@ def validate_extract_commit(db, jobs, run, message, envelope, next_job, *, now):
     guard_extract_continuation(db, jobs, run, now=now, supersede=True)
 
 
-def discovery_coverage(parsed_coverage, graph, discovery):
+def discovery_coverage(
+    parsed_coverage: dict[str, Any], graph: CanonicalDocumentGraph, discovery: ClaimDiscovery
+) -> dict[str, Any]:
     return dict(
         parsed_coverage,
         chunks_discovered=len(graph.blocks),
@@ -557,7 +667,13 @@ def discovery_coverage(parsed_coverage, graph, discovery):
     )
 
 
-def extraction_outcome(graph, discovery, *, claim_pages, include_source_failures=False):
+def extraction_outcome(
+    graph: CanonicalDocumentGraph,
+    discovery: ClaimDiscovery,
+    *,
+    claim_pages: Iterable[int],
+    include_source_failures: bool = False,
+) -> dict[str, Any]:
     """Explain empty/partial discovery without inferring absence from unreadable pages."""
     pages = set(claim_pages)
     failures = sorted(
@@ -627,16 +743,17 @@ DEFERRED_REASONS = frozenset(
 OCR_ACQUISITION_REASON_PREFIX = "ocr_acquisition_unresolved:"
 
 
-def _is_deferred_reason(reason):
+def _is_deferred_reason(reason: object) -> bool:
     if reason in DEFERRED_REASONS:
         return True
     if not isinstance(reason, str) or not reason.startswith(OCR_ACQUISITION_REASON_PREFIX):
         return False
     code = reason[len(OCR_ACQUISITION_REASON_PREFIX) :]
-    return ocr_acquisition_failure_code(ValueError(code)) == code
+    return_value: bool = ocr_acquisition_failure_code(ValueError(code)) == code
+    return return_value
 
 
-def deferred_payload(text: str, reason: str) -> dict:
+def deferred_payload(text: str, reason: str) -> dict[str, Any]:
     """The local, model-free answer for a source outside this batch."""
     if not _is_deferred_reason(reason):
         raise ValueError("EXTRACTION_INPUT_INVALID")
@@ -654,7 +771,7 @@ def deferred_payload(text: str, reason: str) -> dict:
     }
 
 
-def _deferred_reason(raw_response_json):
+def _deferred_reason(raw_response_json: str) -> str | None:
     """Return the deferred reason of a stored receipt payload, else ``None``."""
     try:
         spans = json.loads(raw_response_json)["spans"]
@@ -665,11 +782,12 @@ def _deferred_reason(raw_response_json):
     span = spans[0]
     reason = span.get("reason")
     if span.get("kind") == "unknown" and _is_deferred_reason(reason):
-        return reason
+        return_value: str | None = reason
+        return return_value
     return None
 
 
-def extraction_batch_state(envelope):
+def extraction_batch_state(envelope: dict[str, Any]) -> dict[str, Any]:
     """Exact per-source state of a stored extraction revision, from receipts only.
 
     ``model_processed`` are the sources a batch actually spent a model call on and

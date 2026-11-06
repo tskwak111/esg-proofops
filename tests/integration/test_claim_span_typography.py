@@ -357,7 +357,10 @@ def test_the_pilot_cli_opt_in_is_new_run_only_and_requires_the_wrapped_flag():
 
     # New-run only: the chain is required, resume cannot add it, the manifest
     # records it and an existing state directory refuses a changed value.
-    source = Path(pilot.__file__).read_text()
+    # The public entry point delegates CLI and resume guards to these modules.
+    source = "\n".join(
+        Path(module.__file__).read_text() for module in (pilot, pilot._cli, pilot._resume)
+    )
     for needle in (
         '"--claim-span-typography",',
         '"--claim-span-typography requires --claim-span-bullet-spacing"',

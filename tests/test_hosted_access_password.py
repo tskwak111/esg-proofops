@@ -300,12 +300,44 @@ def test_cli_default_expiry_rotation_disable_and_secret_free_output(configured, 
         check=True,
     )
     assert "cli-fixture" not in result.stdout + result.stderr
-    from datetime import datetime
+    from datetime import UTC, datetime
 
     config = json.loads(store.settings.access_config.read_text())
     assert (
         config["accounts"]["admin"]["expires"]
         == datetime.fromisoformat("2026-10-20T23:59:00+09:00").timestamp()
+    )
+    with pytest.raises(HostedError, match="ACCESS_PASSWORD_INVALID"):
+        store.access.login(
+            "admin",
+            "cli-fixture-only-password",
+            ip="cli",
+            now=config["accounts"]["admin"]["expires"],
+        )
+    # The historical default expires; exercise login/disable with an explicitly
+    # valid credential instead of relying on the wall clock being before that date.
+    expiry = datetime.fromtimestamp(time.time() + 86400, UTC).isoformat()
+    result = subprocess.run(
+        command
+        + [
+            "set",
+            "--role",
+            "admin",
+            "--tenant",
+            tenant,
+            "--from-file",
+            str(source),
+            "--expires",
+            expiry,
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "cli-fixture" not in result.stdout + result.stderr
+    assert json.loads(store.settings.access_config.read_text())["accounts"]["admin"]["expires"] == (
+        datetime.fromisoformat(expiry).timestamp()
     )
     auth = store.access.login("admin", "cli-fixture-only-password", ip="cli", now=time.time())
     subprocess.run(

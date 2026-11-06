@@ -133,17 +133,18 @@ def build_composition() -> ApiComposition:
         for region in os.environ.get("MODEL_ALLOWED_PROCESSING_REGIONS", "").split(",")
         if region.strip()
     )
+    run_store = LocalSQLiteRunStore(database_path, rulepacks=rulepack_store)
     runs = RunService(
-        LocalSQLiteRunStore(database_path, rulepacks=rulepack_store),
+        run_store,
         uploads,
         registry,
         allowed_regions=allowed_regions,
         **load_local_runtime(os.environ),
     )
     parser = OpenDataLoaderParser(database_path.parent / "parser-prepared")
-    tags = LocalTagStore(runs.store, uploads, parser)
-    claims = LocalClaimStore(runs.store, uploads, parser)
-    assurance = LocalAssuranceStore(runs.store, uploads, parser)
+    tags = LocalTagStore(run_store, uploads, parser)
+    claims = LocalClaimStore(run_store, uploads, parser)
+    assurance = LocalAssuranceStore(run_store, uploads, parser)
     return ApiComposition(
         proofops=proofops_composition,
         auth_store=auth_store,
@@ -154,26 +155,26 @@ def build_composition() -> ApiComposition:
         parser=parser,
         claims=claims,
         tags=tags,
-        classifications=LocalSQLiteClassificationStore(runs.store, uploads, parser, tags, claims),
+        classifications=LocalSQLiteClassificationStore(run_store, uploads, parser, tags, claims),
         reviews=ReviewService(
-            LocalSQLiteReviewStore(runs.store.jobs),
+            LocalSQLiteReviewStore(run_store.jobs),
             load_inputs=tags.load_inputs,
             verify_context_sources=tags.verify_context_sources,
-            load_run_snapshot=runs.store.snapshot,
+            load_run_snapshot=run_store.snapshot,
         ),
-        source_conditions=LocalSourceConditionReview(runs.store, uploads, parser),
+        source_conditions=LocalSourceConditionReview(run_store, uploads, parser),
         rescores=RescoreService(
-            LocalSQLiteRescoreStore(runs.store),
+            LocalSQLiteRescoreStore(run_store),
             load_inputs=tags.load_inputs,
             verify_context_sources=tags.verify_context_sources,
         ),
-        summaries=LocalSummaryStore(runs.store, claims),
+        summaries=LocalSummaryStore(run_store, claims),
         evaluations=LocalEvaluationStore(database_path),
-        analysis=LocalAnalysisStore(runs.store, uploads, parser, claims, tags, assurance=assurance),
+        analysis=LocalAnalysisStore(run_store, uploads, parser, claims, tags, assurance=assurance),
         assurance=assurance,
         exports=ExportService(
             LocalExportStore(
-                runs.store,
+                run_store,
                 claims,
                 element_evidence_encoding=os.environ.get(
                     "PROOFOPS_EXPORT_ELEMENT_EVIDENCE_ENCODING", ELEMENT_EVIDENCE_V1
@@ -182,7 +183,7 @@ def build_composition() -> ApiComposition:
         ),
         retention=LocalRetentionStore(uploads),
         comparisons=LocalComparisonStore(
-            runs.store,
+            run_store,
             uploads,
             claims,
             enabled=os.environ.get("ENABLE_YEAR_COMPARISON", "false") == "true",
@@ -191,7 +192,7 @@ def build_composition() -> ApiComposition:
         reconciliation=LocalReconciliationStore(
             database_path,
             database_path.parent / "reconciliation-artifacts",
-            run_store=runs.store,
+            run_store=run_store,
             claims=claims,
             tags=tags,
         ),

@@ -15,9 +15,11 @@ import http.client
 import json
 import os
 import sqlite3
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from typing import Any, cast
 
 from proofops.adapters.local.sqlite_busy import connection
 from proofops.application.budget import PricingSnapshot, TokenUsage, usage_cost
@@ -61,7 +63,7 @@ PRICE_PRO4 = PricingSnapshot(
     Decimal("1.20"),
 )
 _PRICES = {MODEL: PRICE, MODEL_PRO4: PRICE_PRO4}
-POLICY = {
+POLICY: dict[str, Any] = {
     "limit_usd": "10.00",
     "reservation_usd": "1.00",
     "price": PRICE.to_dict(),
@@ -98,7 +100,7 @@ UPSTAGE_TRANSPORT_STOP_CODES = frozenset(
 )
 
 
-def _zero_request_usage() -> dict:
+def _zero_request_usage() -> dict[str, Any]:
     return {
         "model_calls": 0,
         "reserved_calls": 0,
@@ -113,7 +115,7 @@ def _zero_request_usage() -> dict:
     }
 
 
-def request_usage(ledger, request_ids) -> dict:
+def request_usage(ledger: str | Path | None, request_ids: Iterable[str]) -> dict[str, Any]:
     """Shared read-only accounting over supplied request IDs.
 
     Counts only distinct supplied IDs with a ledger reservation; IDs without
@@ -274,7 +276,7 @@ class UpstageProbe:
         self._responses.chmod(0o700)
 
     @staticmethod
-    def _authorized_limit(db) -> Decimal:
+    def _authorized_limit(db: sqlite3.Connection) -> Decimal:
         """Validate all recorded grants, then return this probe's general-run cap."""
         stored = db.execute("SELECT body FROM probe_policy WHERE id=1").fetchone()
         if stored is None or stored[0] != json.dumps(POLICY, sort_keys=True):
@@ -336,7 +338,7 @@ class UpstageProbe:
         return general
 
     @staticmethod
-    def _call_total(db) -> Decimal:
+    def _call_total(db: sqlite3.Connection) -> Decimal:
         total = Decimal(0)
         for request_id, signature, raw, receipt in db.execute(
             "SELECT request_id,signature,committed,receipt FROM probe_calls"
@@ -436,7 +438,7 @@ class UpstageProbe:
     def model(self) -> str:
         return self._model
 
-    def _reserve(self, request_id, body):
+    def _reserve(self, request_id: str, body: dict[str, Any]) -> None:
         with sqlite3.connect(self.ledger, timeout=10) as db:
             db.execute("BEGIN IMMEDIATE")
             authorized_limit = self._authorized_limit(db)
@@ -450,7 +452,7 @@ class UpstageProbe:
                 (request_id, canonical_hash(body), POLICY["reservation_usd"]),
             )
 
-    def _settle(self, request_id, cost, receipt):
+    def _settle(self, request_id: str, cost: Decimal | str, receipt: dict[str, Any]) -> None:
         with sqlite3.connect(self.ledger) as db:
             updated = db.execute(
                 "UPDATE probe_calls SET committed=?, receipt=? "
@@ -465,7 +467,7 @@ class UpstageProbe:
             if updated != 1:
                 raise ValueError("BUDGET_SETTLEMENT_INVALID")
 
-    def is_recorded_output_truncation(self, request: dict, *, request_id: str) -> bool:
+    def is_recorded_output_truncation(self, request: dict[str, Any], *, request_id: str) -> bool:
         """Read-only classification; never release reservations or reuse partial content."""
         try:
             if request["request_id"] != request_id:
@@ -502,7 +504,7 @@ class UpstageProbe:
             )
             if usage.input_tokens is None or usage.output_tokens is None:
                 return False
-            cost = Decimal(usage_cost(usage, self._price.to_dict())) * Decimal("1.10")
+            cost = Decimal(cast(str, usage_cost(usage, self._price.to_dict()))) * Decimal("1.10")
             allowed = (
                 (MODEL, "solar-pro3-260323")
                 if self.model == MODEL
@@ -527,7 +529,7 @@ class UpstageProbe:
         ):
             return False
 
-    def authorize_additional_budget(self, additional_usd: str, *, reason: str) -> dict:
+    def authorize_additional_budget(self, additional_usd: str, *, reason: str) -> dict[str, Any]:
         """Append explicit authorization, preserving history and the process ceiling."""
         if not isinstance(additional_usd, str):
             raise ValueError("AUTHORIZATION_AMOUNT_INVALID")
@@ -566,7 +568,7 @@ class UpstageProbe:
             "reason": reason.strip(),
         }
 
-    def summary(self):
+    def summary(self) -> dict[str, Any]:
         with sqlite3.connect(self.ledger) as db:
             rows = db.execute("SELECT committed, receipt FROM probe_calls").fetchall()
             authorized_limit = self._authorized_limit(db)
@@ -579,7 +581,7 @@ class UpstageProbe:
             "committed_usd": str(committed),
         }
 
-    def _post(self, body):
+    def _post(self, body: dict[str, Any]) -> dict[str, Any]:
         connection = http.client.HTTPSConnection("api.upstage.ai", timeout=60)
         try:
             connection.request(
@@ -597,7 +599,7 @@ class UpstageProbe:
             raw = response.read(1_048_577)
             if len(raw) > 1_048_576:
                 raise ValueError("UPSTAGE_RESPONSE_TOO_LARGE")
-            return json.loads(raw)
+            return cast("dict[str, Any]", json.loads(raw))
         finally:
             connection.close()
 
@@ -609,7 +611,7 @@ class UpstageProbe:
         request_id: str,
         max_tokens: int = 1024,
         json_mode: bool = False,
-    ):
+    ) -> dict[str, Any]:
         # Pricing reverified at https://www.upstage.ai/pricing/api on 2026-10-09:
         # Pro3 $0.15/$0.60, Pro4 $0.30/$1.20 per M tokens (conservative, promotions ignored).
         # Recheck in one week; historical price IDs/rates and ledger policy stay unchanged.
@@ -653,7 +655,7 @@ class UpstageProbe:
         request_id: str,
         max_tokens: int = 1024,
         json_mode: bool = False,
-    ):
+    ) -> dict[str, Any]:
         body = self.request_body(
             system, user_json, request_id=request_id, max_tokens=max_tokens, json_mode=json_mode
         )
@@ -688,7 +690,7 @@ class UpstageProbe:
             )
             if usage.input_tokens is None or usage.output_tokens is None:
                 raise ValueError("unknown token usage")
-            cost = Decimal(usage_cost(usage, self._price.to_dict())) * Decimal("1.10")
+            cost = Decimal(cast(str, usage_cost(usage, self._price.to_dict()))) * Decimal("1.10")
             choice = data["choices"][0]
             content = choice["message"]["content"]
             allowed_models = (

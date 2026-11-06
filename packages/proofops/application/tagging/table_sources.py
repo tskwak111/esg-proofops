@@ -45,6 +45,7 @@ What it refuses to do
 """
 
 from dataclasses import dataclass
+from typing import cast
 
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.ingest.graph_fusion import CanonicalBlock, CanonicalDocumentGraph
@@ -125,7 +126,7 @@ def _coordinates(block: CanonicalBlock) -> tuple[str, int, int, int, int] | None
     column_span = 1 if candidate.column_span is None else candidate.column_span
     if any(type(value) is not int or value < 1 for value in (row_span, column_span)):
         return None
-    return table_native_id, row, column, row_span, column_span
+    return table_native_id, cast(int, row), cast(int, column), row_span, column_span
 
 
 def _same_table(left: CanonicalBlock, right: CanonicalBlock) -> bool:
@@ -180,16 +181,20 @@ def _focal_cell(
     identity = _lineage_identity(block)
     if identity is None:
         return None
-    if block.kind == "table" and "pb1_table_claims" in block.candidates[block.winner].context:
+    if (
+        block.kind == "table"
+        and "pb1_table_claims" in block.candidates[cast(int, block.winner)].context
+    ):
         from proofops.application.ingest.pb1_tables import observations
 
-        if "h1-origin-context-v1" in block.candidates[block.winner].context:
+        if "h1-origin-context-v1" in block.candidates[cast(int, block.winner)].context:
             from proofops.application.ingest.w9_tables import observations_for
 
             rows = observations_for(block, graph)
         else:
             rows = observations(
-                block.normalized_text, context=" ".join(block.candidates[block.winner].context)
+                block.normalized_text,
+                context=" ".join(block.candidates[cast(int, block.winner)].context),
             )
         row = next(
             (r for r in rows if r["start"] <= ref.char_start < ref.char_end <= r["end"]), None
@@ -204,13 +209,14 @@ def _focal_cell(
                 and b.candidates[b.winner].row_number == row["row"]
                 and b.candidates[b.winner].column_number == row["value_column"]
             ]
-            if "h1-origin-context-v1" in block.candidates[block.winner].context:
-                origin = block.candidates[block.winner].source
+            if "h1-origin-context-v1" in block.candidates[cast(int, block.winner)].context:
+                origin = block.candidates[cast(int, block.winner)].source
                 cells = [
                     b
                     for b in cells
-                    if b.candidates[b.winner].source.parser_run_id == origin.parser_run_id
-                    and b.candidates[b.winner].table_native_id == origin.source_native_id
+                    if b.candidates[cast(int, b.winner)].source.parser_run_id
+                    == origin.parser_run_id
+                    and b.candidates[cast(int, b.winner)].table_native_id == origin.source_native_id
                 ]
             return cells[0] if len(cells) == 1 else None
     if _coordinates(block) is not None:
@@ -404,7 +410,7 @@ def table_structural_sources(
             if (other_coordinates := _coordinates(other)) is not None and _same_table(cell, other)
         }
         header_rows, stub_columns = _table_layout(siblings)
-        if "pb1_table_claims" in cell.candidates[cell.winner].context:
+        if "pb1_table_claims" in cell.candidates[cast(int, cell.winner)].context:
             import re
 
             years = [

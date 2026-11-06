@@ -1,9 +1,14 @@
 """SC1 wire over the existing authorized, fenced, immutable tagging transport."""
 
+from __future__ import annotations
+
 import json
 from dataclasses import replace
+from typing import Any
 
+from proofops.application.preflight import Preflight
 from proofops.application.tagging.i24_inventory import SCHEMA, WIRE_PROMPT, transport_request
+from proofops.application.tagging.service import RawTagResponse
 from proofops.domain.rulepacks import canonical_json
 
 from proofops_agent.upstage_tagging import UpstageTaggingTransport
@@ -12,11 +17,13 @@ from proofops_agent.upstage_tagging import UpstageTaggingTransport
 class SC1InventoryTransport(UpstageTaggingTransport):
     TRANSPORT_VERSION = "sc1-inventory-hosted-i24-v1"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.TRANSPORT_VERSION = "sc1-inventory-hosted-i24-v1"
 
-    def _wire_request(self, request):
+    def _wire_request(
+        self, request: dict[str, Any]
+    ) -> tuple[str, str, dict[str, Any], Preflight, str]:
         authorization = self._authorize_request(request)
         original = json.loads(request["user_json"])
         if request != transport_request(original, self._settings):
@@ -53,7 +60,9 @@ class SC1InventoryTransport(UpstageTaggingTransport):
             canonical_json(SCHEMA),
         )
 
-    def restore_payload(self, payload, refs, *, policy=None):
+    def restore_payload(
+        self, payload: dict[str, Any], refs: dict[str, Any], *, policy: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         from jsonschema import Draft202012Validator
         from proofops.application.tagging.cf1_inventory import SCHEMA as CF1_SCHEMA
 
@@ -62,7 +71,7 @@ class SC1InventoryTransport(UpstageTaggingTransport):
             raise ValueError("SC1_RESPONSE_SCHEMA_INVALID")
         return payload
 
-    def _response_metadata(self, response):
+    def _response_metadata(self, response: RawTagResponse) -> RawTagResponse:
         from proofops.adapters.local.i27_inventory_execution import current
 
         request = current.get()

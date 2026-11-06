@@ -21,7 +21,7 @@ _lock = threading.Lock()
 
 
 def check_enabled():
-    if os.getenv("LIVE_DISABLED") == "1":
+    if os.getenv("LIVE_DISABLED") in {"1", "true"}:
         raise LiveError(503, "LIVE_DISABLED")
 
 

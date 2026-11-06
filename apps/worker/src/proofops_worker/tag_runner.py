@@ -5,20 +5,22 @@ source-backed preliminary classification must be explicitly supplied; neither a
 missing track nor absent runtime configuration selects a default product model.
 """
 
+from __future__ import annotations
+
 import json
 import sqlite3
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from dataclasses import asdict
 from threading import Lock
-from uuid import UUID, uuid4, uuid5
+from typing import TYPE_CHECKING, Any, Unpack, cast
+from uuid import uuid4
 
 from proofops.adapters.cache.aws import ImmutableResponseCache
 from proofops.adapters.local.claim_store import LocalClaimStore
 from proofops.adapters.local.evidence_search import (
     LocalEvidenceSearch,
-    collect_raw_candidate_review,
 )
 from proofops.adapters.local.gri_routing import LocalGRIRouting
 from proofops.adapters.local.review_store import LocalSQLiteReviewStore
@@ -26,36 +28,35 @@ from proofops.adapters.local.sqlite_busy import error_summary
 from proofops.adapters.local.tag_cache import SQLiteImmutableCacheClient
 from proofops.adapters.local.tag_store import LocalTagStore, tag_pins, tagging_settings
 from proofops.adapters.local.verified_read_cache import _parse_enabled
-from proofops.application.evidence.citations import _normalized
+from proofops.application.budget import BudgetCall, UsageRepository
+from proofops.application.claims import Claim, ClaimDiscovery
 from proofops.application.evidence.retrieval import (
+    EvidenceSearchPort,
     SearchResult,
-    freeze_track_packet,
+    SearchScope,
     retrieve_evidence,
-    unattended_packet,
 )
-from proofops.application.ports.jobs import JobControlSignal, JobMessage, LeaseLost
+from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+from proofops.application.ports.jobs import JobControlSignal, JobLease, JobMessage, LeaseLost
 from proofops.application.rb1_input_isolation import InputIsolation, held_claim, tag_input_code
 from proofops.application.rb4_memory import enabled as rb4_memory_enabled
 from proofops.application.reviews import ReviewInputs, ReviewService
+from proofops.application.tagging import consensus as _consensus
 from proofops.application.tagging.cf5_context import PreliminaryContextTooLarge
 from proofops.application.tagging.consensus import (
     form_consensus,
-    reviewable_checkpoint,
 )
-from proofops.application.tagging.consensus import (
-    reviewable_decision as _review_decision,
-)
-from proofops.application.tagging.report_level_link import apply_report_level_link, strict_fallback
+from proofops.application.tagging.contracts import RawTagResponse, TaggingSettings
 from proofops.application.tagging.service import tag_replicates
 from proofops.application.tagging.unattended import (
     empty_provisional,
-    provisional_result,
     source_status,
 )
-from proofops.application.telemetry import TraceContext
+from proofops.application.telemetry import Telemetry, TraceContext
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import RulePackSnapshot, canonical_json
-from proofops.domain.rules.engine import RuleContext, evaluate
+from proofops.domain.values import SourceRef
+from proofops_agent.upstage_tagging import TransportResume
 
 from proofops_worker.consumer import (
     LeaseHeartbeatState,
@@ -66,112 +67,50 @@ from proofops_worker.consumer import (
 )
 from proofops_worker.tag_recovery import TagRecovery
 from proofops_worker.tag_reprocess import TagReprocess
+from proofops_worker.tagging_parts.claims import (
+    ClaimProcessingContext,
+    process_claim,
+)
+from proofops_worker.tagging_parts.claims import (
+    _atomic_v3_binding_enabled as _atomic_v3_binding_enabled,
+)
+from proofops_worker.tagging_parts.claims import (
+    _candidate_tokens as _candidate_tokens,
+)
+from proofops_worker.tagging_parts.claims import (
+    _consensus_review_reason as _consensus_review_reason,
+)
+from proofops_worker.tagging_parts.claims import (
+    _prior_claim_record as _prior_claim_record,
+)
+from proofops_worker.tagging_parts.claims import (
+    _source_traceable as _source_traceable,
+)
+from proofops_worker.tagging_parts.claims import (
+    _unexpected_error_code as _unexpected_error_code,
+)
+from proofops_worker.tagging_parts.contracts import (
+    BudgetReservation,
+    PreliminarySupplier,
+    TagTransport,
+)
+from proofops_worker.tagging_parts.projection import project_claim
 from proofops_worker.telemetry import observe_job
+
+if TYPE_CHECKING:
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser
+    from proofops.application.uploads import UploadService
+
+    from proofops_worker.live_tagging import LiveTaggingRuntime
+
+
+# Preserve the existing public import used by callers and monkeypatches.
+_review_decision = _consensus.reviewable_decision
 
 
 class _TagFenceLost(JobControlSignal):
     """Escape tagger's provider-error boundary without fabricating a response."""
-
-
-def _unexpected_error_code(stage, error):
-    name = type(error).__name__
-    if not name.isascii() or not name.isidentifier() or len(name) > 64:
-        name = "Exception"
-    return f"{stage.upper()}_UNEXPECTED_{name}"
-
-
-def _candidate_tokens(text):
-    """Retrieval size bound for blocked claims when no tagging runtime is wired.
-
-    Deterministic byte length only; it never selects or contacts a model.
-    """
-    return len(text.encode("utf-8"))
-
-
-def _consensus_review_reason(consensus):
-    return (
-        "PARTIAL_FACTS_REVIEW_REQUIRED"
-        if "PARTIAL_FACTS_REVIEW_REQUIRED" in consensus.reasons
-        else "CONSENSUS_UNRESOLVED"
-    )
-
-
-def _prior_claim_record(claim_id, prior, rulepack_unapproved, *, pinned_profile=None):
-    decision, candidate_grade = _review_decision(
-        prior.decision, prior.fact_assembly_profile, prior.consensus.review_status
-    )
-    if rulepack_unapproved:
-        reason = "DOMAIN_RULEPACK_UNAPPROVED"
-    elif candidate_grade is not None or prior.consensus.confirmed_tags is None:
-        reason = _consensus_review_reason(prior.consensus)
-    elif decision and decision.decision_status != "decided":
-        reason = decision.decision_status
-    else:
-        reason = None
-    return reviewable_checkpoint(
-        dict(
-            claim_id=claim_id,
-            status=(
-                "completed"
-                if decision and decision.decision_status == "decided"
-                else "needs_review"
-            ),
-            reason=reason,
-            tag_runs=[asdict(result) for result in prior.tag_runs],
-            decision=asdict(decision) if decision else None,
-            candidate_grade=candidate_grade,
-            review_inputs=prior.snapshot(),
-        ),
-        pinned_profile=pinned_profile,
-    )
-
-
-def _source_traceable(claim, graph):
-    """Does every claim ref still point at the pinned parsed text of its block?
-
-    This is the precondition for letting a blocked claim reach local candidate
-    retrieval, not a verification: source-quality attestation is exactly the gate
-    such a claim is waiting on, so quality is deliberately not required here.
-    A ref whose page, label, box, raw-text digest, offsets or literal quote
-    disagrees with the winner candidate is not a traceable source, so its
-    untrusted text never reaches search, GRI routing, a packet or any model.
-    Verification (verify_source_ref) still decides everything downstream.
-    """
-    blocks = {block.source_id: block for block in graph.blocks}
-    pinned = (
-        "document_version_id",
-        "parse_manifest_id",
-        "page_num",
-        "printed_page_label",
-        "bbox",
-        "raw_text_sha256",
-    )
-    for ref in claim.source_refs:
-        block = blocks.get(ref.source_id)
-        if block is None or block.winner is None or ref.location_quality != "located":
-            return False
-        canonical = block.source_ref()
-        if (
-            any(getattr(ref, name) != getattr(canonical, name) for name in pinned)
-            or not 0 <= ref.char_start < ref.char_end <= len(block.raw_text)
-            or _normalized(ref.quote) != _normalized(block.raw_text[ref.char_start : ref.char_end])
-        ):
-            return False
-    return bool(claim.source_refs)
-
-
-def _atomic_v3_binding_enabled(snapshot, claim):
-    """Use the narrow source-edge rule only for the frozen atomic-v3 prompt."""
-    profile = snapshot.get("extraction_profile")
-    if not isinstance(profile, dict) or profile != asdict(claim.receipt.profile):
-        return False
-    from proofops_agent.upstage_extraction import ATOMIC_V3_SYSTEM_PROMPT
-
-    return (
-        profile.get("prompt_sha256") == canonical_hash(ATOMIC_V3_SYSTEM_PROMPT)
-        or snapshot.get("analysis_profile_policy", {}).get("extraction_candidate_profile")
-        == "extraction-atomic-v3"
-    )
 
 
 class _LocalClaimSearch:
@@ -179,27 +118,34 @@ class _LocalClaimSearch:
 
     synthetic = True
 
-    def search(self, scope, query, *, vector=None):
+    def search(
+        self, scope: SearchScope, query: str, *, vector: tuple[float, ...] | None = None
+    ) -> SearchResult:
         return SearchResult(status="bounded")
 
 
 class LocalTagRunner:
     def __init__(
         self,
-        store,
-        uploads,
-        parser,
+        store: LocalSQLiteRunStore,
+        uploads: UploadService,
+        parser: OpenDataLoaderParser,
         *,
-        telemetry,
-        transport=None,
-        preliminary=None,
-        live_factory=None,
-        clock=time.time,
-        max_workers=8,
-        claim_progress=None,
-        claim_stage_progress=None,
-        sc1_inventory_provider=None,
-    ):
+        telemetry: Telemetry,
+        transport: TagTransport | None = None,
+        preliminary: PreliminarySupplier | None = None,
+        live_factory: Callable[
+            [LocalTagRunner, dict[str, Any], CanonicalDocumentGraph, JobLease, dict[str, Any]],
+            LiveTaggingRuntime,
+        ]
+        | None = None,
+        clock: Callable[[], float] = time.time,
+        max_workers: int = 8,
+        claim_progress: Callable[[str, int], None] | None = None,
+        claim_stage_progress: Callable[[str, int, str], None] | None = None,
+        sc1_inventory_provider: Callable[[CanonicalDocumentGraph, dict[str, Any]], dict[str, Any]]
+        | None = None,
+    ) -> None:
         if not uploads.local_synthetic:
             raise ValueError("local tagging requires local storage")
         if transport is not None and getattr(transport, "synthetic", None) is not True:
@@ -215,7 +161,7 @@ class LocalTagRunner:
         )
         # Set only while an explicit recovery job is executing, so the live runtime
         # can read the bounded acknowledged authorization for its transports.
-        self.resume = None
+        self.resume: TransportResume | None = None
         self.max_workers = max_workers
         self.claim_progress = claim_progress
         self.claim_stage_progress = claim_stage_progress
@@ -228,7 +174,12 @@ class LocalTagRunner:
             LocalSQLiteReviewStore(store.jobs), load_inputs=self.tags.load_inputs
         )
 
-    def _publish_claim(self, lease, inputs, heartbeat_state=None):
+    def _publish_claim(
+        self,
+        lease: JobLease,
+        inputs: ReviewInputs,
+        heartbeat_state: LeaseHeartbeatState | None = None,
+    ) -> None:
         jobs = self.store.jobs
         tenant, run_id = lease.message.tenant_id, lease.message.run_id
         if heartbeat_state is not None:
@@ -244,10 +195,91 @@ class LocalTagRunner:
                 self.reviews.store.publish_transaction(db, inputs, review)
                 jobs._bump_run(db, jobs._get(db, tenant, run_id, "run", "META"))
 
-    def _execute(self, *args, **kwargs):
-        accounting_flushers = []
+    def _claim_calls(
+        self,
+        lease: JobLease,
+        usage: dict[str, Any],
+        transport: TagTransport,
+        live: LiveTaggingRuntime | None,
+        heartbeat_state: LeaseHeartbeatState | None,
+    ) -> tuple[Callable[[dict[str, Any]], RawTagResponse], UsageRepository]:
+        def invoke(request: dict[str, Any]) -> RawTagResponse:
+            # The budget service records actual completed usage even if the fence is
+            # lost in-flight. The fenced usage wrapper below stops BEFORE reservation.
+            if heartbeat_state is not None:
+                heartbeat_state.check()
+            if not _parse_enabled() and not self.store.jobs.can_call(lease, now=int(self.clock())):
+                raise _TagFenceLost()
+            try:
+                point_heartbeat(self.store.jobs, lease, self.clock, state=heartbeat_state)
+            except LeaseLost as error:
+                if _parse_enabled():
+                    raise _TagFenceLost() from None
+                if heartbeat_state is not None:
+                    heartbeat_state.fail(error)
+                raise TagHeartbeatFailed() from None
+            except Exception as error:
+                if heartbeat_state is not None:
+                    heartbeat_state.fail(error)
+                raise TagHeartbeatFailed() from None
+            if heartbeat_state is not None:
+                heartbeat_state.check()
+            if live is None:
+                usage["synthetic_calls"] += 1
+            return transport.invoke(request)
+
+        runner = self
+
+        class FencedUsage:
+            def __getattr__(self, name: str) -> Any:
+                return getattr(runner.store.usage, name)
+
+            def reserve_budget(
+                self, *args: BudgetCall, **kwargs: Unpack[BudgetReservation]
+            ) -> bool:
+                if heartbeat_state is not None:
+                    heartbeat_state.check()
+                if not _parse_enabled() and not runner.store.jobs.can_call(
+                    lease, now=int(runner.clock())
+                ):
+                    raise LeaseLost("LEASE_LOST")
+                try:
+                    point_heartbeat(runner.store.jobs, lease, runner.clock, state=heartbeat_state)
+                except LeaseLost as error:
+                    if _parse_enabled():
+                        raise
+                    if heartbeat_state is not None:
+                        heartbeat_state.fail(error)
+                    raise TagHeartbeatFailed() from None
+                except Exception as error:
+                    if heartbeat_state is not None:
+                        heartbeat_state.fail(error)
+                    raise TagHeartbeatFailed() from None
+                if heartbeat_state is not None:
+                    with heartbeat_state.lock:
+                        heartbeat_state.check()
+                        return runner.store.usage.reserve_budget(*args, **kwargs)
+                return runner.store.usage.reserve_budget(*args, **kwargs)
+
+            def mark_dispatched(self, call: BudgetCall) -> bool:
+                if heartbeat_state is not None:
+                    heartbeat_state.check()
+                if not runner.store.jobs.can_call(lease, now=int(runner.clock())):
+                    raise LeaseLost("LEASE_LOST")
+                if heartbeat_state is not None:
+                    with heartbeat_state.lock:
+                        heartbeat_state.check()
+                        return runner.store.usage.mark_dispatched(call)
+                return runner.store.usage.mark_dispatched(call)
+
+        return invoke, FencedUsage()
+
+    def _execute(self, *args: object, **kwargs: object) -> bytes:
+        accounting_flushers: list[Callable[[], None]] = []
         try:
-            return self._execute_tag(*args, accounting_flushers=accounting_flushers, **kwargs)
+            return cast(Callable[..., bytes], self._execute_tag)(
+                *args, accounting_flushers=accounting_flushers, **kwargs
+            )
         finally:
             # Per-call reserve/dispatch/settlement already ran durably. Refresh
             # the reporting projection even if tagging fails or loses its lease.
@@ -256,16 +288,16 @@ class LocalTagRunner:
 
     def _execute_tag(
         self,
-        lease,
-        snapshot,
-        usage,
-        recovery=None,
-        reprocess=None,
-        heartbeat_state=None,
-        deferred=None,
-        evidence=None,
-        accounting_flushers=None,
-    ):
+        lease: JobLease,
+        snapshot: dict[str, Any],
+        usage: dict[str, Any],
+        recovery: TagRecovery | None = None,
+        reprocess: TagReprocess | None = None,
+        heartbeat_state: LeaseHeartbeatState | None = None,
+        deferred: list[ReviewInputs] | None = None,
+        evidence: tuple[dict[str, Any], ClaimDiscovery, CanonicalDocumentGraph] | None = None,
+        accounting_flushers: list[Callable[[], None]] | None = None,
+    ) -> bytes:
         rb1 = InputIsolation(snapshot.get("analysis_profile_policy", {}))
         message = lease.message
         tenant, run_id = message.tenant_id, message.run_id
@@ -295,7 +327,7 @@ class LocalTagRunner:
             )
         rulepack = RulePackSnapshot(**snapshot["rulepack"])
         settings = tagging_settings(snapshot) if snapshot.get("tagging_settings") else None
-        facility_dimensions = {}
+        facility_dimensions: dict[str, Any] = {}
         facility_candidates = snapshot.get("analysis_profile_policy", {}).get(
             "facility_tagging_candidates"
         )
@@ -309,7 +341,7 @@ class LocalTagRunner:
                 tenant_id=tenant,
                 policy=snapshot["analysis_profile_policy"],
             )
-        scope_records = {}
+        scope_records: dict[str, Any] = {}
         if snapshot.get("analysis_profile_policy", {}).get("local_implementation_binding_policy"):
             from proofops.adapters.local.k9_scope_sources import scope_graph
 
@@ -370,13 +402,13 @@ class LocalTagRunner:
                 raise ValueError("LIVE_TAGGING_RUNTIME_REQUIRED")
             live = self.live_factory(self, snapshot, graph, lease, usage)
             if getattr(live, "_s5_defer_accounting", False):
-                accounting_flushers.append(live.flush_accounting)
+                cast(list[Callable[[], None]], accounting_flushers).append(live.flush_accounting)
             live.scope_records = scope_records
             live.heartbeat_state = heartbeat_state
             if live.synthetic is not False:
                 raise ValueError("LIVE_TAGGING_PROVENANCE_REQUIRED")
             transport, preliminary_supplier = live, live.preliminary
-        search = _LocalClaimSearch()
+        search: EvidenceSearchPort = _LocalClaimSearch()
         generation = "local-atomic-only-v1"
         gri = None
         if live is not None:
@@ -402,16 +434,18 @@ class LocalTagRunner:
                 raw_search = LocalEvidenceSearch(
                     graph, tenant_id=tenant, pages=avail_pages, index_generation=raw_gen
                 )
-        report_source_cache = {}
+        report_source_cache: dict[
+            tuple[SourceRef, ...], tuple[CanonicalDocumentGraph, dict[str, Any]]
+        ] = {}
         report_source_lock = Lock()
         parallel_claims = (
             live is not None
-            and settings.model_id in ("openai/gpt-6-luna", "gpt-6-luna")
-            and settings.wire_policy_version == 2
+            and cast(TaggingSettings, settings).model_id in ("openai/gpt-6-luna", "gpt-6-luna")
+            and cast(TaggingSettings, settings).wire_policy_version == 2
             and recovery is None
             and reprocess is None
         )
-        scheduled_claims = discovery.claims
+        scheduled_claims: tuple[Claim, ...] | list[Claim] = discovery.claims
         from proofops.application.tagging.spt_pipeline import configured as spt_configured
 
         spt_pipeline = spt_configured(snapshot.get("analysis_profile_policy", {}))
@@ -430,7 +464,9 @@ class LocalTagRunner:
                 live.s2_reserved_calls = set()
             scheduled_claims = sorted(discovery.claims, key=priority)
         if parallel_claims:
-            live.replica_workers = 1  # cap all claim calls at self.max_workers
+            cast(
+                "LiveTaggingRuntime", live
+            ).replica_workers = 1  # cap all claim calls at self.max_workers
 
         if sc1_policy is not None:
             if evidence is not None:
@@ -458,7 +494,7 @@ class LocalTagRunner:
             if live is not None and "sc1_inventory_plan" in usage:
                 envelope["sc1_inventory_plan"] = usage["sc1_inventory_plan"]
 
-        progress = {}
+        progress: dict[str, dict[str, Any]] = {}
         budget_stopped = False
         pipelined = {}
         if evidence is None and snapshot.get("pipeline_profile") == "finals-unattended-v1":
@@ -474,571 +510,12 @@ class LocalTagRunner:
                         raise ValueError("PIPELINE_CLAIM_MISMATCH")
                     pipelined[cid] = record
 
-        def report_stage(claim, stage):
+        def report_stage(claim: Claim, stage: str) -> None:
             callback = getattr(self, "claim_stage_progress", None)
             if callback is not None:
                 callback(claim.claim_id, len(discovery.claims), stage)
 
-        def process_claim(claim):
-            records = []
-            # Keep the existing per-claim exits while mapping claims in source order.
-            for claim in (claim,):
-                if heartbeat_state is not None:
-                    heartbeat_state.check()
-                if not self.store.jobs.can_call(lease, now=int(self.clock())):
-                    raise LeaseLost("LEASE_LOST")
-                if "tag_job" not in run and recovery is None and reprocess is None:
-                    with self.store.jobs._transaction() as db:
-                        prior_revision = self.store.jobs._raw(
-                            db,
-                            tenant,
-                            run_id,
-                            "tag_revision",
-                            f"{claim.claim_id}:{1:010}",
-                        )
-                    if prior_revision is not None:
-                        prior = self.tags.load_inputs(tenant, run_id, claim.claim_id)
-                        records.append(
-                            _prior_claim_record(
-                                claim.claim_id,
-                                prior,
-                                snapshot.get("rulepack_use") == "candidate_tagging_reference_only",
-                                pinned_profile=snapshot.get("fact_assembly_profile", "strict-v1"),
-                            )
-                        )
-                        continue
-                # An explicit recovery attempts only its bounded authorized claims and
-                # carries every other claim forward exactly as the paid stage committed
-                # it: no reprocessing, no new call and no second publication of an
-                # already immutable revision. A claim is also carried forward, untouched,
-                # once the remaining bound can no longer finish it, so the stage never
-                # publishes a half-tagged claim that could then never be retried.
-                if recovery is not None and (
-                    claim.claim_id not in recovery.claim_ids or not recovery.can_attempt_claim()
-                ):
-                    records.append(
-                        reviewable_checkpoint(
-                            recovery.carry_forward(claim.claim_id),
-                            pinned_profile=snapshot.get("fact_assembly_profile", "strict-v1"),
-                        )
-                    )
-                    continue
-                # A manual-classification reprocess attempts exactly its one authorized
-                # claim and carries every other committed claim forward verbatim: no
-                # reprocessing, no new call and no second publication of an already
-                # immutable revision. The target claim is also carried forward untouched
-                # once the bound can no longer finish it, so the stage never publishes a
-                # half-tagged claim.
-                if reprocess is not None and (
-                    claim.claim_id not in reprocess.claim_ids or not reprocess.can_attempt_claim()
-                ):
-                    records.append(
-                        reviewable_checkpoint(
-                            reprocess.carry_forward(claim.claim_id),
-                            pinned_profile=snapshot.get("fact_assembly_profile", "strict-v1"),
-                        )
-                    )
-                    continue
-                raw_candidate_review = None
-                if raw_search is not None and _source_traceable(claim, graph):
-                    raw_candidate_review = collect_raw_candidate_review(raw_search, claim.quote)
-                reason = (
-                    "SOURCE_VALIDATION_REQUIRED"
-                    if claim.source_quality != "verified" and not unattended
-                    else "TAGGING_RUNTIME_REQUIRED"
-                    if settings is None or transport is None
-                    else "PRELIMINARY_TAGS_REQUIRED"
-                    if preliminary_supplier is None
-                    else None
-                )
-                item = dict(
-                    claim_id=claim.claim_id,
-                    status="blocked",
-                    reason=reason,
-                    tag_runs=[],
-                    decision=None,
-                    review_inputs=None,
-                    raw_candidate_review=raw_candidate_review,
-                )
-                if unattended:
-                    item.update(
-                        source_status=source_status(claim),
-                        provisional_grade=empty_provisional(reason),
-                        stage="preliminary",
-                    )
-                    progress[claim.claim_id] = item
-                    if not _source_traceable(claim, graph):
-                        item.update(reason="SOURCE_LOCATION_REQUIRED", status="failed")
-                        return item
-                track = context = relation_tags = None
-                # Paid preliminary replicas stay behind the source-quality gate; an
-                # unverified source never buys model calls to make progress.
-                if reason is None:
-                    if reprocess is not None and claim.claim_id in reprocess.claim_ids:
-                        # A manual-classification reprocess supplies the reviewer's
-                        # recorded, source-verified classification instead of a model
-                        # preliminary call. The element stage below still runs its real
-                        # replicas under the pinned run mode, so no grade is invented and
-                        # no model vote is fabricated. The prior preliminary_records /
-                        # preliminary_agreement of the blocked stage are preserved on the
-                        # carried record for every other claim; this target claim records
-                        # the distinct reviewed classification instead.
-                        from proofops.application.evidence.binding import local_relation_tags
-                        from proofops.application.tagging.manual_classification import (
-                            ClassificationRejected,
-                            classification_override,
-                        )
-
-                        try:
-                            classified = classification_override(
-                                reprocess.classification, claim, graph, tenant_id=tenant
-                            )
-                        except ClassificationRejected as error:
-                            raise ValueError("REPROCESS_CLASSIFICATION_INVALID") from error
-                        track, context = classified.track, classified.context
-                        relation_tags = local_relation_tags(context)
-                        # Preserve the prior blocked stage's original preliminary provenance
-                        # for this claim; the reviewed classification is additive, never a
-                        # replacement of what the model replicas actually recorded.
-                        prior = reprocess.carry_forward(claim.claim_id)
-                        if "preliminary_records" in prior:
-                            item["preliminary_records"] = prior["preliminary_records"]
-                        if "preliminary_agreement" in prior:
-                            item["preliminary_agreement"] = prior["preliminary_agreement"]
-                        item["reviewed_classification"] = dict(
-                            classification_id=reprocess.plan.classification_id,
-                            classification_sha256=reprocess.plan.classification_sha256,
-                            origin=reprocess.classification.get("origin"),
-                            classified_by=reprocess.classification.get("classified_by"),
-                            review_origin=reprocess.classification.get("review_origin"),
-                            track=track.track,
-                            safe_harbor_category=classified.safe_harbor_category,
-                        )
-                        if context.claim != claim or track.claim != claim:
-                            raise ValueError("PRELIMINARY_CLAIM_MISMATCH")
-                    else:
-                        preliminary = preliminary_supplier(claim, graph)
-                        report_stage(claim, "preliminary")
-                        if live is not None:
-                            item["preliminary_records"] = live.preliminary_records.get(
-                                claim.claim_id, []
-                            )
-                            item["preliminary_agreement"] = live.preliminary_agreement(
-                                claim.claim_id
-                            )
-                        track, context, relation_tags = (
-                            (None, None, None) if preliminary is None else preliminary
-                        )
-                        if track is None:
-                            reason = "PRELIMINARY_TAGS_UNRESOLVED"
-                        elif context.claim != claim or track.claim != claim:
-                            raise ValueError("PRELIMINARY_CLAIM_MISMATCH")
-                # Local, no-model candidate retrieval runs before the source and
-                # consensus stops, so a blocked claim still reaches review with its
-                # traceable candidates and the recorded reasons instead of nothing.
-                # Identity, raw text and tenant mismatches still raise from here. A
-                # blocked claim is skipped when its refs no longer point at the pinned
-                # parsed text, or when this run has no approved element catalog to
-                # scope candidates with; no catalog and no location is ever invented,
-                # and a claim that must be tagged still fails here exactly as before.
-                original_packet = None
-                skipped = None
-                if reason is None:
-                    pass
-                elif not _source_traceable(claim, graph):
-                    skipped = "SOURCE_LOCATION_REQUIRED"
-                elif "rubric/elements.yaml" not in rulepack.files:
-                    skipped = "RULEPACK_CATALOG_REQUIRED"
-                if skipped is None:
-                    gri_entries, indicator_codes = gri.for_claim(claim.quote) if gri else ((), ())
-                    original_packet = retrieve_evidence(
-                        claim,
-                        graph,
-                        search,
-                        tenant_id=tenant,
-                        run_id=run_id,
-                        index_generation=generation,
-                        rulepack=rulepack,
-                        document_context={},
-                        token_counter=transport.token_counter if transport else _candidate_tokens,
-                        gri_entries=gri_entries,
-                        indicator_codes=indicator_codes,
-                    )
-                if reason:
-                    # An unverified source keeps blocked_evidence here, so the track
-                    # packet gate below can never accept it either.
-                    item.update(
-                        reason=reason,
-                        **(
-                            dict(candidate_retrieval=skipped)
-                            if skipped is not None
-                            else dict(original_packet=original_packet.to_dict())
-                        ),
-                    )
-                    records.append(item)
-                    continue
-                if unattended:
-                    item["original_packet"] = original_packet.to_dict()
-                    original_packet = unattended_packet(
-                        original_packet, profile=snapshot["pipeline_profile"]
-                    )
-                    item["stage"] = "relation"
-                if original_packet.to_dict()["status"] != "candidate":
-                    item.update(
-                        reason="EVIDENCE_PACKET_BLOCKED", original_packet=original_packet.to_dict()
-                    )
-                    records.append(item)
-                    continue
-                if sc1_index is not None and snapshot.get("analysis_profile_policy", {}).get(
-                    "qt2_contextual_elements_policy"
-                ):
-                    from proofops.application.tagging.qt2_inventory import link_inventory
-
-                    item["qt2_inventory_links"] = link_inventory(
-                        context,
-                        sc1_index,
-                        graph,
-                        run_id=run_id,
-                        tenant_id=tenant,
-                        rulepack=rulepack,
-                    )
-                packet = freeze_track_packet(original_packet, track=track, rulepack=rulepack)
-                if facility_candidates:
-                    from proofops.application.tagging.k6_facilities import augment_packet
-
-                    packet = augment_packet(
-                        packet, facility_dimensions.get(claim.claim_id, {}), graph, tenant_id=tenant
-                    )
-                cf6_policy = snapshot.get("analysis_profile_policy", {}).get("cf6_confirmation")
-                if cf6_policy is not None:
-                    from proofops.application.evidence.retrieval import freeze_packet
-
-                    packet = freeze_packet(
-                        {k: v for k, v in packet.to_dict().items() if k != "packet_sha256"}
-                        | dict(
-                            cf6_confirmation=cf6_policy,
-                            cf6_selected_pages=sorted(
-                                set(snapshot.get("selected_pages") or ())
-                                or {block.page_num for block in graph.blocks}
-                            ),
-                            cf6_analysis_policy_sha256=canonical_hash(
-                                snapshot["analysis_profile_policy"]
-                            ),
-                        )
-                    )
-                if live is not None:
-                    packet = live.display_packet(packet, claim=claim)
-                    if snapshot.get("analysis_profile_policy", {}).get("qt1_baseline_policy"):
-                        from proofops.application.evidence.retrieval import freeze_packet
-                        from proofops.application.tagging.qt1_baseline import (
-                            POLICY,
-                            augment_packet,
-                            baseline_links,
-                        )
-
-                        if snapshot["analysis_profile_policy"]["qt1_baseline_policy"] != POLICY:
-                            raise ValueError("QT1_BASELINE_POLICY_MISMATCH")
-                        if sc1_index is not None and track.track == "goal":
-                            receipt = baseline_links(
-                                context, sc1_index, graph, run_id=run_id, tenant_id=tenant
-                            )
-                            data = packet.to_dict()
-                            data.pop("packet_sha256")
-                            data = augment_packet(data, receipt)
-                            if live.display_catalog is not None:
-                                data["display_text"] = live.display_catalog.element_pins(data)
-                            packet = freeze_packet(data)
-                            item["qt1_baseline_receipt"] = receipt
-                    live.allow_packet(claim.claim_id, packet.packet_sha256)
-                    if snapshot.get("relation_settings") is not None:
-                        external_roles = live.relations(claim, packet)
-                        item["relation_records"] = live.relation_records.get(claim.claim_id, [])
-                        if external_roles is None and unattended:
-                            item["relation_reason"] = "RELATION_TAGS_UNRESOLVED"
-                            external_roles = {}
-                        if external_roles is None:
-                            item.update(
-                                reason="RELATION_TAGS_UNRESOLVED",
-                                original_packet=original_packet.to_dict(),
-                            )
-                            records.append(item)
-                            continue
-                        # Atomic scoped roles keep precedence over any whole-source map.
-                        relation_tags = {**external_roles, **relation_tags}
-
-                def invoke(request):
-                    # The budget service records actual completed usage even if the fence is
-                    # lost in-flight. The fenced usage wrapper below stops BEFORE reservation.
-                    if heartbeat_state is not None:
-                        heartbeat_state.check()
-                    if not _parse_enabled() and not self.store.jobs.can_call(
-                        lease, now=int(self.clock())
-                    ):
-                        raise _TagFenceLost()
-                    try:
-                        point_heartbeat(self.store.jobs, lease, self.clock, state=heartbeat_state)
-                    except LeaseLost as error:
-                        if _parse_enabled():
-                            raise _TagFenceLost() from None
-                        if heartbeat_state is not None:
-                            heartbeat_state.fail(error)
-                        raise TagHeartbeatFailed() from None
-                    except Exception as error:
-                        if heartbeat_state is not None:
-                            heartbeat_state.fail(error)
-                        raise TagHeartbeatFailed() from None
-                    if heartbeat_state is not None:
-                        heartbeat_state.check()
-                    if live is None:
-                        usage["synthetic_calls"] += 1
-                    return transport.invoke(request)
-
-                runner = self
-
-                class FencedUsage:
-                    def __getattr__(self, name):
-                        return getattr(runner.store.usage, name)
-
-                    def reserve_budget(self, *args, **kwargs):
-                        if heartbeat_state is not None:
-                            heartbeat_state.check()
-                        if not _parse_enabled() and not runner.store.jobs.can_call(
-                            lease, now=int(runner.clock())
-                        ):
-                            raise LeaseLost("LEASE_LOST")
-                        try:
-                            point_heartbeat(
-                                runner.store.jobs, lease, runner.clock, state=heartbeat_state
-                            )
-                        except LeaseLost as error:
-                            if _parse_enabled():
-                                raise
-                            if heartbeat_state is not None:
-                                heartbeat_state.fail(error)
-                            raise TagHeartbeatFailed() from None
-                        except Exception as error:
-                            if heartbeat_state is not None:
-                                heartbeat_state.fail(error)
-                            raise TagHeartbeatFailed() from None
-                        if heartbeat_state is not None:
-                            with heartbeat_state.lock:
-                                heartbeat_state.check()
-                                return runner.store.usage.reserve_budget(*args, **kwargs)
-                        return runner.store.usage.reserve_budget(*args, **kwargs)
-
-                    def mark_dispatched(self, call):
-                        if heartbeat_state is not None:
-                            heartbeat_state.check()
-                        if not runner.store.jobs.can_call(lease, now=int(runner.clock())):
-                            raise LeaseLost("LEASE_LOST")
-                        if heartbeat_state is not None:
-                            with heartbeat_state.lock:
-                                heartbeat_state.check()
-                                return runner.store.usage.mark_dispatched(call)
-                        return runner.store.usage.mark_dispatched(call)
-
-                report_stage(claim, "relation")
-                if unattended:
-                    item["stage"] = "elements"
-                tag_runs = tag_replicates(
-                    packet,
-                    context=context,
-                    track=track,
-                    original=graph,
-                    relation_tags=relation_tags,
-                    rulepack=rulepack,
-                    settings=settings,
-                    cache=self.cache,
-                    usage_store=FencedUsage(),
-                    invoke=invoke,
-                    tenant_id=tenant,
-                    ensemble_id=str(uuid5(UUID(message.job_id), claim.claim_id)),
-                    consent_profile=snapshot["consent"]["consent_profile_id"],
-                    token_counter=transport.token_counter,
-                    count_input_tokens=live.count_input_tokens if live is not None else None,
-                    now=lambda: int(self.clock()),
-                    pipeline_profile=snapshot.get("pipeline_profile"),
-                    semantic_policy=semantic_policy,
-                    qt1_baseline_inventory=sc1_index,
-                    allow_edge_whitespace=_atomic_v3_binding_enabled(snapshot, claim),
-                    max_workers=(
-                        1
-                        if parallel_claims
-                        else self.max_workers
-                        if live is not None
-                        and settings.model_id in ("openai/gpt-6-luna", "gpt-6-luna")
-                        and settings.wire_policy_version == 2
-                        else 1
-                    ),
-                )
-                report_stage(claim, "elements")
-                if live is not None:
-                    for tag_run in tag_runs:
-                        live.account(tag_run.request.request_id)
-                if heartbeat_state is not None:
-                    heartbeat_state.check()
-                if not self.store.jobs.can_call(lease, now=int(self.clock())):
-                    raise LeaseLost("LEASE_LOST")
-                if unattended:
-                    if sc1_policy is not None:
-                        item["sc1_dimensions"] = {
-                            k: asdict(v) if v else None for k, v in context.dimensions.items()
-                        }
-                    rule_context = RuleContext(
-                        tenant,
-                        graph.document_version_id,
-                        claim.claim_id,
-                        packet.packet_sha256,
-                        mode=snapshot["mode"],
-                        local_synthetic=live is None,
-                    )
-                    item.update(
-                        tag_runs=[asdict(r) for r in tag_runs],
-                        frozen_packet=packet.to_dict(),
-                        stage="grade",
-                    )
-                    item.update(
-                        status="processed",
-                        stage="grade",
-                        provisional_grade=provisional_result(
-                            tag_runs,
-                            packet,
-                            rulepack,
-                            rule_context,
-                            profile="k2-v1" if hold_profile == "v3-dec92-v1" else hold_profile,
-                            semantic_policy=semantic_policy,
-                            original=graph,
-                            range_profile=snapshot.get("pipeline_profile")
-                            in (
-                                "finals-unattended-v1",
-                                "finals-unattended-v2",
-                                "finals-unattended-j3-v1",
-                                "finals-unattended-j7-v1",
-                                "finals-unattended-j8-v1",
-                            ),
-                        ),
-                        reason=None,
-                    )
-                    return item
-                consensus = form_consensus(
-                    tag_runs,
-                    packet=packet,
-                    rulepack=rulepack,
-                    tenant_id=tenant,
-                    tag_revision=1,
-                    profile=snapshot.get("fact_assembly_profile", "strict-v1"),
-                )
-                rule_context = RuleContext(
-                    tenant,
-                    graph.document_version_id,
-                    claim.claim_id,
-                    packet.packet_sha256,
-                    mode=snapshot["mode"],
-                    local_synthetic=live is None,
-                )
-                link_config = snapshot.get("report_level_link")
-                link_receipts = ()
-                if link_config is not None:
-
-                    def attest_report_sources(refs):
-                        with report_source_lock:
-                            if refs not in report_source_cache:
-                                report_source_cache[refs] = self.tags.verify_context_sources(
-                                    base_inputs,
-                                    refs,
-                                    pinned_run_snapshot=snapshot,
-                                )
-                            return report_source_cache[refs]
-
-                    base_inputs = ReviewInputs(
-                        run_id,
-                        context,
-                        graph,
-                        rulepack,
-                        rule_context,
-                        packet,
-                        original_packet,
-                        tag_runs,
-                        consensus,
-                        relation_tags,
-                        fact_assembly_profile=snapshot.get("fact_assembly_profile", "strict-v1"),
-                    )
-                    consensus, link_receipts = apply_report_level_link(
-                        consensus,
-                        config=link_config,
-                        context=context,
-                        graph=graph,
-                        fallback_tags=strict_fallback(
-                            tag_runs,
-                            packet,
-                            rulepack,
-                            tenant,
-                            1,
-                            snapshot.get("fact_assembly_profile", "strict-v1"),
-                        ),
-                        attest=attest_report_sources,
-                    )
-                rulepack_unapproved = (
-                    snapshot.get("rulepack_use") == "candidate_tagging_reference_only"
-                )
-                decision = (
-                    evaluate(consensus.confirmed_tags, rule_context, rulepack)
-                    if consensus.confirmed_tags and not rulepack_unapproved
-                    else None
-                )
-                decision, candidate_grade = _review_decision(
-                    decision,
-                    snapshot.get("fact_assembly_profile", "strict-v1"),
-                    consensus.review_status,
-                )
-                # Explicit needs_review diagnostic: never collapse the "why" to None.
-                # Domain approval gate outranks consensus, which outranks rule holds.
-                if rulepack_unapproved:
-                    review_reason = "DOMAIN_RULEPACK_UNAPPROVED"
-                elif candidate_grade is not None or not consensus.confirmed_tags:
-                    review_reason = _consensus_review_reason(consensus)
-                elif decision and decision.decision_status != "decided":
-                    review_reason = decision.decision_status
-                else:
-                    review_reason = None
-                inputs = ReviewInputs(
-                    run_id,
-                    context,
-                    graph,
-                    rulepack,
-                    rule_context,
-                    packet,
-                    original_packet,
-                    tag_runs,
-                    consensus,
-                    relation_tags,
-                    decision=decision,
-                    fact_assembly_profile=snapshot.get("fact_assembly_profile", "strict-v1"),
-                    report_level_link=link_config,
-                    report_level_review=link_receipts,
-                )
-                if reprocess is not None:
-                    # A reprocess target is published only inside the fenced checkpoint
-                    # transaction, after its authorized lineage is rechecked, so a lineage
-                    # change during tagging can never leave a revision behind.
-                    inputs.validate()
-                    deferred.append(inputs)
-                else:
-                    self._publish_claim(lease, inputs, heartbeat_state)
-                item.update(
-                    status="completed"
-                    if decision and decision.decision_status == "decided"
-                    else "needs_review",
-                    reason=review_reason,
-                    tag_runs=[asdict(r) for r in tag_runs],
-                    decision=asdict(decision) if decision else None,
-                    candidate_grade=candidate_grade,
-                    review_inputs=inputs.snapshot(),
-                )
-                records.append(item)
-            return records[0]
-
-        def isolated_claim(claim):
+        def isolated_claim(claim: Claim) -> dict[str, Any]:
             nonlocal budget_stopped
             from proofops.application.rb3_deadline import admit
             from proofops.application.rb3_deadline import held_claim as deadline_held_claim
@@ -1054,8 +531,8 @@ class LocalTagRunner:
                 record["source_status"] = source_status(claim)
                 return record
             if not unattended:
-                return process_claim(claim)
-            item = dict(
+                return process_claim(claim_context, claim)
+            item: dict[str, Any] = dict(
                 claim_id=claim.claim_id,
                 status="budget_unanalyzed",
                 stage="preliminary",
@@ -1089,7 +566,7 @@ class LocalTagRunner:
                         item["provisional_grade"] = hold_projection(item, profile=hold_profile)
                 return item
             try:
-                result = process_claim(claim)
+                result = process_claim(claim_context, claim)
             except (LeaseLost, TagHeartbeatFailed):
                 raise
             except PreliminaryContextTooLarge:
@@ -1178,65 +655,47 @@ class LocalTagRunner:
                 tenant_id=tenant,
             )
 
-        def project_claim(claim):
-            record = isolated_claim(claim)
-            if rb1.active and "rb1_input_hold" in record:
-                return record
-            if snapshot.get("analysis_profile_policy", {}).get("facility_dimensions"):
-                record["source_dimensions"] = facility_dimensions.get(
-                    claim.claim_id, dict(facility=dict(state="unresolved", value=None))
-                )
-            if snapshot.get("analysis_profile_policy", {}).get("sentence_context_policy"):
-                from proofops.application.ingest.k5_context import configured_context
+        claim_context = ClaimProcessingContext(
+            runner=self,
+            heartbeat_state=heartbeat_state,
+            lease=lease,
+            run=run,
+            recovery=recovery,
+            reprocess=reprocess,
+            snapshot=snapshot,
+            raw_search=raw_search,
+            graph=graph,
+            unattended=unattended,
+            settings=settings,
+            transport=transport,
+            preliminary_supplier=preliminary_supplier,
+            progress=progress,
+            report_stage=report_stage,
+            live=live,
+            rulepack=rulepack,
+            gri=gri,
+            search=search,
+            generation=generation,
+            sc1_index=sc1_index,
+            facility_candidates=facility_candidates,
+            facility_dimensions=facility_dimensions,
+            semantic_policy=semantic_policy,
+            parallel_claims=parallel_claims,
+            sc1_policy=sc1_policy,
+            hold_profile=hold_profile,
+            deferred=deferred,
+            report_source_lock=report_source_lock,
+            report_source_cache=report_source_cache,
+            usage=usage,
+            tag_replicates=tag_replicates,
+            form_consensus=form_consensus,
+            retrieve_evidence=retrieve_evidence,
+            rb1=rb1,
+        )
 
-                record["sentence_context"] = configured_context(
-                    claim, graph, snapshot["analysis_profile_policy"]
-                )
-            if sc1_policy is not None:
-                record["sc1_confirmation"] = None
-                record["sc1_hold_reason"] = "SC1_INVENTORY_UNAVAILABLE"
-                if sc1_index is not None and record.get("tag_runs") and "sc1_dimensions" in record:
-                    from proofops.application.tagging.analysis_scope import analyze_record
-                    from proofops.application.tagging.v1_activity_links import policy_from_profile
-
-                    receipt = analyze_record(
-                        record,
-                        claim,
-                        graph,
-                        rulepack,
-                        sc1_index,
-                        required_present_votes=sc1_policy["agreement"]["required_present_votes"],
-                        local_synthetic=live is None,
-                        grade_agreement_policy=snapshot.get("analysis_profile_policy", {}).get(
-                            "grade_required_agreement_policy"
-                        ),
-                        v1_activity_policy=policy_from_profile(
-                            snapshot.get("analysis_profile_policy", {})
-                        ),
-                    )
-                    record["sc1_scope_receipt"] = receipt
-                    record["sc1_confirmation"] = receipt["sc1_confirmation"]
-                    record["sc1_elements"] = receipt["sc1_elements"]
-                    record["sc1_hold_reason"] = ",".join(receipt["reasons"]) or None
-            if snapshot.get("analysis_profile_policy", {}).get("cf6_confirmation") is not None:
-                record["cf6_confirmation"] = None
-                if record.get("tag_runs") and record.get("frozen_packet"):
-                    from proofops.application.tagging.cf6_confirmation import analyze_record
-
-                    receipt = analyze_record(
-                        record,
-                        claim,
-                        graph,
-                        rulepack,
-                        snapshot["analysis_profile_policy"],
-                    )
-                    record["cf6_receipt"] = receipt
-                    record["cf6_confirmation"] = receipt["cf6_confirmation"]
-            return record
-
-        def reported_claim(claim):
+        def reported_claim(claim: Claim) -> dict[str, Any]:
             try:
-                record = project_claim(claim)
+                record = project_claim(claim_context, claim, isolated_claim(claim))
             except (ValueError, KeyError, TypeError) as error:
                 if not rb1.active or not tag_input_code(error):
                     raise
@@ -1346,11 +805,11 @@ class LocalTagRunner:
                     expected_attempts=event["attempts"],
                 )
                 return "ignored"
-            usage: dict = {"model_calls": 0, "synthetic_calls": 0}
+            usage: dict[str, Any] = {"model_calls": 0, "synthetic_calls": 0}
             heartbeat_state = LeaseHeartbeatState(int(self.clock()))
             deferred: list[ReviewInputs] = []
 
-            def operation(owned):
+            def operation(owned: JobLease) -> tuple[bytes, dict[str, Any]]:
                 # An explicit recovery or reprocess job carries its own bounded
                 # authorization, visible to the live runtime only while it runs.
                 # Ordinary jobs have none, so nothing about their stop, receipt or
@@ -1487,7 +946,7 @@ class LocalTagRunner:
                 return "failed"
             jobs.record_usage(lease, usage)
 
-            def publish(db):
+            def publish(db: sqlite3.Connection) -> None:
                 if reprocess is not None:
                     reprocess.verify_publication(self.store, db)
                     for inputs in deferred:
@@ -1500,7 +959,7 @@ class LocalTagRunner:
 
             if not jobs.commit_job(lease, payload=payload, now=int(self.clock()), publish=publish):
                 return "discarded"
-            return json.loads(payload)["stage_status"]
+            return cast(str, json.loads(payload)["stage_status"])
         if "tag_job" in run:
-            return self.tags.load_snapshot(tenant_id, run_id)["stage_status"]
+            return cast(str, self.tags.load_snapshot(tenant_id, run_id)["stage_status"])
         return "idle"

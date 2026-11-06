@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from proofops.application.preflight import Preflight
 from proofops.application.tagging.relations import (
@@ -45,7 +46,9 @@ class UpstageRelationsTransport(UpstageTaggingTransport):
     SCHEMA = SCHEMA
     SYSTEM_PROMPT = SYSTEM_PROMPT
 
-    def _wire_request(self, request: dict) -> tuple[str, str, dict[str, dict], Preflight, str]:
+    def _wire_request(
+        self, request: dict[str, Any]
+    ) -> tuple[str, str, dict[str, dict[str, Any]], Preflight, str]:
         settings = self._settings
         if settings.system_prompt != self.SYSTEM_PROMPT:
             raise ValueError("UPSTAGE_RELATIONS_PROMPT_INVALID")
@@ -108,13 +111,13 @@ class UpstageRelationsTransport(UpstageTaggingTransport):
             settings.schema_json,
         )
 
-    def _source_text_valid(self, source: dict) -> bool:
+    def _source_text_valid(self, source: dict[str, Any]) -> bool:
         return isinstance(source["text"], str) and bool(source["text"])
 
     def _source_fields(self) -> set[str]:
         return {"source_index", "text"}
 
-    def _validate_occurrences(self, source: dict) -> None:
+    def _validate_occurrences(self, source: dict[str, Any]) -> None:
         pass  # Legacy wire has no occurrence catalog.
 
 
@@ -129,7 +132,7 @@ class UpstageOccurrenceRelationsTransport(UpstageRelationsTransport):
     def _source_fields(self) -> set[str]:
         return {"source_index", "source_id", "text", "occurrences"}
 
-    def _validate_occurrences(self, source: dict) -> None:
+    def _validate_occurrences(self, source: dict[str, Any]) -> None:
         try:
             _require_uuid("source_id", source["source_id"])
             candidates = source["occurrences"]
@@ -167,13 +170,13 @@ class UpstageOccurrenceV3RelationsTransport(UpstageRelationsTransport):
     SCHEMA = OCCURRENCE_V3_SCHEMA
     SYSTEM_PROMPT = OCCURRENCE_V3_SYSTEM_PROMPT
 
-    def _source_text_valid(self, source: dict) -> bool:
+    def _source_text_valid(self, source: dict[str, Any]) -> bool:
         return isinstance(source["windows"], list)
 
     def _source_fields(self) -> set[str]:
         return {"source_index", "source_id", "raw_text_sha256", "windows", "occurrences"}
 
-    def _validate_occurrences(self, source: dict) -> None:
+    def _validate_occurrences(self, source: dict[str, Any]) -> None:
         from proofops.application.evidence.binding import _DIMENSIONS
         from proofops.application.tagging.relations import OCCURRENCE_V3_POLICY
 

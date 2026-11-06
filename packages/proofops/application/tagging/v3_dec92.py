@@ -4,13 +4,26 @@ No votes, checklist booleans, grade mappings or legal effects are manufactured.
 Historical PB1/Q1 prompts and policy dictionaries are intentionally unchanged.
 """
 
+from __future__ import annotations
+
 import re
+from collections.abc import Mapping
 from dataclasses import asdict, replace
+from typing import TYPE_CHECKING
 
 from proofops.application.tagging.q1_contract import PRELIMINARY as Q1_PRELIMINARY
 from proofops.application.tagging.q1_contract import forecast_quote
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from proofops.application.claims import Claim
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.tagging.contracts import PreliminaryClassification
+    from proofops.domain.values import LlmElement
+
 
 PROFILE = "v3_dec92_categories_means_v1"
 CLASSIFICATION_GUIDANCE = """
@@ -87,19 +100,19 @@ PROMPT_POLICY = dict(
 )
 
 
-def validate_policy(policy):
+def validate_policy(policy: Mapping[str, Any]) -> None:
     if policy != POLICY:
         raise ValueError("V3_DEC92_POLICY_MISMATCH")
 
 
-def preliminary(schema, *, quote=None):
+def preliminary(schema: dict[str, Any], *, quote: str | None = None) -> str:
     from proofops.application.tagging.finals_i4 import _require_k4_schema
 
     _require_k4_schema(schema)
     return PRELIMINARY.replace("{{OUTPUT_SCHEMA_JSON}}", canonical_json(schema))
 
 
-def forward_candidate(text, *, track):
+def forward_candidate(text: str, *, track: str | None) -> tuple[str | None, str]:
     """Literal candidate only; caller must validate actor, source and model choice."""
     if forecast_quote(text) or (
         track in ("goal", "performance") and re.search(FORECAST, text, re.I)
@@ -113,7 +126,9 @@ def forward_candidate(text, *, track):
     return None, "not_forward_candidate"
 
 
-def validate_classification(result, claim, graph):
+def validate_classification(
+    result: PreliminaryClassification, claim: Claim, graph: CanonicalDocumentGraph
+) -> PreliminaryClassification:
     """Veto inconsistent headers; never silently convert saved model votes."""
     from proofops.application.tagging.k4_contract import estimate_evidence
 
@@ -146,7 +161,7 @@ def validate_classification(result, claim, graph):
     return result
 
 
-def guard(element, *, claim_quote):
+def guard(element: LlmElement, *, claim_quote: str) -> LlmElement:
     """Negative admission only: keep raw evidence and uncertainty states."""
     if element.state != "present":
         return element
@@ -174,7 +189,7 @@ def guard(element, *, claim_quote):
     )
 
 
-def hold_projection(item):
+def hold_projection(item: dict[str, Any]) -> dict[str, Any]:
     from proofops.application.tagging.quality import _cause_specific_hold
 
     result = _cause_specific_hold(item)

@@ -5,9 +5,12 @@ readers ignore them; rollback disables rescore routes/writers and retains every
 artifact and decision revision. Initialization is idempotent, never destructive.
 """
 
+from __future__ import annotations
+
 import json
 from dataclasses import asdict
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from proofops.adapters.local.audit_store import append_audit_transaction, read_audit_head
@@ -16,11 +19,18 @@ from proofops.application.rescores import RescoreRejected
 from proofops.domain.audit import ChangeSet
 from proofops.domain.provenance import canonical_hash
 
+if TYPE_CHECKING:
+    import sqlite3
+    from typing import Any
+
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops.application.authorization import AuthContext
+
 
 class LocalSQLiteRescoreStore:
     kind = "local-synthetic-only"
 
-    def __init__(self, run_store):
+    def __init__(self, run_store: LocalSQLiteRunStore) -> None:
         self.runs, self.jobs = run_store, run_store.jobs
         with self.jobs._transaction() as db:
             db.execute("CREATE TABLE IF NOT EXISTS rescore_schema (version INTEGER PRIMARY KEY)")
@@ -39,13 +49,15 @@ class LocalSQLiteRescoreStore:
                 AND kind=NEW.kind AND record_id=NEW.record_id)
                 BEGIN SELECT RAISE(ABORT,'rescore artifact already exists'); END""")
 
-    def _run(self, db, tenant, run_id):
+    def _run(self, db: sqlite3.Connection, tenant: str, run_id: str) -> dict[str, Any]:
         try:
             return self.jobs._get(db, tenant, run_id, "run", "META")
         except KeyError:
             raise RescoreRejected("RESOURCE_NOT_FOUND", 404) from None
 
-    def _replay(self, db, tenant, key, request_hash):
+    def _replay(
+        self, db: sqlite3.Connection, tenant: str, key: str, request_hash: str
+    ) -> dict[str, Any] | None:
         row = db.execute(
             """SELECT value FROM job_records WHERE tenant_id=?
             AND kind='rescore_idempotency' AND record_id=?""",
@@ -56,9 +68,12 @@ class LocalSQLiteRescoreStore:
         saved = json.loads(row[0])
         if saved["request_hash"] != request_hash:
             raise RescoreRejected("IDEMPOTENCY_CONFLICT")
-        return saved["response"]
+        return_value: dict[str, Any] | None = saved["response"]
+        return return_value
 
-    def _target(self, db, tenant, mode, pack_id):
+    def _target(
+        self, db: sqlite3.Connection, tenant: str, mode: str, pack_id: str
+    ) -> dict[str, Any]:
         try:
             pack = self.runs.rulepacks.active_snapshot_transaction(db, tenant, mode, pack_id)
         except RulePackNotFound:
@@ -67,7 +82,7 @@ class LocalSQLiteRescoreStore:
             raise RescoreRejected("RULE_PACK_NOT_ACTIVE")
         return asdict(pack)
 
-    def _claims(self, db, tenant, run):
+    def _claims(self, db: sqlite3.Connection, tenant: str, run: str) -> dict[str, Any]:
         rows = db.execute(
             """SELECT record_id,value FROM job_records
             WHERE tenant_id=? AND run_id=? AND kind='claim_head' ORDER BY record_id""",
@@ -98,7 +113,9 @@ class LocalSQLiteRescoreStore:
             raise RescoreRejected("RETAG_REQUIRED")
         return claims
 
-    def capture(self, actor, run_id, body, key, expected):
+    def capture(
+        self, actor: AuthContext, run_id: str, body: dict[str, Any], key: str, expected: int | None
+    ) -> dict[str, Any]:
         tenant = actor.tenant_id
         replay_key = canonical_hash([actor.user_sub, "rescore", key])
         request_hash = canonical_hash([run_id, body, expected])
@@ -123,7 +140,14 @@ class LocalSQLiteRescoreStore:
                 request_hash=request_hash,
             )
 
-    def commit(self, actor, run_id, body, captured, prepared):
+    def commit(
+        self,
+        actor: AuthContext,
+        run_id: str,
+        body: dict[str, Any],
+        captured: dict[str, Any],
+        prepared: dict[str, Any],
+    ) -> dict[str, Any]:
         tenant = actor.tenant_id
         with self.jobs._transaction() as db:
             run = self._run(db, tenant, run_id)
@@ -216,12 +240,13 @@ class LocalSQLiteRescoreStore:
             )
             return response
 
-    def get(self, tenant_id, run_id, rescore_id):
+    def get(self, tenant_id: str, run_id: str, rescore_id: str) -> dict[str, Any]:
         with self.jobs._transaction() as db:
             self._run(db, tenant_id, run_id)
             try:
-                return self.jobs._get(db, tenant_id, run_id, "rescore_artifact", rescore_id)[
-                    "response"
-                ]
+                return_value: dict[str, Any] = self.jobs._get(
+                    db, tenant_id, run_id, "rescore_artifact", rescore_id
+                )["response"]
+                return return_value
             except KeyError:
                 raise RescoreRejected("RESOURCE_NOT_FOUND", 404) from None

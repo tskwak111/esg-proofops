@@ -29,6 +29,8 @@ import argparse
 import json
 import logging
 import sys
+from collections.abc import Callable
+from typing import Any
 from uuid import UUID
 
 from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS
@@ -49,8 +51,8 @@ def run_batches(
     run_id: str,
     batches: int,
     max_calls: int | None = None,
-    on_batch=None,
-) -> list[dict]:
+    on_batch: Callable[[dict[str, Any]], None] | None = None,
+) -> list[dict[str, Any]]:
     """Run at most ``batches`` continuation batches, stopping on the first halt."""
     if type(batches) is not int or not 1 <= batches <= 100:
         raise ValueError("EXTRACTION_BATCH_COUNT_INVALID")

@@ -1,5 +1,11 @@
 """Authenticate current C3 responses against the broker ledger and raw sidecar."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from proofops.adapters.local.openai import OpenAIProbe
 import json
 import sqlite3
 from pathlib import Path
@@ -9,7 +15,9 @@ from proofops.application.tagging.c3_request_binding import request_binding
 from proofops.domain.provenance import canonical_hash
 
 
-def authenticate_response(request, response, probe):
+def authenticate_response(
+    request: dict[str, Any], response: dict[str, Any], probe: OpenAIProbe
+) -> dict[str, Any]:
     # Cache hits and saved projections remain usable candidates, never fresh calls.
     if "response_reuse" in response or "saved_response_origin" in response:
         return response

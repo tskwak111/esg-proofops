@@ -6,6 +6,7 @@ import json
 from collections.abc import Mapping
 from hashlib import sha256
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from proofops.application.ports.jobs import JobMessage
 from proofops.application.summaries import summarize_snapshot
@@ -13,18 +14,27 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import RulePackSnapshot
 from proofops.domain.values import _require_sha256, _require_uuid
 
+if TYPE_CHECKING:
+    import sqlite3
+    from typing import Any
+
+    from proofops.adapters.local.claim_store import LocalClaimStore
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+
 
 class LocalSummaryStore:
     """Read one run epoch and all current heads in one SQLite transaction."""
 
     kind = "local-synthetic-only"
 
-    def __init__(self, run_store, claims) -> None:
+    def __init__(self, run_store: LocalSQLiteRunStore, claims: LocalClaimStore) -> None:
         if Path(run_store.path).resolve() != Path(claims.store.path).resolve():
             raise ValueError("runs and claims must share one local database")
         self.runs, self.claims = run_store, claims
 
-    def _claim_ids(self, db, run, snapshot) -> tuple[str, ...]:
+    def _claim_ids(
+        self, db: sqlite3.Connection, run: dict[str, Any], snapshot: dict[str, Any]
+    ) -> tuple[str, ...]:
         discovered = run.get("coverage", {}).get("claims_discovered", 0)
         if "extract_job" not in run:
             if discovered:
@@ -86,7 +96,15 @@ class LocalSummaryStore:
         return tuple(ids)
 
     def _decision_has_valid_lineage(
-        self, db, tenant_id, run_id, claim_id, head, record, tag, snapshot
+        self,
+        db: sqlite3.Connection,
+        tenant_id: str,
+        run_id: str,
+        claim_id: str,
+        head: dict[str, Any],
+        record: dict[str, Any],
+        tag: dict[str, Any],
+        snapshot: dict[str, Any],
     ) -> bool:
         decision = record.get("decision", {})
         revision = head.get("decision_revision")
@@ -139,7 +157,7 @@ class LocalSummaryStore:
                 continue
         return False
 
-    def get(self, tenant_id: str, run_id: str) -> dict:
+    def get(self, tenant_id: str, run_id: str) -> dict[str, Any]:
         _require_uuid("tenant_id", tenant_id)
         _require_uuid("run_id", run_id)
         jobs = self.runs.jobs

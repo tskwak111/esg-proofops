@@ -1,12 +1,14 @@
 """Lossless model selection projection; original candidate offsets stay server-side."""
 
+from typing import Any
+
 PROFILE = "owned-cell-compact-i3-v1"
 GUIDANCE = (
     "I3: parent_context_ids index candidate_contexts. These source-bound literal headers "
     "are interpretation context only; never borrow their numbers or years as claim facts. "
     "Select only the provided sentence_ids; do not create citations or grades."
 )
-POLICY = dict(
+POLICY: dict[str, Any] = dict(
     profile=PROFILE,
     fields=["sentence_id", "text", "candidate_role", "row", "column"],
     parents="deduplicate-identical-literal-context; ordered-indexes; no-text-truncation",
@@ -16,7 +18,7 @@ POLICY = dict(
 )
 
 
-def compact(data):
+def compact(data: dict[str, Any]) -> dict[str, Any]:
     contexts, entries = [], []
     for original in data["source_sentences"]:
         entry = {k: original[k] for k in POLICY["fields"] if k in original}

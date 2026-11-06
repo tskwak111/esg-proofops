@@ -4,34 +4,65 @@ No parallel revision tables. Checkpoints use the existing immutable artifact
 pointer and retain the extraction checkpoint digest and frozen run inputs.
 """
 
-import json
+from __future__ import annotations
+
+import json as json
+from collections.abc import Callable
 from dataclasses import asdict
-from hashlib import sha256
+from hashlib import sha256 as sha256
+from typing import TYPE_CHECKING
 
 from proofops.adapters.cache.aws import CacheNamespace, CacheRequest
 from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 from proofops.adapters.local.claim_store import LocalClaimStore
+from proofops.adapters.local.tag_store_checkpoint import tag_pins as tag_pins
+from proofops.adapters.local.tag_store_checkpoint import tagging_settings as tagging_settings
+from proofops.adapters.local.tag_store_checkpoint import validate_tag_commit as validate_tag_commit
 from proofops.application.budget import TokenUsage
 from proofops.application.evidence.binding import ClaimContext
 from proofops.application.evidence.retrieval import freeze_packet
-from proofops.application.ports.jobs import JobMessage
-from proofops.application.ports.models import ModelBinding
-from proofops.application.preflight import relation_settings_contract_valid
+from proofops.application.ports.jobs import JobMessage as JobMessage
+from proofops.application.ports.models import ModelBinding as ModelBinding
+from proofops.application.preflight import (
+    relation_settings_contract_valid as relation_settings_contract_valid,
+)
 from proofops.application.reviews import ReviewInputs
-from proofops.application.tagging.consensus import form_consensus, reviewable_decision
-from proofops.application.tagging.report_level_link import replay_report_level_link, strict_fallback
-from proofops.application.tagging.service import TaggingSettings, TagRun
-from proofops.domain.provenance import canonical_hash
+from proofops.application.tagging.consensus import ConsensusResult, form_consensus
+from proofops.application.tagging.consensus import reviewable_decision as _reviewable_decision
+from proofops.application.tagging.report_level_link import (
+    replay_report_level_link as _replay_report_level_link,
+)
+from proofops.application.tagging.report_level_link import strict_fallback as _strict_fallback
+from proofops.application.tagging.service import TaggingSettings as TaggingSettings
+from proofops.application.tagging.service import TagRun
+from proofops.domain.provenance import canonical_hash as canonical_hash
 from proofops.domain.rulepacks import RulePackSnapshot
-from proofops.domain.rules.engine import RuleContext, evaluate
+from proofops.domain.rules.engine import ConfirmedTags, RuleContext, evaluate
 from proofops.domain.values import SourceRef, llm_tags_from_dict
+
+if TYPE_CHECKING:
+    from types import ModuleType
+    from typing import Any
+
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser
+    from proofops.application.claims import Claim, ClaimDiscovery
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.tagging.fact_assembly_c2 import FactAssemblyReceiptV1
+    from proofops.application.uploads import UploadService
+
+
+reviewable_decision = _reviewable_decision
+
+replay_report_level_link: Callable[..., ConsensusResult] = _replay_report_level_link
+strict_fallback: Callable[..., ConfirmedTags | None] = _strict_fallback
 
 # Added to TagRun on 2026-09-27. Only absent/null is equivalent, only in
 # tag_runs during read comparison; persisted inputs and their hashes stay intact.
 TAG_RUN_READ_COMPAT_NULL_FIELDS = frozenset({"diagnostic_detail"})
 
 
-def _tag_replay_hash(snapshot):
+def _tag_replay_hash(snapshot: dict[str, Any]) -> str:
     comparable = snapshot | {
         "tag_runs": [
             {field: None for field in TAG_RUN_READ_COMPAT_NULL_FIELDS} | entry
@@ -41,247 +72,16 @@ def _tag_replay_hash(snapshot):
     return canonical_hash(comparable)
 
 
-def tagging_settings(snapshot, *, preliminary=False, relation=False):
-    if preliminary and relation:
-        raise ValueError("TAGGING_PROFILE_MISMATCH")
-    from proofops.application.tagging.decisions import validate_decision_snapshot
-
-    validate_decision_snapshot(snapshot)
-    prefix = "relation" if relation else "preliminary" if preliminary else "tagging"
-    if prefix + "_settings" not in snapshot:
-        raise ValueError("TAGGING_PROFILE_MISMATCH")
-    raw = snapshot[prefix + "_settings"]
-    settings = TaggingSettings(**(raw | {"binding": ModelBinding(**raw["binding"])}))
-    if snapshot.get("tagging_mode") == "upstage_local":
-        from proofops.application.registry import artifact_sha256
-
-        runtime = snapshot[prefix + "_runtime"]
-        if (
-            canonical_hash(raw) != snapshot[prefix + "_settings_hash"]
-            or artifact_sha256(runtime) != snapshot[prefix + "_runtime_artifact_hash"]
-            or settings.binding.synthetic is not False
-            or settings.binding.binding_id != runtime["runtime_binding_id"]
-            or settings.binding.role != "tagger"
-            or settings.model_id != runtime["model_id"]
-            or runtime.get("tagging_settings_sha256") != canonical_hash(raw)
-            or runtime.get("input_reservation_policy_sha256")
-            != snapshot["input_reservation_policy_hash"]
-            or canonical_hash(snapshot["input_reservation_policy"])
-            != snapshot["input_reservation_policy_hash"]
-        ):
-            raise ValueError("TAGGING_PROFILE_MISMATCH")
-        if relation and not relation_settings_contract_valid(settings):
-            raise ValueError("TAGGING_PROFILE_MISMATCH")
-        return settings
-    if preliminary or relation:
-        raise ValueError("PRELIMINARY_PROFILE_UNSUPPORTED")
-    runtime = snapshot["runtime"]
-    if (
-        canonical_hash(raw) != snapshot["tagging_settings_hash"]
-        or snapshot["tagging_mode"] != "local_synthetic"
-        or not settings.binding.synthetic
-        or settings.binding.binding_id != runtime["runtime_binding_id"]
-        or settings.binding.role != runtime["role"]
-        or (settings.model_id, settings.region) != (runtime["model_id"], runtime["endpoint_region"])
-        or runtime["status"] != "approved"
-        or type(settings.max_tokens) is not int
-        or not 1 <= settings.max_tokens <= runtime["max_output_tokens"]
-    ):
-        raise ValueError("TAGGING_PROFILE_MISMATCH")
-    return settings
-
-
-def tag_pins(snapshot, extraction, extraction_hash):
-    from proofops.application.evidence.relation_attribution import snapshot_policy
-
-    attribution = snapshot_policy(snapshot)
-    pins = dict(
-        schema="local_tag_checkpoint_v1",
-        synthetic=snapshot.get("tagging_mode") != "upstage_local",
-        **{
-            key: extraction[key]
-            for key in (
-                "tenant_id",
-                "run_id",
-                "document_version_id",
-                "input_hash",
-                "source_sha256",
-                "object_version_id",
-                "parse_manifest_id",
-                "graph_sha256",
-                "parse_checkpoint_sha256",
-                "manifest_sha256",
-                "rule_pack_sha256",
-                "model_binding_hash",
-                "extraction_profile",
-                "extraction_profile_hash",
-                "extraction_mode",
-            )
-        },
-        claim_snapshot_sha256=extraction_hash,
-        tagging_settings=snapshot.get("tagging_settings"),
-        tagging_settings_hash=snapshot.get("tagging_settings_hash"),
-        tagging_mode=snapshot.get("tagging_mode"),
-        validation_profile="fast_preview",
-        vision_status="not_run",
-    )
-    if attribution is not None:
-        pins.update(
-            relation_attribution_policy=attribution,
-            relation_attribution_policy_sha256=canonical_hash(attribution),
-        )
-    if snapshot.get("tagging_mode") == "upstage_local":
-        pins.update(
-            **{
-                key: snapshot[key]
-                for key in (
-                    "preliminary_settings",
-                    "preliminary_settings_hash",
-                    "preliminary_runtime",
-                    "preliminary_runtime_artifact_hash",
-                    "tagging_runtime",
-                    "tagging_runtime_artifact_hash",
-                    "input_reservation_policy",
-                    "input_reservation_policy_hash",
-                    "rulepack_use",
-                )
-            }
-        )
-        relation_keys = (
-            "relation_settings",
-            "relation_settings_hash",
-            "relation_runtime",
-            "relation_runtime_artifact_hash",
-        )
-        if any(key in snapshot for key in relation_keys):
-            if not all(key in snapshot for key in relation_keys):
-                raise ValueError("TAG_CHECKPOINT_PIN_MISMATCH")
-            pins.update({key: snapshot[key] for key in relation_keys})
-    elif any(
-        key in snapshot
-        for key in (
-            "relation_settings",
-            "relation_settings_hash",
-            "relation_runtime",
-            "relation_runtime_artifact_hash",
-        )
-    ):
-        raise ValueError("TAG_CHECKPOINT_PIN_MISMATCH")
-    from proofops.application.tagging.decisions import validate_decision_snapshot
-
-    validate_decision_snapshot(snapshot)
-    if "decision_settings" in snapshot:
-        pins.update(
-            {
-                key: snapshot[key]
-                for key in (
-                    "decision_settings",
-                    "decision_settings_hash",
-                    "decision_runtimes",
-                    "decision_runtime_hashes",
-                )
-            }
-        )
-    if "pipeline_profile" in snapshot:
-        pins["pipeline_profile"] = snapshot["pipeline_profile"]
-        if snapshot["pipeline_profile"] in ("finals-unattended-v1", "finals-unattended-v2"):
-            from proofops.application.analysis_profile import policy_for
-
-            policy = policy_for(
-                snapshot["pipeline_profile"],
-                pinned_hash=snapshot.get("analysis_profile_policy_sha256"),
-            )
-            policy_hash = canonical_hash(policy)
-
-            if (
-                snapshot.get("analysis_profile_policy") != policy
-                or snapshot.get("analysis_profile_policy_sha256") != policy_hash
-            ):
-                raise ValueError("ANALYSIS_PROFILE_PIN_MISMATCH")
-            pins["analysis_profile_policy_sha256"] = policy_hash
-    if "fact_assembly_profile" in snapshot:
-        pins["fact_assembly_profile"] = snapshot["fact_assembly_profile"]
-    if "report_level_link" in snapshot:
-        pins["report_level_link"] = snapshot["report_level_link"]
-    return pins
-
-
-def validate_tag_commit(db, jobs, run, message, envelope, next_job):
-    row = db.execute(
-        "SELECT payload FROM run_snapshots WHERE tenant_id=? AND run_id=?",
-        (message.tenant_id, message.run_id),
-    ).fetchone()
-    snapshot = json.loads(row[0]) if row else {}
-    extraction_job = jobs._job(db, JobMessage(**run["extract_job"]))
-    ref = extraction_job["artifact_ref"]
-    raw = jobs._raw(db, message.tenant_id, message.run_id, "artifact", ref["key"])
-    if raw is None or sha256(raw).hexdigest() != ref["sha256"]:
-        raise ValueError("TAG_EXTRACTION_CHECKPOINT_INVALID")
-    extraction = json.loads(raw)
-    expected = tag_pins(snapshot, extraction, ref["sha256"])
-    claims = envelope["claims"]
-    unattended = snapshot.get("pipeline_profile") in (
-        "unattended-v1",
-        "finals-unattended-v1",
-        "finals-unattended-v2",
-    )
-    original_ids = [c["claim_id"] for c in extraction["discovery"]["claims"]]
-    decided = sum(
-        item["decision"] is not None and item["decision"]["decision_status"] == "decided"
-        for item in claims
-    )
-    coverage = dict(
-        extraction["coverage"],
-        claims_decided=decided,
-        claims_needs_review=len(claims) - decided,
-        complete=False,
-    )
-    if (
-        message.stage != "tag"
-        or next_job is not None
-        or message.input_hash != snapshot["input_hash"]
-        or canonical_hash({k: v for k, v in snapshot.items() if k != "input_hash"})
-        != message.input_hash
-        or (message.tenant_id, message.run_id, message.document_version_id)
-        != (snapshot["tenant_id"], snapshot["run_id"], snapshot["document"]["version_id"])
-        or run["claim_snapshot_sha256"] != ref["sha256"]
-        or any(envelope.get(k) != v for k, v in expected.items())
-        or [item["claim_id"] for item in claims] != original_ids
-        or envelope["coverage"] != coverage
-        or envelope["stage_status"] not in {"blocked", "needs_review", "completed"}
-        or envelope["downstream_status"] != "human_review"
-        or (
-            not unattended
-            and any(item["tag_runs"] and item.get("review_inputs") is None for item in claims)
-        )
-        or any(not item["tag_runs"] and item["decision"] is not None for item in claims)
-    ):
-        raise ValueError("TAG_CHECKPOINT_INVALID")
-    # Only the caller holding this same transaction's fence can publish revisions.
-    for item in claims:
-        if unattended:
-            if (
-                item.get("decision") is not None
-                or item.get("review_inputs") is not None
-                or item.get("provisional_grade", {}).get("decision_status") != "provisional"
-                or item.get("source_status", {}).get("status") not in {"verified", "unverified"}
-            ):
-                raise ValueError("UNATTENDED_CHECKPOINT_INVALID")
-            continue
-        if item["tag_runs"]:
-            review = item["review_inputs"]
-            if (
-                review["tag_runs"] != item["tag_runs"]
-                or review["decision"] != item["decision"]
-                or review["claim"]["claim_id"] != item["claim_id"]
-            ):
-                raise ValueError("TAG_REVIEW_INPUT_MISMATCH")
-    return coverage
-
-
 def _stored_context_reader(
-    store, claim, run_id, refs, run_policy, replay_receipt, *, published_tag=None
-):
+    store: LocalSQLiteRunStore,
+    claim: Claim,
+    run_id: str,
+    refs: tuple[SourceRef, ...],
+    run_policy: dict[str, Any] | None,
+    replay_receipt: dict[str, Any] | None,
+    *,
+    published_tag: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any], str | None]:
     """Resolve only the explicitly requested, already-published receipt."""
     jobs = getattr(store, "jobs", None)
     if jobs is None or not hasattr(jobs, "_transaction"):
@@ -329,7 +129,11 @@ def _stored_context_reader(
         )
         if paragraph is None and receipt.get("schema") == "context_source_attestation_v1":
             if run_policy and run_policy.get("profile") in PAGE_OCR_PROFILES:
-                from proofops.adapters.local.claim_source_policies import claim_source_reader
+                from proofops.adapters.local.claim_source_policies import (
+                    claim_source_reader as _claim_source_reader,
+                )
+
+                claim_source_reader: Callable[..., ModuleType] = _claim_source_reader
 
                 table_span_policy = claim_source_reader(run_policy).table_span_policy
 
@@ -374,13 +178,21 @@ def _stored_context_reader(
 
 
 class LocalTagStore:
-    def __init__(self, store, uploads, parser):
+    def __init__(
+        self, store: LocalSQLiteRunStore, uploads: UploadService, parser: OpenDataLoaderParser
+    ) -> None:
         self.store, self.uploads, self.parser = store, uploads, parser
         self.claims = LocalClaimStore(store, uploads, parser)
 
     def verify_context_sources(
-        self, inputs, refs, *, replay_receipt=None, pinned_run_snapshot=None, published_tag=None
-    ):
+        self,
+        inputs: ReviewInputs,
+        refs: tuple[SourceRef, ...],
+        *,
+        replay_receipt: dict[str, Any] | None = None,
+        pinned_run_snapshot: dict[str, Any] | None = None,
+        published_tag: dict[str, Any] | None = None,
+    ) -> tuple[CanonicalDocumentGraph, dict[str, Any]]:
         """Publish under current policy, or replay an explicitly stored receipt.
 
         Historical readers are selected only after storage and ref binding have
@@ -388,10 +200,14 @@ class LocalTagStore:
         """
         from dataclasses import replace
 
-        from proofops.adapters.local.claim_source_policies import attest_claims
+        from proofops.adapters.local.claim_source_policies import attest_claims as _attest_claims
+
+        attest_claims: Callable[..., dict[str, Any]] = _attest_claims
         from proofops.adapters.local.claim_source_verification import claim_source_policy
         from proofops.adapters.local.table_span_source_verification import (
-            attest_table_spans,
+            attest_table_spans as default_attest_table_spans,
+        )
+        from proofops.adapters.local.table_span_source_verification import (
             table_span_policy,
         )
         from proofops.application.evidence.span_citations import (
@@ -399,6 +215,7 @@ class LocalTagStore:
             verify_source_ref,
         )
 
+        attest_table_spans: Callable[..., dict[str, Any]] = default_attest_table_spans
         claim, graph = inputs.context.claim, inputs.original
         if not 1 <= len(refs) <= 6:
             raise ValueError("CONTEXT_SOURCE_LIMIT")
@@ -436,9 +253,14 @@ class LocalTagStore:
                 )
             if reader_policy is not None:
                 from proofops.adapters.local.claim_source_policies import (
-                    claim_source_reader,
-                    publication_reader,
+                    claim_source_reader as _claim_source_reader,
                 )
+                from proofops.adapters.local.claim_source_policies import (
+                    publication_reader as _publication_reader,
+                )
+
+                claim_source_reader: Callable[..., ModuleType] = _claim_source_reader
+                publication_reader: Callable[..., ModuleType] = _publication_reader
 
                 reader = (
                     claim_source_reader(reader_policy)
@@ -455,7 +277,7 @@ class LocalTagStore:
         if sha256(source).hexdigest() != graph.source_sha256:
             raise ValueError("CONTEXT_SOURCE_MISMATCH")
 
-        def attest_paragraphs(selected):
+        def attest_paragraphs(selected: tuple[SourceRef, ...]) -> dict[str, Any]:
             if reader_policy and reader_policy.get("profile") in PAGE_OCR_PROFILES:
                 for_run = reader.for_run
 
@@ -465,9 +287,10 @@ class LocalTagStore:
                     saved["artifact_sha256"] = canonical_hash(
                         {k: v for k, v in saved.items() if k != "artifact_sha256"}
                     )
-                    return for_run(run_id).recompute_claim_receipt(
+                    return_value: dict[str, Any] = for_run(run_id).recompute_claim_receipt(
                         saved, graph, source, selected, tenant_id=claim.tenant_id
                     )
+                    return return_value
             return attest_claims(
                 reader=reader,
                 graph=graph,
@@ -497,12 +320,22 @@ class LocalTagStore:
             if stored_receipt is not None:
                 saved_table = (stored_receipt.get("receipts") or {}).get("table")
 
-                def attest_table_spans(graph, source, selected, *, tenant_id):
-                    return page_reader.recompute_table_span_receipt(
+                def attest_saved_table_spans(
+                    graph: CanonicalDocumentGraph,
+                    source: bytes,
+                    selected: tuple[SourceRef, ...],
+                    *,
+                    tenant_id: str,
+                ) -> dict[str, Any]:
+                    return_value: dict[str, Any] = page_reader.recompute_table_span_receipt(
                         saved_table, graph, source, selected, tenant_id=tenant_id
                     )
+                    return return_value
+
+                attest_table_spans = attest_saved_table_spans
             else:
                 attest_table_spans = page_reader.attest_table_spans
+        receipt: dict[str, Any]
         if tables:
             paragraph_receipt = attest_paragraphs(paragraphs) if paragraphs else None
             table_receipt = attest_table_spans(graph, source, tables, tenant_id=claim.tenant_id)
@@ -558,9 +391,14 @@ class LocalTagStore:
             raise ValueError("CONTEXT_SOURCE_REJECTED")
         if stored_receipt is not None:
             from proofops.adapters.local.receipt_environment_compat import (
-                compare_receipts,
-                read_profile,
+                compare_receipts as _compare_receipts,
             )
+            from proofops.adapters.local.receipt_environment_compat import (
+                read_profile as _read_profile,
+            )
+
+            compare_receipts: Callable[..., dict[str, Any]] = _compare_receipts
+            read_profile: Callable[..., str] = _read_profile
 
             try:
                 compare_receipts(stored_receipt, receipt, profile=read_profile())
@@ -583,11 +421,20 @@ class LocalTagStore:
         )
         return scoped, receipt
 
-    def _facility_evidence(self, evidence, snapshot, tenant_id):
+    def _facility_evidence(
+        self,
+        evidence: tuple[dict[str, Any], ClaimDiscovery, CanonicalDocumentGraph],
+        snapshot: dict[str, Any],
+        tenant_id: str,
+    ) -> tuple[dict[str, Any], ClaimDiscovery, CanonicalDocumentGraph]:
         extraction, discovery, graph = evidence
         policy = snapshot.get("analysis_profile_policy", {})
         if policy.get("facility_tagging_candidates") is not None:
-            from proofops.adapters.local.k6_facilities import facility_graph
+            from proofops.adapters.local.k6_facilities import facility_graph as _facility_graph
+
+            facility_graph: Callable[..., tuple[CanonicalDocumentGraph, dict[str, Any]]] = (
+                _facility_graph
+            )
 
             graph, _ = facility_graph(
                 graph,
@@ -597,7 +444,9 @@ class LocalTagStore:
                 policy=policy,
             )
         if policy.get("local_implementation_binding_policy"):
-            from proofops.adapters.local.k9_scope_sources import scope_graph
+            from proofops.adapters.local.k9_scope_sources import scope_graph as _scope_graph
+
+            scope_graph: Callable[..., tuple[CanonicalDocumentGraph, dict[str, Any]]] = _scope_graph
 
             graph, _ = scope_graph(
                 graph,
@@ -609,7 +458,9 @@ class LocalTagStore:
             )
         return extraction, discovery, graph
 
-    def _load_snapshot_with_evidence(self, tenant_id, run_id):
+    def _load_snapshot_with_evidence(
+        self, tenant_id: str, run_id: str
+    ) -> tuple[dict[str, Any], tuple[dict[str, Any], ClaimDiscovery, CanonicalDocumentGraph]]:
         # Share the evidence replay used to verify the tag checkpoint pins.
         run = self.store.jobs.get_run(tenant_id, run_id)
         message = JobMessage(**run["tag_job"])
@@ -626,13 +477,29 @@ class LocalTagStore:
             raise ValueError("TAG_CHECKPOINT_PIN_MISMATCH")
         sc1_policy = snapshot.get("analysis_profile_policy", {}).get("sc1_scope_confirmation")
         if sc1_policy is not None:
-            from proofops.application.tagging.analysis_scope import InventoryIndex, analyze_record
-            from proofops.application.tagging.v1_activity_links import policy_from_profile
+            from proofops.application.tagging.analysis_scope import (
+                InventoryIndex as _InventoryIndex,
+            )
+            from proofops.application.tagging.analysis_scope import (
+                analyze_record as _analyze_record,
+            )
+
+            InventoryIndex: Callable[..., _InventoryIndex] = _InventoryIndex
+            analyze_record: Callable[..., dict[str, Any]] = _analyze_record
+            from proofops.application.tagging.v1_activity_links import (
+                policy_from_profile as _policy_from_profile,
+            )
+
+            policy_from_profile: Callable[..., dict[str, Any] | None] = _policy_from_profile
 
             inventory = envelope.get("sc1_inventory")
             index = InventoryIndex(inventory, evidence[2]) if inventory is not None else None
             if index is not None:
-                from proofops.application.tagging.element_inventory import selection_from_snapshot
+                from proofops.application.tagging.element_inventory import (
+                    selection_from_snapshot as _selection_from_snapshot,
+                )
+
+                selection_from_snapshot: Callable[..., dict[str, Any]] = _selection_from_snapshot
 
                 if index.inventory["selection"] != selection_from_snapshot(
                     snapshot, evidence[2], run_id
@@ -676,10 +543,14 @@ class LocalTagStore:
             if receipt is not None:
                 if cf6_policy is None:
                     raise ValueError("CF6_UNPINNED_CONFIRMATION")
-                from proofops.application.tagging.cf6_confirmation import analyze_record
+                from proofops.application.tagging.cf6_confirmation import (
+                    analyze_record as _analyze_cf6,
+                )
+
+                analyze_cf6: Callable[..., dict[str, Any]] = _analyze_cf6
 
                 claim = next(c for c in evidence[1].claims if c.claim_id == item["claim_id"])
-                replayed = analyze_record(
+                replayed = analyze_cf6(
                     item,
                     claim,
                     evidence[2],
@@ -695,10 +566,10 @@ class LocalTagStore:
                 raise ValueError("CF6_CONFIRMATION_WITHOUT_RECEIPT")
         return envelope, evidence
 
-    def load_snapshot(self, tenant_id, run_id):
+    def load_snapshot(self, tenant_id: str, run_id: str) -> dict[str, Any]:
         return self._load_snapshot_with_evidence(tenant_id, run_id)[0]
 
-    def load_inputs(self, tenant_id, run_id, claim_id):
+    def load_inputs(self, tenant_id: str, run_id: str, claim_id: str) -> ReviewInputs:
         run = self.store.jobs.get_run(tenant_id, run_id)
         envelope = None
         if "tag_job" in run:
@@ -861,7 +732,7 @@ class LocalTagStore:
         return inputs
 
 
-def _fact_assembly_reader(raw):
+def _fact_assembly_reader(raw: dict[str, Any] | None) -> FactAssemblyReceiptV1 | None:
     """Opaque versioned artifact; replay remains ReviewInputs' responsibility."""
     if raw is None:
         return None

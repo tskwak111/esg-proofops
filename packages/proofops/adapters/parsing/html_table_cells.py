@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from html.parser import HTMLParser
+from typing import Any
 
 MAX_HTML_CHARS = 200000
 MAX_ROWS = 500
@@ -36,7 +37,7 @@ class _TableParser(HTMLParser):
         self.parts: list[str] = []
         self.span = (1, 1)
         self.occupied: set[tuple[int, int]] = set()
-        self.cells: list[dict] = []
+        self.cells: list[dict[str, Any]] = []
         self.max_row = -1
         self.max_column = -1
 
@@ -126,7 +127,7 @@ class _TableParser(HTMLParser):
             self.parts.append(data)
 
 
-def parse_table_cells(html: str) -> tuple[dict, ...]:
+def parse_table_cells(html: object) -> tuple[dict[str, Any], ...]:
     if not isinstance(html, str) or not html.strip():
         raise ValueError("invalid html")
     if len(html) > MAX_HTML_CHARS:

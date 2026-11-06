@@ -1,6 +1,7 @@
 """J3 literal candidate boundaries; selection, attribution and grades remain separate."""
 
 import re
+from typing import Any
 
 from proofops.application.ingest.w9_tables import grid
 
@@ -10,7 +11,7 @@ ACTION = (
     r"위임|감독|수립|운영|승인|모니터링|반영|총괄|관리|실시|진행|보고|확산|개발|적용|획득|"
     r"확보|마련|추진|완료|개시|냉각|냉방|제설|저장|흡수|절감|향상|공급|구축|연동|유지"
 )
-POLICY = dict(
+POLICY: dict[str, Any] = dict(
     profile=PROFILE,
     bullet=BULLET,
     action=ACTION,
@@ -23,12 +24,12 @@ POLICY = dict(
 )
 
 
-def _trim(text, a, b):
+def _trim(text: str, a: int, b: int) -> tuple[int, int]:
     value = text[a:b]
     return a + len(value) - len(value.lstrip()), b - len(value) + len(value.rstrip())
 
 
-def bullet_bounds(text, start, end):
+def bullet_bounds(text: str, start: int, end: int) -> list[tuple[int, int]]:
     """Split explicit list items, never punctuation, wraps or connective words."""
     value = text[start:end]
     bullets = [start + m.start() for m in re.finditer(BULLET, value)]
@@ -46,7 +47,9 @@ def bullet_bounds(text, start, end):
     return parts
 
 
-def refine_selected(spans, text, *, kind, cells=None):
+def refine_selected(
+    spans: list[dict[str, Any]], text: str, *, kind: str, cells: list[dict[str, Any]] | None = None
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Keep only the text already selected; return the original parent on ambiguity."""
     output, changes = [], []
     rows = grid(text, cells) if kind == "table" and cells is not None else None

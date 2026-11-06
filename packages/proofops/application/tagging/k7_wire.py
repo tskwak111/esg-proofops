@@ -1,10 +1,18 @@
 """Budget interpretation only; immutable sources and evidence IDs stay server-side."""
 
+from __future__ import annotations
+
 import json
 from copy import deepcopy
+from typing import TYPE_CHECKING
 
 from proofops.application.tagging.k10_contract import GUIDANCE as K10_GUIDANCE
 from proofops.domain.provenance import canonical_hash
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from typing import Any
+
 
 POLICY_V1 = dict(
     profile="bounded-interpretation-k7-v1",
@@ -76,7 +84,7 @@ POLICY_K10 = POLICY_K8_V3 | dict(
 )
 
 
-def fit_context(system, user, check):
+def fit_context(system: str, user: dict[str, Any], check: Callable[[str, str], object]) -> str:
     """Check the exact provider body; deterministically share the projection across replicas."""
     value = deepcopy(user)
     data = value["untrusted_document_data"]
@@ -107,7 +115,7 @@ def fit_context(system, user, check):
     )
     data["interpretation_budget"] = budget
 
-    def render(count):
+    def render(count: int) -> str:
         remaining, blocks = count, []
         ordered = (
             [pieces[-1], *pieces[:-1]]
@@ -142,7 +150,7 @@ def fit_context(system, user, check):
             data.pop("sentence_context", None)
         return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
-    def fits(count):
+    def fits(count: int) -> bool:
         wire = render(count)
         try:
             check(system, wire)

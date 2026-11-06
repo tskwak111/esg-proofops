@@ -77,7 +77,7 @@ def evaluate_preliminary(
         gold_accuracy=None,
     )
     write(output / "manifest.json", canonical_json(manifest))
-    summary = dict(
+    summary: dict[str, Any] = dict(
         manifest_sha256=canonical_hash(manifest),
         published=False,
         gold_accuracy=None,

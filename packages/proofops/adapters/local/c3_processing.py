@@ -1,5 +1,13 @@
 """DEC-68 bounded current-run C3 path. The caller owns transport authorization."""
 
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.domain.rulepacks import RulePackSnapshot
 import json
 import os
 from dataclasses import asdict
@@ -30,8 +38,15 @@ from proofops.application.tagging.tracks import TrackCandidate
 from proofops.domain.provenance import canonical_hash
 
 
-def prepare_case(graph, source, rulepack, *, run_id, diagnostics=None):
-    def unresolved(code, records=()):
+def prepare_case(
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    rulepack: RulePackSnapshot,
+    *,
+    run_id: str,
+    diagnostics: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    def unresolved(code: str, records: Iterable[dict[str, Any]] = ()) -> dict[str, Any] | None:
         if diagnostics is not None:
             diagnostics.update(
                 code=code,
@@ -39,7 +54,7 @@ def prepare_case(graph, source, rulepack, *, run_id, diagnostics=None):
             )
         return None
 
-    approved = c3.REVIEWED_SOURCE_IDENTITY
+    approved = cast("dict[str, Any]", c3.REVIEWED_SOURCE_IDENTITY)
     if (
         graph.tenant_id != approved["tenant_id"]
         or graph.source_sha256 != approved["original_sha256"]
@@ -79,8 +94,8 @@ def prepare_case(graph, source, rulepack, *, run_id, diagnostics=None):
             "C3_SOURCE_ATTESTATION_UNRESOLVED", source_receipt["claim_source_receipt"]["records"]
         )
     graph = replay(source_receipt, graph, source, tenant_id=graph.tenant_id, run_id=run_id)
-    refs = tuple(verify_source_ref(r, graph, tenant_id=graph.tenant_id) for r in refs)
-    if any(ref.verification_state != "verified" for ref in refs):
+    verified_refs = tuple(verify_source_ref(r, graph, tenant_id=graph.tenant_id) for r in refs)
+    if any(ref.verification_state != "verified" for ref in verified_refs):
         return unresolved("C3_SOURCE_REPLAY_UNRESOLVED")
     claim = Claim(
         str(uuid5(NAMESPACE_URL, run_id + ":" + c3.REVIEWED_SOURCE_FINGERPRINT_SHA256)),
@@ -88,13 +103,13 @@ def prepare_case(graph, source, rulepack, *, run_id, diagnostics=None):
         graph.document_version_id,
         graph.parse_manifest_id,
         graph.source_sha256,
-        refs[0].quote,
-        (refs[0],),
+        verified_refs[0].quote,
+        (verified_refs[0],),
         "verified",
         (),
         ExtractionReceipt(
-            refs[0].source_id,
-            canonical_hash(asdict(refs[0])),
+            verified_refs[0].source_id,
+            canonical_hash(asdict(verified_refs[0])),
             None,
             None,
             ExtractionProfile(c3.POLICY_HASH, c3.POLICY_HASH, rulepack.sha256, False),
@@ -120,7 +135,7 @@ def prepare_case(graph, source, rulepack, *, run_id, diagnostics=None):
     )
     packet = freeze_packet(
         {k: v for k, v in packet.to_dict().items() if k != "packet_sha256"}
-        | dict(c2_sources=[asdict(r) for r in refs])
+        | dict(c2_sources=[asdict(r) for r in verified_refs])
     )
     return dict(
         context=ClaimContext(claim, {}),
@@ -132,7 +147,14 @@ def prepare_case(graph, source, rulepack, *, run_id, diagnostics=None):
     )
 
 
-def process_case(case, source, *, output, transport, analysis_policy):
+def process_case(
+    case: dict[str, Any],
+    source: bytes,
+    *,
+    output: str | Path,
+    transport: Callable[[dict[str, Any]], dict[str, Any]],
+    analysis_policy: dict[str, Any],
+) -> dict[str, Any]:
     """Three current receipts → source fingerprint → Python → immutable publication.
 
     Saved replies retain their origin and can only produce candidates. Public

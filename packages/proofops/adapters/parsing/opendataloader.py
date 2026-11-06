@@ -1,383 +1,133 @@
-"""Immutable parser artifacts with local ODL and optional grounded model candidates.
+"""Immutable parser orchestration and compatible isolated-child entrypoint.
 
-OpenDataLoader/pdfplumber run in a bounded subprocess. Upstage and Gemini use
-explicit parser profiles and retain ungrounded text as unverified candidates.
+ODL/pdfplumber run in a bounded subprocess. Candidate conversion, stored
+artifacts and the child implementation live in ``odl_parts``.
 """
 
 from __future__ import annotations
 
 import json
-import math
 import os
 import re
 import shutil
 import subprocess
 import sys
-from contextlib import contextmanager
-from dataclasses import asdict, replace
+from collections.abc import Sequence
+from dataclasses import replace
 from hashlib import sha256
 from importlib.metadata import version
 from pathlib import Path
-from tempfile import TemporaryDirectory
-from time import monotonic, sleep
-from typing import Any
-from uuid import UUID, uuid4, uuid5
+from types import ModuleType
+from typing import TYPE_CHECKING, Any, cast
+from uuid import uuid4
 
-from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
-from proofops.adapters.parsing.windows_isolation import (
-    IsolationUnavailable,
-    kill_and_reap,
-    process_isolation,
+from proofops.adapters.parsing.odl_parts import artifacts, candidates, child, runtime
+from proofops.adapters.parsing.odl_parts.candidates import (
+    _geometry as _geometry,
 )
-from proofops.application.ingest.geometry import affine_apply, invert_affine
+from proofops.adapters.parsing.odl_parts.candidates import (
+    _node_text as _node_text,
+)
+from proofops.adapters.parsing.odl_parts.candidates import (
+    _transform_box as _transform_box,
+)
+from proofops.adapters.parsing.odl_parts.candidates import (
+    _with_quality_issues as _with_quality_issues,
+)
+from proofops.adapters.parsing.odl_parts.common import PageResult, ProcessLimits, UpstageProbe
+from proofops.adapters.parsing.odl_parts.common import (
+    ParseFailure as ParseFailure,
+)
+from proofops.adapters.parsing.odl_parts.common import (
+    _json as _json,
+)
+from proofops.adapters.parsing.odl_parts.common import (
+    _output_bytes as _output_bytes,
+)
+from proofops.adapters.parsing.odl_parts.policies import (
+    _local_pages as _local_pages,
+)
+from proofops.adapters.parsing.odl_parts.policies import (
+    _locates_auxiliary_cells as _locates_auxiliary_cells,
+)
+from proofops.adapters.parsing.odl_parts.policies import (
+    _table_verifier as _table_verifier,
+)
+from proofops.adapters.parsing.odl_parts.runtime import (
+    _check_limits as _check_limits,
+)
+from proofops.adapters.parsing.odl_parts.runtime import (
+    _child_environment as _child_environment,
+)
+from proofops.adapters.parsing.odl_parts.runtime import (
+    _child_limits as _child_limits,
+)
+from proofops.adapters.parsing.odl_parts.runtime import (
+    _cleanup_parser_work as _cleanup_parser_work,
+)
+from proofops.adapters.parsing.odl_parts.runtime import (
+    _parser_work_directory as _parser_work_directory,
+)
+from proofops.adapters.parsing.windows_isolation import kill_and_reap, process_isolation
 from proofops.application.ingest.graph_fusion import (
     CandidateBatch,
-    CandidateBlock,
-    CandidateEdge,
     CanonicalDocumentGraph,
     ParserProfile,
-    QualityIssue,
     SourceArtifact,
-    candidates_from_snapshot,
     fuse_candidates,
+)
+from proofops.application.ingest.graph_fusion import (
+    candidates_from_snapshot as candidates_from_snapshot,
 )
 from proofops.application.ports.parsing import ParserPort
 from proofops.application.uploads_security import PdfLimits, QuarantinedPdf, verify_quarantined_pdf
-from proofops.domain.documents import (
-    NativeSource,
-    PageGeometry,
-    _compose_affine,
-    _require_finite_bbox,
-)
 from proofops.domain.errors import DomainValidationError
 
-
-class ParseFailure(ValueError):
-    """Public code plus a private, retained stderr artifact when a child fails."""
-
-    stderr_path: Path | None = None
-
-
-def _table_verifier(policy_hash):
-    from proofops.adapters.local import table_source_verification as legacy
-
-    if policy_hash == legacy.policy_sha256():
-        return legacy
-    from proofops.adapters.local import merged_table_verification as merged
-
-    if policy_hash == merged.policy_sha256():
-        return merged
-    from proofops.adapters.local import selected_cell_table_verification as selected
-
-    if policy_hash == selected.policy_sha256():
-        return selected
-    from proofops.adapters.local.claim_source_policies import page_ocr_profile
-
-    for name in PAGE_OCR_PROFILES:
-        profile = page_ocr_profile(name)
-        if policy_hash == profile.table_policy_sha256():
-            return profile
-    raise ParseFailure("TABLE_SOURCE_POLICY_MISMATCH")
-
-
-def _locates_auxiliary_cells(profile):
-    """Only the selected-cell policy asks for ink-tight auxiliary cell boxes.
-
-    Pinning that policy in the parser profile IS the new source version: existing
-    runs keep their own policy and their artifacts are never rewritten.
-    """
-    policy_hash = (
-        profile.get("table_source_policy_sha256")
-        if isinstance(profile, dict)
-        else profile.table_source_policy_sha256
-    )
-    if policy_hash is None:
-        return False
-    from proofops.adapters.parsing import spp_execution
-
-    if spp_execution.enabled(profile):
-        spp_execution.table_verifier(policy_hash)
-        return True
-    from proofops.adapters.local import selected_cell_table_verification as selected
-    from proofops.adapters.local.claim_source_policies import page_ocr_profile
-
-    return policy_hash in {
-        selected.policy_sha256(),
-        *(page_ocr_profile(name).table_policy_sha256() for name in PAGE_OCR_PROFILES),
-    }
-
-
-def _json(value: object) -> bytes:
-    return json.dumps(
-        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
-    ).encode()
-
-
-def _transform_box(box, matrix):
-    if box is None:
-        return None
-    if (
-        not isinstance(box, list | tuple)
-        or len(box) != 4
-        or any(
-            isinstance(x, bool) or not isinstance(x, int | float) or not math.isfinite(x)
-            for x in box
-        )
-        or box[0] >= box[2]
-        or box[1] >= box[3]
-    ):
-        raise ParseFailure("PARSER_GEOMETRY_INVALID")
-    points = [affine_apply(matrix, x, y) for x in (box[0], box[2]) for y in (box[1], box[3])]
-    return (
-        min(p[0] for p in points),
-        min(p[1] for p in points),
-        max(p[0] for p in points),
-        max(p[1] for p in points),
-    )
-
-
-def _geometry(value: dict) -> PageGeometry:
-    return PageGeometry(
-        value["width_pt"], value["height_pt"], value["rotation"], tuple(value["crop_box"])
-    )
-
-
-def _node_text(node: dict, depth=0) -> str:
-    if depth > 100:
-        raise ParseFailure("PARSER_OUTPUT_LIMIT")
-    if "content" in node:
-        if not isinstance(node["content"], str):
-            raise ParseFailure("PARSER_SCHEMA_INVALID")
-        return node["content"]
-    key = "rows" if "rows" in node else "cells" if "cells" in node else "kids"
-    children = node.get(key, [])
-    if not isinstance(children, list) or any(not isinstance(child, dict) for child in children):
-        raise ParseFailure("PARSER_SCHEMA_INVALID")
-    return ("\t" if key == "cells" else "\n").join(
-        _node_text(child, depth + 1) for child in children
-    )
-
-
-def _local_pages(profile):
-    from proofops.adapters.parsing import h6_local_pages, h6_local_pages_v2
-
-    resource = (
-        profile.get("local_resource_policy")
-        if isinstance(profile, dict)
-        else profile.local_resource_policy
-    )
-    return h6_local_pages_v2 if resource == "selected-pdf-h6-v2" else h6_local_pages
+if TYPE_CHECKING:
+    from proofops.adapters.parsing.spp_execution import LocalPageCache
 
 
 def _batch(
-    raw: dict,
-    geometries: dict,
+    raw: dict[str, Any],
+    geometries: dict[str, Any],
     source: SourceArtifact,
     profile: ParserProfile,
     config_hash: str,
     *,
-    auxiliary=False,
+    auxiliary: bool = False,
 ) -> CandidateBatch:
-    run_id = str(uuid4())
-    blocks: list[CandidateBlock] = []
-    edges: list[CandidateEdge] = []
-    if not isinstance(raw.get("kids"), list):
-        raise ParseFailure("PARSER_SCHEMA_INVALID")
-    partial_blocks = profile.failure_policy in {
-        "partial-v4",
-        "partial-v5",
-        "partial-v6",
-        "s3_partial-v7",
-    }
-    occurrences: dict[str, int] = {}
-    stack: list[tuple[dict[str, Any], str | None, int | None, str | None, int, bool]] = [
-        (node, None, None, None, 0, False) for node in reversed(raw["kids"])
-    ]
-    while stack:
-        node, parent, inherited_page, table_id, depth, geometry_hold = stack.pop()
-        if not isinstance(node, dict) or depth > 100 or len(blocks) >= 100000:
-            raise ParseFailure("PARSER_OUTPUT_LIMIT")
-        native_id = str(node["id"])
-        page = node.get("page number", inherited_page)
-        if type(page) is not int or str(page) not in geometries:
-            raise ParseFailure("PARSER_PAGE_MAPPING_INVALID")
-        if partial_blocks:
-            # ODL reuses IDs on different pages within the same JVM output.
-            # Qualify each occurrence before constructing parent/table edges.
-            key = f"hx4-p{page}-{native_id}"
-            occurrence = occurrences.get(key, 0)
-            occurrences[key] = occurrence + 1
-            native_id = f"{key}-n{occurrence}"
-        info = geometries[str(page)]
-        geometry = _geometry(info["crop"])
-        kind = {
-            "table row": "table_row",
-            "table cell": "table_cell",
-            "image": "figure",
-            "list item": "paragraph",
-        }.get(node["type"], node["type"])
-        if kind not in (
-            "paragraph",
-            "heading",
-            "table",
-            "table_row",
-            "table_cell",
-            "caption",
-            "footnote",
-            "figure",
-            "unknown",
-        ):
-            kind = "unknown"
-        if kind == "table":
-            table_id = native_id
-        raw_bbox = node.get("bounding box")
-        if auxiliary:
-            media = _geometry(info["media"])
-            origin = node["page origin"]
-            shift = (1.0, 0.0, 0.0, 1.0, -origin[0], -origin[1])
-            to_native = _compose_affine(invert_affine(media.to_canonical_affine()), shift)
-            to_canonical = _compose_affine(geometry.to_canonical_affine(), to_native)
-            coordinate_system = "pdfplumber_top_left_media_points"
-        else:
-            # Actual OD 2.5.7 output is already rotation/CropBox-relative bottom-left.
-            to_canonical = (1.0, 0.0, 0.0, -1.0, 0.0, geometry.height_pt)
-            to_native = _compose_affine(invert_affine(geometry.to_canonical_affine()), to_canonical)
-            coordinate_system = "opendataloader_display_bottom_left_points"
-        try:
-            native_bbox = _transform_box(raw_bbox, to_native)
-            if native_bbox is not None:
-                _require_finite_bbox("native_bbox", native_bbox)
-        except (ParseFailure, DomainValidationError) as error:
-            if not partial_blocks or (
-                isinstance(error, ParseFailure) and str(error) != "PARSER_GEOMETRY_INVALID"
-            ):
-                raise
-            geometry_hold = True
-        if geometry_hold:
-            # Raw JSON retains the rejected coordinates. An unknown, unlocated
-            # candidate cannot be admitted as prose or borrowed as a table owner.
-            native_bbox, raw_bbox, kind = None, None, "unknown"
-        text = _node_text(node)
-        native = NativeSource(
-            source.document_version_id,
-            profile.parse_manifest_id,
-            run_id,
-            native_id,
-            page,
-            info.get("printed_page_label"),
-            native_bbox,
-            "pdf_bottom_left_points",
-            text,
-            0,
-            len(text),
-        )
-        context = tuple(
-            f"{key}={node[key]}" for key in ("row number", "column number") if key in node
-        )
-        if geometry_hold:
-            context += ("hx4_geometry_invalid=true",)
-        blocks.append(
-            CandidateBlock(
-                kind,
-                native,
-                geometry,
-                context,
-                tuple(raw_bbox) if raw_bbox is not None else None,
-                coordinate_system,
-                to_canonical,
-                table_id,
-                node.get("row number"),
-                node.get("column number"),
-                node.get("row span"),
-                node.get("column span"),
-            )
-        )
-        if parent is not None:
-            edges.append(
-                CandidateEdge(native_id, parent, "table_parent" if table_id else "section_parent")
-            )
-        # OD uses a separate key for list children, including misclassified prose continuations.
-        children = [
-            child for key in ("kids", "rows", "cells", "list items") for child in node.get(key, [])
-        ]
-        for child in reversed(children):
-            stack.append((child, native_id, page, table_id, depth + 1, geometry_hold))
-    name = "pdfplumber" if auxiliary else "opendataloader"
-    return CandidateBatch(
-        source.tenant_id,
-        source.document_version_id,
-        profile.parse_manifest_id,
-        source.sha256,
-        run_id,
-        name,
-        version("pdfplumber" if auxiliary else "opendataloader-pdf"),
-        "pdfminer" if auxiliary else "opendataloader",
+    # Retain the run-ID hook used by existing deterministic replay tools.
+    return candidates._batch(
+        raw,
+        geometries,
+        source,
+        profile,
         config_hash,
-        tuple(blocks),
-        tuple(edges),
-        synthetic=False,
+        auxiliary=auxiliary,
+        run_id=str(uuid4()),
     )
 
 
-def _with_quality_issues(graph, selected, profile, vision_pages=()):
-    issues = list(graph.issues)
-    for page in selected:
-        if not any(
-            block.page_num == page
-            and any(s.raw_text for s in block.sources)
-            and (page not in vision_pages or block.bbox is not None)
-            for block in graph.blocks
-        ):
-            issues.append(
-                QualityIssue(
-                    str(uuid5(UUID(profile.parse_manifest_id), f"unreadable:{page}")),
-                    "no_extractable_text",
-                    page,
-                    (),
-                    "unreadable",
-                    "No text extracted; absence of evidence is not established.",
-                )
-            )
-    for block in graph.blocks:
-        if any("hx4_geometry_invalid=true" in c.context for c in block.candidates):
-            issues.append(
-                QualityIssue(
-                    str(uuid5(UUID(block.source_id), "hx4-geometry-invalid")),
-                    "source_geometry_invalid",
-                    block.page_num,
-                    (block.source_id,),
-                    "unreadable",
-                    "Invalid parser coordinates retained in raw artifacts; source unresolved.",
-                )
-            )
-        if (
-            block.kind == "table"
-            and block.page_num not in vision_pages
-            and (
-                profile.parser_mode == "local"
-                or any("mixed_parser_name=opendataloader" in c.context for c in block.candidates)
-            )
-        ):
-            issues.append(
-                QualityIssue(
-                    str(uuid5(UUID(block.source_id), "vision-not-run")),
-                    "table_vision_not_run",
-                    block.page_num,
-                    (block.source_id,),
-                    "open",
-                    "Vision cross-check not_run: approved runtime/account required.",
-                )
-            )
-    return replace(graph, issues=tuple(issues))
+def _profile_table_verifier(profile: ParserProfile) -> ModuleType:
+    from proofops.adapters.parsing import spp_execution
+
+    if spp_execution.enabled(profile):
+        return spp_execution.table_verifier(profile.table_source_policy_sha256)
+    return _table_verifier(profile.table_source_policy_sha256)
 
 
 class OpenDataLoaderParser(ParserPort):
-    def __init__(self, artifact_root: Path, *, upstage_probe=None):
+    def __init__(self, artifact_root: Path, *, upstage_probe: UpstageProbe | None = None) -> None:
         self.artifact_root = Path(artifact_root)
         self.upstage_probe = upstage_probe
 
     def parse(
-        self, source: SourceArtifact, profile: ParserProfile, *, tenant_id: str, page_reader=None
+        self,
+        source: SourceArtifact,
+        profile: ParserProfile,
+        *,
+        tenant_id: str,
+        page_reader: object | None = None,
     ) -> CanonicalDocumentGraph:
         if source.tenant_id != tenant_id:
             raise ParseFailure("NOT_FOUND")
@@ -512,7 +262,7 @@ class OpenDataLoaderParser(ParserPort):
 
                     subset_lock = Lock()
 
-                    def upstage_call(pages, mode):
+                    def upstage_call(pages: Sequence[int], mode: str) -> PageResult:
                         h6 = profile.local_resource_policy in {
                             "selected-pdf-h6-v1",
                             "selected-pdf-h6-v2",
@@ -565,7 +315,7 @@ class OpenDataLoaderParser(ParserPort):
                                 if h6
                                 else selected_pdf(source.content, pages)
                             )
-                        result = self.upstage_probe.parse_async(
+                        result = cast(UpstageProbe, self.upstage_probe).parse_async(
                             payload,
                             request_id=str(uuid4()),
                             mode=mode,
@@ -918,142 +668,23 @@ class OpenDataLoaderParser(ParserPort):
                 from proofops.adapters.parsing.mixed_routing import with_failures
 
                 graph = with_failures(graph, upstage_output["failed_batches"])
-            if routing is not None:
-                (work / "page-routing.json").write_bytes(_json(routing))
-            (work / "graph.json").write_bytes(_json(graph.to_dict()))
-            (work / "quality.json").write_bytes(_json([issue.to_dict() for issue in graph.issues]))
-            (work / "candidates.json").write_bytes(
-                _json([asdict(batch) for batch in graph.candidates])
-            )
-            if vision_metrics is not None:
-                (work / "vision.json").write_bytes(_json(vision_metrics))
-            if upstage_output is not None:
-                (work / "upstage.json").write_bytes(_json(upstage_output))
-            returned_graph = graph
-            if profile.table_source_policy_sha256 is not None:
-                verifier = _profile_table_verifier(profile)
-                if getattr(verifier, "PROFILE", None) in PAGE_OCR_PROFILES:
-                    if page_reader is None:
-                        raise ParseFailure("OCR_RUN_REQUIRED")
-                    verifier = page_reader
-                from proofops.adapters.local import s3_table_replay as parse_table_cache
-
-                receipt = parse_table_cache.attest(
-                    verifier, graph, source.content, tenant_id=tenant_id
-                )
-                (work / "table-source.json").write_bytes(_json(receipt))
-                returned_graph = parse_table_cache.replay(
-                    verifier, receipt, graph, source.content, tenant_id=tenant_id
-                )
-            (work / "source.pdf").unlink()
-            (work / "request.json").unlink()
-            artifacts = {
-                path.name: sha256(path.read_bytes()).hexdigest()
-                for path in work.iterdir()
-                if path.is_file()
-            }
-            from importlib.resources import files
-
-            jar = files("opendataloader_pdf").joinpath("jar", "opendataloader-pdf-cli.jar")
-            manifest = dict(
-                schema_version="1",
-                fusion_version=fusion_version,
+            return artifacts.publish(
+                work,
+                final,
+                source,
+                profile,
+                graph,
                 tenant_id=tenant_id,
-                document_id=source.document_id,
-                document_version_id=source.document_version_id,
-                parse_manifest_id=profile.parse_manifest_id,
-                source_sha256=source.sha256,
-                object_version_id=source.object_version_id,
-                synthetic_source=source.synthetic,
-                local_synthetic_storage=True,
-                parser_version="2.5.7",
-                parser_profile_sha256=profile_hash,
-                parser_config_sha256=profile.config_hash(),
-                parser_config=profile.config_snapshot(),
-                parser_profile=profile.invocation_snapshot(),
-                java_version=runtime.splitlines()[0],
-                jar_sha256=sha256(jar.read_bytes()).hexdigest(),
-                selected_physical_pages=selected,
-                validation_profile="fast_preview",
-                vision_status="not_run" if vision_metrics is None else "candidate_only",
-                vision_parse=vision_metrics,
-                upstage_parse=None
-                if upstage_output is None
-                else dict(
-                    profile=upstage_output["profile"],
-                    page_receipts=[
-                        dict(pages=r["pages"], receipt=r["receipt"], cache_hit=r["cache_hit"])
-                        for r in upstage_output["page_records"]
-                    ],
-                    failed_batches=upstage_output["failed_batches"],
-                )
-                if profile.failure_policy in {"partial-v5", "partial-v6", "s3_partial-v7"}
-                else dict(
-                    standard=dict(
-                        upstage_output["standard"]["metrics"],
-                        cost_usd=(upstage_output["standard"]["receipt"] or {}).get(
-                            "cost_with_vat_reserve_usd"
-                        ),
-                        duration_seconds=(upstage_output["standard"]["receipt"] or {}).get(
-                            "duration_seconds"
-                        ),
-                        response_sha256=(upstage_output["standard"]["receipt"] or {}).get(
-                            "response_sha256"
-                        ),
-                        cache_hit=upstage_output["standard"]["cache_hit"],
-                    ),
-                    enhanced=[
-                        dict(
-                            item["metrics"],
-                            cost_usd=item["receipt"].get("cost_with_vat_reserve_usd"),
-                            duration_seconds=item["receipt"].get("duration_seconds"),
-                            response_sha256=item["receipt"]["response_sha256"],
-                            cache_hit=item["cache_hit"],
-                        )
-                        for item in upstage_output["enhanced"]
-                    ],
-                    enhanced_deferred_pages=upstage_output["enhanced_deferred_pages"],
-                    fallback_pages=upstage_output["fallback_pages"],
-                ),
-                artifacts=artifacts,
-                parser_runs=[
-                    dict(
-                        parser_run_id=b.parser_run_id,
-                        parser_name=b.parser_name,
-                        parser_version=b.parser_version,
-                        parser_family=b.parser_family,
-                        config_hash=b.config_hash,
-                    )
-                    for b in graph.candidates
-                ],
+                profile_hash=profile_hash,
+                runtime=runtime,
+                selected=selected,
+                fusion_version=fusion_version,
+                vision_metrics=vision_metrics,
+                upstage_output=upstage_output,
+                routing=routing,
+                page_reader=page_reader,
+                table_verifier=_profile_table_verifier,
             )
-            if routing is not None:
-                from proofops.adapters.parsing.mixed_routing import provenance
-
-                manifest["page_parser_provenance"] = provenance(routing, graph.candidates, selected)
-            if profile.output_policy == "rb2-output-v1":
-                from proofops.adapters.parsing.rb2_output import ARTIFACT, GRAPH_ARTIFACT, compact
-
-                receipt = compact(work, profile, manifest_bytes=len(_json(manifest)))
-                if receipt is not None:
-                    artifacts.pop("candidates.json")
-                    artifacts[ARTIFACT] = sha256((work / ARTIFACT).read_bytes()).hexdigest()
-                    if receipt.get("graph") is not None:
-                        artifacts.pop("graph.json")
-                        artifacts[GRAPH_ARTIFACT] = sha256(
-                            (work / GRAPH_ARTIFACT).read_bytes()
-                        ).hexdigest()
-                    manifest["rb2_output"] = receipt
-            (work / "manifest.json").write_bytes(_json(manifest))
-            if sum(path.stat().st_size for path in work.iterdir()) > profile.max_output_bytes:
-                raise ParseFailure("PARSER_OUTPUT_LIMIT")
-            for path in work.iterdir():
-                path.chmod(0o400)
-            try:
-                os.rename(work, final)
-            except OSError:
-                raise ParseFailure("PARSE_MANIFEST_EXISTS") from None
-            return returned_graph
 
     def load_verified(
         self,
@@ -1063,843 +694,41 @@ class OpenDataLoaderParser(ParserPort):
         tenant_id: str,
         manifest_sha256: str | None = None,
     ) -> CanonicalDocumentGraph:
-        """Reuse immutable output only after identity, config and every artifact hash agree."""
-        if source.tenant_id != tenant_id:
-            raise ParseFailure("NOT_FOUND")
-        if sha256(source.content).hexdigest() != source.sha256:
-            raise ParseFailure("SOURCE_INTEGRITY_MISMATCH")
-        directory = (
-            self.artifact_root / tenant_id / source.document_version_id / profile.parse_manifest_id
+        return artifacts.load_verified(
+            self.artifact_root,
+            source,
+            profile,
+            tenant_id=tenant_id,
+            manifest_sha256=manifest_sha256,
+            table_verifier=_profile_table_verifier,
         )
-        try:
-            if directory.is_symlink():
-                raise ValueError("symlink")
-            manifest_path = directory / "manifest.json"
-            if (
-                manifest_path.is_symlink()
-                or manifest_path.stat().st_size > profile.max_output_bytes
-            ):
-                raise ValueError("unsafe manifest")
-            raw_manifest = manifest_path.read_bytes()
-            if manifest_sha256 is not None and sha256(raw_manifest).hexdigest() != manifest_sha256:
-                raise ValueError("manifest hash")
-            manifest = json.loads(raw_manifest)
-            expected = dict(
-                schema_version="1",
-                tenant_id=tenant_id,
-                document_id=source.document_id,
-                document_version_id=source.document_version_id,
-                parse_manifest_id=profile.parse_manifest_id,
-                source_sha256=source.sha256,
-                object_version_id=source.object_version_id,
-                synthetic_source=source.synthetic,
-                local_synthetic_storage=True,
-                parser_version="2.5.7",
-                parser_profile_sha256=sha256(_json(profile.invocation_snapshot())).hexdigest(),
-                parser_profile=json.loads(_json(profile.invocation_snapshot())),
-                parser_config_sha256=profile.config_hash(),
-                parser_config=profile.config_snapshot(),
-                validation_profile="fast_preview",
-                vision_status="not_run" if profile.vision_parse == "off" else "candidate_only",
-            )
-            if any(manifest.get(key) != value for key, value in expected.items()):
-                raise ValueError("manifest identity")
-            artifacts = manifest["artifacts"]
-            required = {
-                "graph.json",
-                "quality.json",
-                "candidates.json",
-                "geometry.json",
-                "source.json",
-                "source.md",
-            }
-            from proofops.adapters.parsing.rb2_output import (
-                ARTIFACT,
-                GRAPH_ARTIFACT,
-                read_candidates,
-            )
-
-            compacted = manifest.get("rb2_output")
-            if compacted is not None:
-                if (
-                    not isinstance(compacted, dict)
-                    or profile.output_policy != "rb2-output-v1"
-                    or "candidates.json" in artifacts
-                ):
-                    raise ValueError("unconfigured candidate compaction")
-                required.remove("candidates.json")
-                required.add(ARTIFACT)
-                if compacted.get("graph") is not None:
-                    if "graph.json" in artifacts:
-                        raise ValueError("duplicate compacted graph")
-                    required.remove("graph.json")
-                    required.add(GRAPH_ARTIFACT)
-                elif GRAPH_ARTIFACT in artifacts:
-                    raise ValueError("unconfigured graph compaction")
-            elif ARTIFACT in artifacts:
-                raise ValueError("unconfigured candidate compaction")
-            elif GRAPH_ARTIFACT in artifacts:
-                raise ValueError("unconfigured graph compaction")
-            if profile.table_auxiliary:
-                required.add("auxiliary.json")
-            if profile.source_recovery is not None:
-                required.add("source-recovery.json")
-            elif "source-recovery.json" in artifacts:
-                raise ValueError("unconfigured source recovery")
-            if profile.table_structure_repair is not None:
-                required.update({"source-repaired.json", "table-repair.json"})
-            elif {"source-repaired.json", "table-repair.json"} & artifacts.keys():
-                raise ValueError("unconfigured table repair")
-            if profile.table_source_policy_sha256 is not None:
-                required.add("table-source.json")
-            elif "table-source.json" in artifacts:
-                raise ValueError("unconfigured table attestation")
-            if profile.vision_parse != "off":
-                required.add("vision.json")
-            if profile.parser_mode in ("upstage", "mixed-v1"):
-                required.add("upstage.json")
-            if profile.parser_mode == "mixed-v1":
-                required.add("page-routing.json")
-            elif "page-routing.json" in artifacts or "page_parser_provenance" in manifest:
-                raise ValueError("unconfigured mixed routing")
-            if profile.local_resource_policy == "selected-pdf-h1-v1":
-                required.update(
-                    {"local-selected.pdf", "local-selected.json", "local-page-map.json"}
-                )
-            elif profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}:
-                required.add("h6-local.json")
-            elif {
-                "local-selected.pdf",
-                "local-selected.json",
-                "local-page-map.json",
-            } & artifacts.keys():
-                raise ValueError("unconfigured local page mapping")
-            if not required <= artifacts.keys():
-                raise ValueError("missing artifacts")
-            values = {}
-            total = len(raw_manifest)
-            for name, digest in artifacts.items():
-                path = directory / name
-                if Path(name).name != name or path.is_symlink():
-                    raise ValueError("unsafe artifact path")
-                total += path.stat().st_size
-                if total > profile.max_output_bytes:
-                    raise ValueError("artifact limit")
-                data = path.read_bytes()
-                if sha256(data).hexdigest() != digest:
-                    raise ValueError("artifact hash")
-                if name == ARTIFACT:
-                    values["candidates.json"] = read_candidates(data, profile, compacted)
-                if name == GRAPH_ARTIFACT:
-                    values["graph.json"] = read_candidates(data, profile, compacted["graph"])
-                if (
-                    profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}
-                    and name.endswith(".json")
-                ) or name in {
-                    "graph.json",
-                    "quality.json",
-                    "candidates.json",
-                    "source-recovery.json",
-                    "table-source.json",
-                    "vision.json",
-                    "upstage.json",
-                    "page-routing.json",
-                    "source.json",
-                    "local-selected.json",
-                    "local-page-map.json",
-                }:
-                    values[name] = json.loads(data)
-            if profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}:
-                validate = _local_pages(profile).validate
-
-                validate(
-                    values["h6-local.json"],
-                    values,
-                    artifacts,
-                    source,
-                    manifest["selected_physical_pages"],
-                )
-            elif profile.local_resource_policy is not None:
-                from proofops.adapters.parsing.h1_local_pages import POLICY, restore_pages
-                from proofops.domain.provenance import canonical_hash
-
-                page_map = values["local-page-map.json"]
-                raw_subset = values["local-selected.json"]
-                if (
-                    page_map["policy"] != POLICY
-                    or page_map["policy_sha256"] != canonical_hash(POLICY)
-                    or page_map["source_sha256"] != source.sha256
-                    or page_map["subset_sha256"] != artifacts["local-selected.pdf"]
-                    or page_map["raw_json_sha256"] != canonical_hash(raw_subset)
-                    or page_map["physical_page_map"] != manifest["selected_physical_pages"]
-                    or restore_pages(
-                        raw_subset, page_map["physical_page_map"], page_map["original_page_count"]
-                    )
-                    != values["source.json"]
-                ):
-                    raise ValueError("local page mapping mismatch")
-            upstage_output = values.get("upstage.json")
-            if profile.parser_mode in ("upstage", "mixed-v1"):
-                from proofops.domain.provenance import canonical_hash
-
-                if profile.failure_policy in {"partial-v5", "partial-v6", "s3_partial-v7"}:
-                    from proofops.application.ingest.page_recovery_policy import (
-                        CLAIM_LAYOUT_POLICY,
-                        POLICY,
-                        S3_CLAIM_LAYOUT_POLICY,
-                    )
-
-                    recovery_policy = (
-                        S3_CLAIM_LAYOUT_POLICY
-                        if profile.failure_policy == "s3_partial-v7"
-                        else CLAIM_LAYOUT_POLICY
-                        if profile.failure_policy == "partial-v6"
-                        else POLICY
-                    )
-                    if (
-                        not isinstance(upstage_output, dict)
-                        or upstage_output.get("profile") != recovery_policy
-                    ):
-                        raise ValueError("HX6 parser policy mismatch")
-                    for record in upstage_output["page_records"]:
-                        if (
-                            canonical_hash(record["raw_batches"])
-                            != record["receipt"]["response_sha256"]
-                        ):
-                            raise ValueError("upstage response mismatch")
-                else:
-                    if not isinstance(upstage_output, dict) or not isinstance(
-                        upstage_output.get("standard"), dict
-                    ):
-                        raise ValueError("upstage artifact missing")
-                    for record in [upstage_output["standard"], *upstage_output.get("enhanced", [])]:
-                        if record["receipt"] is None and profile.failure_policy in {
-                            "partial-v1",
-                            "partial-v2",
-                            "partial-v3",
-                            "partial-v4",
-                            "partial-v5",
-                            "partial-v6",
-                            "s3_partial-v7",
-                        }:
-                            if record.get("raw_batches") != [] or not any(
-                                f["mode"] == "standard"
-                                and f["error_code"] == record.get("error_code")
-                                for f in upstage_output["failed_batches"]
-                            ):
-                                raise ValueError("invalid failed parser artifact")
-                            continue
-                        if (
-                            canonical_hash(record["raw_batches"])
-                            != record["receipt"]["response_sha256"]
-                        ):
-                            raise ValueError("upstage response mismatch")
-            vision_metrics = values.get("vision.json")
-            if profile.vision_parse != "off":
-                from proofops.adapters.parsing.gemini_vision import MODEL, PROMPT_HASH
-
-                if (
-                    vision_metrics != manifest.get("vision_parse")
-                    or vision_metrics.get("mode")
-                    != (
-                        "all"
-                        if profile.parser_mode in ("upstage", "mixed-v1")
-                        else profile.vision_parse
-                    )
-                    or vision_metrics.get("model") != MODEL
-                    or vision_metrics.get("prompt_sha256") != PROMPT_HASH
-                ):
-                    raise ValueError("vision manifest mismatch")
-            candidates = candidates_from_snapshot(values["candidates.json"])
-            if profile.source_recovery is not None:
-                recovery = values.get("source-recovery.json", {})
-                if (
-                    recovery.get("profile") != profile.source_recovery
-                    or recovery.get("source_sha256") != source.sha256
-                ):
-                    raise ValueError("source recovery manifest mismatch")
-            # Existing immutable manifests predate fusion versioning.
-            fusion_version = manifest.get("fusion_version", 1)
-            if type(fusion_version) is not int or fusion_version not in (1, 2, 3, 4, 5):
-                raise ValueError("unsupported fusion version")
-            if fusion_version == 5 and profile.parser_mode != "mixed-v1":
-                raise ValueError("unconfigured mixed fusion version")
-            graph = fuse_candidates(
-                candidates,
-                tenant_id=tenant_id,
-                fusion_version=fusion_version,
-                mixed_parser=profile.parser_mode == "mixed-v1",
-            )
-            if graph.to_dict() != values["graph.json"] or (
-                graph.document_version_id,
-                graph.parse_manifest_id,
-                graph.source_sha256,
-            ) != (source.document_version_id, profile.parse_manifest_id, source.sha256):
-                raise ValueError("graph identity")
-            if any(batch.config_hash != expected["parser_profile_sha256"] for batch in candidates):
-                raise ValueError("candidate configuration")
-            selected = manifest["selected_physical_pages"]
-            if profile.physical_pages and selected != list(profile.physical_pages):
-                raise ValueError("page selection")
-            if profile.parser_mode == "mixed-v1":
-                from proofops.adapters.parsing.mixed_routing import provenance
-
-                routing = values["page-routing.json"]
-                if profile.failure_policy in {"partial-v5", "partial-v6", "s3_partial-v7"}:
-                    from proofops.adapters.parsing.hx6_upstage import provenance as hx6_provenance
-
-                    groups = [
-                        routing[k] for k in ("local_pages", "provider_pages", "unreadable_pages")
-                    ]
-                    if (
-                        routing["version"] != "mixed-hx6-v1"
-                        or routing["claim_pages"] != list(profile.claim_physical_pages)
-                        or any(g != sorted(set(g)) for g in groups)
-                        or sorted(p for g in groups for p in g) != selected
-                        or manifest["page_parser_provenance"]
-                        != hx6_provenance(routing, candidates, selected)
-                    ):
-                        raise ValueError("mixed routing provenance mismatch")
-                else:
-                    claims, local, rejected, ocr = (
-                        routing[k]
-                        for k in (
-                            "claim_pages",
-                            "local_pages",
-                            "rejected_native_pages",
-                            "ocr_pages",
-                        )
-                    )
-                    if (
-                        claims != list(profile.claim_physical_pages)
-                        or any(x != sorted(set(x)) for x in (claims, local, rejected, ocr))
-                        or set(claims) & (set(local) | set(rejected))
-                        or set(local) & set(rejected)
-                        or set(claims + local + rejected) != set(selected)
-                        or not set(ocr) <= set(rejected[: profile.mixed_ocr_max_pages])
-                        or manifest["page_parser_provenance"]
-                        != provenance(routing, candidates, selected)
-                    ):
-                        raise ValueError("mixed routing provenance mismatch")
-            if any(block.page_num not in selected for block in graph.blocks):
-                raise ValueError("unselected block")
-            issues = tuple(
-                QualityIssue(**{**issue, "source_ids": tuple(issue["source_ids"])})
-                for issue in values["quality.json"]
-            )
-            restored = _with_quality_issues(
-                graph,
-                selected,
-                profile,
-                () if vision_metrics is None else vision_metrics["pages_routed"],
-            )
-            if profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}:
-                failures = _local_pages(profile).failures
-                from proofops.adapters.parsing.mixed_routing import with_failures
-
-                restored = with_failures(restored, failures(values["h6-local.json"]))
-            if (
-                profile.failure_policy
-                in {
-                    "partial-v1",
-                    "partial-v2",
-                    "partial-v3",
-                    "partial-v4",
-                    "partial-v5",
-                    "partial-v6",
-                    "s3_partial-v7",
-                }
-                and upstage_output is not None
-            ):
-                from proofops.adapters.parsing.mixed_routing import with_failures
-
-                restored = with_failures(restored, upstage_output["failed_batches"])
-            if restored.issues != issues:
-                raise ValueError("quality issue mismatch")
-            from importlib.resources import files
-
-            jar = files("opendataloader_pdf").joinpath("jar", "opendataloader-pdf-cli.jar")
-            if manifest["jar_sha256"] != sha256(jar.read_bytes()).hexdigest():
-                raise ValueError("parser binary mismatch")
-            expected_parsers = {"opendataloader": ("2.5.7", "opendataloader")}
-            if profile.table_auxiliary:
-                expected_parsers["pdfplumber"] = (version("pdfplumber"), "pdfminer")
-            if profile.vision_parse != "off":
-                from proofops.adapters.parsing.gemini_vision import MODEL
-
-                expected_parsers["gemini_vision"] = (MODEL, "vision")
-            if profile.parser_mode in ("upstage", "mixed-v1"):
-                from proofops.adapters.parsing.upstage_document import MODEL as UPSTAGE_MODEL
-
-                if profile.failure_policy not in {"partial-v5", "partial-v6", "s3_partial-v7"} or (
-                    isinstance(upstage_output, dict) and upstage_output.get("page_records")
-                ):
-                    expected_parsers["upstage_async_standard"] = (
-                        UPSTAGE_MODEL,
-                        "upstage-document-parse",
-                    )
-                if upstage_output is not None and upstage_output.get("enhanced"):
-                    expected_parsers["upstage_async_enhanced"] = (
-                        UPSTAGE_MODEL,
-                        "upstage-document-parse",
-                    )
-            if {
-                batch.parser_name: (batch.parser_version, batch.parser_family)
-                for batch in candidates
-            } != expected_parsers or any(batch.synthetic for batch in candidates):
-                raise ValueError("parser identity mismatch")
-            if manifest["parser_runs"] != [
-                dict(
-                    parser_run_id=b.parser_run_id,
-                    parser_name=b.parser_name,
-                    parser_version=b.parser_version,
-                    parser_family=b.parser_family,
-                    config_hash=b.config_hash,
-                )
-                for b in candidates
-            ]:
-                raise ValueError("parser run mismatch")
-            if profile.table_source_policy_sha256 is not None:
-                verifier = _profile_table_verifier(profile)
-                from proofops.adapters.local import s3_table_replay as parse_table_cache
-                from proofops.adapters.local.receipt_environment_compat import (
-                    record_table_read,
-                )
-
-                restored = parse_table_cache.replay(
-                    verifier,
-                    values["table-source.json"],
-                    restored,
-                    source.content,
-                    tenant_id=tenant_id,
-                    compatible=True,
-                )
-                record_table_read(values["table-source.json"], restored)
-            return restored
-        except (OSError, ValueError, KeyError, TypeError):
-            raise ParseFailure("PARSER_ARTIFACT_INTEGRITY_MISMATCH") from None
 
     @staticmethod
-    def _execute(command, work, env, profile):
-        deadline = monotonic() + profile.timeout_seconds
-        cpu_seconds = max(1, math.ceil(profile.timeout_seconds))
-        try:
-            isolation = process_isolation(
-                memory_bytes=profile.memory_bytes, cpu_seconds=cpu_seconds
-            )
-        except IsolationUnavailable:
-            # Containment is not optional: refuse to parse rather than run loose.
-            raise ParseFailure("PARSER_ISOLATION_UNAVAILABLE") from None
-        try:
-            with isolation.spawn(command, cwd=work, env=env) as process:
-                try:
-                    while process.poll() is None:
-                        if monotonic() >= deadline:
-                            raise ParseFailure("PARSER_TIMEOUT")
-                        _check_limits(isolation, process, work, profile)
-                        try:
-                            process.wait(timeout=min(0.05, max(0.001, deadline - monotonic())))
-                        except subprocess.TimeoutExpired:
-                            pass
-                    # A child can allocate or write past a limit and exit between
-                    # two samples; the breach is still a breach, so sample once
-                    # more now that the outcome is final.
-                    _check_limits(isolation, process, work, profile)
-                    if process.returncode:
-                        stderr = b""
-                        for name in ("parser-stderr.txt", "launcher-stderr.txt"):
-                            path = work / name
-                            if path.is_file():
-                                with path.open("rb") as handle:
-                                    stderr += handle.read(65536)
-                        diagnostic = work.parent / (".parser-failure-" + uuid4().hex)
-                        diagnostic.mkdir(mode=0o700)
-                        target = diagnostic / "stderr.txt"
-                        target.write_bytes(stderr[:65536])
-                        target.chmod(0o600)
-                        code = (
-                            "PARSER_JAVA_HEAP_EXHAUSTED"
-                            if b"java.lang.OutOfMemoryError: Java heap space" in stderr
-                            else "PARSER_NATIVE_TEXT_UNREADABLE"
-                            if b"pdfplumber.utils.exceptions.PdfminerException: Unexpected EOF"
-                            in stderr
-                            else "PARSER_FAILED"
-                        )
-                        failure = ParseFailure(code)
-                        failure.stderr_path = target
-                        raise failure
-                finally:
-                    try:
-                        isolation.terminate_tree(process)
-                    finally:
-                        kill_and_reap(process)
-        except IsolationUnavailable:
-            raise ParseFailure("PARSER_ISOLATION_UNAVAILABLE") from None
-        finally:
-            isolation.close()
-
-
-def _cleanup_parser_work(temporary, parent: Path, *, timeout_seconds: float = 15) -> None:
-    deadline = monotonic() + timeout_seconds
-    parent = parent.resolve()
-    while True:
-        target = Path(temporary.name).resolve()
-        if target.parent != parent or not target.name.startswith(".parse-"):
-            raise ValueError("parser cleanup target outside its artifact parent")
-        try:
-            temporary.cleanup()
-            return
-        except PermissionError:
-            # Job termination is asynchronous. Windows may retain a descendant's
-            # file handles briefly even after the job's active count reaches zero.
-            # Retry only this owned scratch directory, with a fixed deadline.
-            if sys.platform != "win32" or monotonic() >= deadline:
-                raise
-            sleep(0.01)
-
-
-@contextmanager
-def _parser_work_directory(parent: Path):
-    temporary = TemporaryDirectory(prefix=".parse-", dir=parent)
-    try:
-        yield Path(temporary.name)
-    finally:
-        _cleanup_parser_work(temporary, parent)
-
-
-def _output_bytes(work: Path) -> int:
-    import stat
-
-    total = 0
-    for path in work.iterdir():
-        if path.name == "source.pdf":
-            continue
-        try:
-            metadata = path.stat()
-        except FileNotFoundError:
-            # The JVM can remove a temporary PDF between enumeration and stat.
-            # A removed file consumes no output bytes; other I/O failures remain
-            # errors rather than silently disabling the limit.
-            continue
-        if stat.S_ISREG(metadata.st_mode):
-            total += metadata.st_size
-    return total
-
-
-def _check_limits(isolation, process, work: Path, profile) -> None:
-    if _output_bytes(work) > profile.max_output_bytes:
-        raise ParseFailure("PARSER_OUTPUT_LIMIT")
-    if isolation.memory_limit_exceeded(process):
-        raise ParseFailure("PARSER_MEMORY_LIMIT")
-
-
-def _child_limits(profile: dict[str, Any]) -> None:
-    """Self-imposed limits inside the launcher.
-
-    POSIX keeps the original hard rlimits. On Windows the same CPU and memory
-    ceilings are already enforced by the job object the parent assigned before
-    this process was resumed, so the only thing left to do here is suppress the
-    crash dialog that would otherwise hold a terminated parse open forever;
-    `RLIMIT_FSIZE` has no Windows analogue and the parent's output watchdog is
-    what bounds written bytes on both platforms.
-    """
-    cpu = max(1, math.ceil(profile["timeout_seconds"]))
-    if sys.platform != "win32":
-        import resource
-
-        resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu))
-        resource.setrlimit(
-            resource.RLIMIT_FSIZE, (profile["max_output_bytes"], profile["max_output_bytes"])
+    def _execute(
+        command: list[str], work: Path, env: dict[str, str], profile: ProcessLimits
+    ) -> None:
+        return runtime.execute(
+            command,
+            work,
+            env,
+            profile,
+            isolate=process_isolation,
+            check_limits=_check_limits,
+            reap=kill_and_reap,
         )
-        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-        return
-    import ctypes
-
-    # SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX
-    ctypes.WinDLL("kernel32", use_last_error=True).SetErrorMode(0x0001 | 0x0002 | 0x8000)
-
-
-def _child_environment(java: str, work: Path, profile) -> dict[str, str]:
-    """The minimal environment the launcher and its JVM need, and nothing else.
-
-    The inherited environment is never passed through on either platform. On
-    Windows a JVM additionally needs `SystemRoot` and the system directory to
-    resolve core DLLs, and the temporary directory is pinned inside the
-    per-parse work directory so scratch files stay under the output watchdog.
-    """
-    heap = f"-Xmx{max(1, profile.memory_bytes // (2 * 1024 * 1024))}m"
-    if sys.platform != "win32":
-        return {
-            "PATH": str(Path(java).parent) + ":/usr/bin:/bin",
-            "JAVA_TOOL_OPTIONS": heap,
-            "PYTHONDONTWRITEBYTECODE": "1",
-        }
-    system_root = os.environ.get("SystemRoot", r"C:\Windows")
-    system32 = str(Path(system_root) / "System32")
-    return {
-        "PATH": os.pathsep.join([str(Path(java).parent), system32, system_root]),
-        "SystemRoot": system_root,
-        "SystemDrive": os.environ.get("SystemDrive", "C:"),
-        "ComSpec": os.environ.get("ComSpec", str(Path(system32) / "cmd.exe")),
-        "NUMBER_OF_PROCESSORS": os.environ.get("NUMBER_OF_PROCESSORS", "1"),
-        "TEMP": str(work),
-        "TMP": str(work),
-        "JAVA_TOOL_OPTIONS": heap,
-        "PYTHONDONTWRITEBYTECODE": "1",
-        "PYTHONUTF8": "1",
-    }
-
-
-def _profile_table_verifier(profile):
-    from proofops.adapters.parsing import spp_execution
-
-    if spp_execution.enabled(profile):
-        return spp_execution.table_verifier(profile.table_source_policy_sha256)
-    return _table_verifier(profile.table_source_policy_sha256)
 
 
 def _child(work: Path) -> None:
-    from proofops.adapters.parsing import spp_execution
-
-    profile = json.loads((work / "request.json").read_bytes())["profile"]
-    cache = spp_execution.LocalPageCache() if spp_execution.enabled(profile) else None
-    try:
-        _child_body(work, cache)
-    finally:
-        if cache is not None:
-            cache.close()
+    child.run(work, child_body=_child_body)
 
 
-def _child_body(work: Path, page_cache=None) -> None:
-    from pypdf import PdfReader
-
-    request = json.loads((work / "request.json").read_bytes())
-    profile, selected = request["profile"], request["selected"]
-    _child_limits(profile)
-    reader = PdfReader(
-        work / "source.pdf",
-        strict=request.get("upload_security_profile", "strict-v1") == "strict-v1",
+def _child_body(work: Path, page_cache: LocalPageCache | None = None) -> None:
+    child.run_body(
+        work,
+        page_cache,
+        apply_limits=_child_limits,
+        locates_auxiliary_cells=_locates_auxiliary_cells,
     )
-    if reader.is_encrypted and not reader.decrypt(""):
-        raise ParseFailure("PDF_PASSWORD_REQUIRED")
-    geometries = {}
-    page_labels = reader.page_labels if page_cache is not None else None
-    for number in selected:
-        page = reader.pages[number - 1]
-        rotation = int(page.rotation) % 360
-
-        def box_geometry(box):
-            x0, y0, x1, y1 = map(float, box)
-            width, height = x1 - x0, y1 - y0
-            if rotation in (90, 270):
-                width, height = height, width
-            return asdict(PageGeometry(width, height, rotation, (x0, y0, x1, y1)))
-
-        geometries[str(number)] = dict(
-            crop=box_geometry(page.cropbox),
-            media=box_geometry(page.mediabox),
-            printed_page_label=(page_labels or reader.page_labels)[number - 1],
-        )
-    (work / "geometry.json").write_bytes(_json(geometries))
-    import opendataloader_pdf
-
-    input_path, java_pages = work / "source.pdf", selected
-    h6 = profile.get("local_resource_policy") in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}
-    if h6:
-        subset = _local_pages(profile).subset
-
-        input_path = work / "h6-selected.pdf"
-        input_path.write_bytes(subset((work / "source.pdf").read_bytes(), tuple(selected)))
-        java_pages = tuple(range(1, len(selected) + 1))
-    if profile.get("local_resource_policy") == "selected-pdf-h1-v1":
-        from proofops.adapters.parsing.h1_local_pages import prepare
-
-        input_path, page_map = prepare(input_path, selected, work)
-        java_pages = tuple(range(1, len(page_map) + 1))
-    try:
-        opendataloader_pdf.convert(
-            input_path=[str(input_path)],
-            output_dir=str(work),
-            format="json,markdown",
-            pages=",".join(map(str, java_pages)),
-            image_output="off",
-            hybrid="off",
-            quiet=True,
-        )
-    except subprocess.CalledProcessError as error:
-        stderr = error.stderr or b""
-        if isinstance(stderr, str):
-            stderr = stderr.encode("utf-8", errors="replace")
-        path = work / "parser-stderr.txt"
-        path.write_bytes(stderr[:65536])
-        path.chmod(0o600)
-        raise
-    if profile.get("local_resource_policy") == "selected-pdf-h1-v1":
-        from proofops.adapters.parsing.h1_local_pages import receipt, restore_pages
-
-        raw_subset = json.loads((work / "local-selected.json").read_bytes())
-        mapped = restore_pages(raw_subset, page_map, len(reader.pages))
-        (work / "source.json").write_bytes(_json(mapped))
-        (work / "source.md").write_bytes((work / "local-selected.md").read_bytes())
-        (work / "local-page-map.json").write_bytes(
-            _json(
-                receipt(
-                    work / "source.pdf",
-                    input_path,
-                    page_map,
-                    raw_subset,
-                    original_page_count=len(reader.pages),
-                )
-            )
-        )
-    elif h6:
-        remap = _local_pages(profile).remap
-
-        raw_subset = json.loads((work / "h6-selected.json").read_bytes())
-        (work / "source.json").write_bytes(
-            _json(remap(raw_subset, selected, len(reader.pages), ""))
-        )
-        (work / "source.md").write_bytes((work / "h6-selected.md").read_bytes())
-        if not profile["table_auxiliary"]:
-            (work / "auxiliary.json").write_bytes(_json(dict(kids=[])))
-    if profile.get("table_structure_repair") in ("odl_header_v1", "odl_header_v2"):
-        import pdfplumber
-        from proofops.adapters.parsing.odl_table_repair import repair_stacked_headers
-
-        # Unsupported page transforms remain untouched, never guessed.
-        words_by_page = {}
-        open_pdf = page_cache.open if page_cache is not None else pdfplumber.open
-        with open_pdf(input_path if h6 else work / "source.pdf") as document:
-            for number in selected:
-                info = geometries[str(number)]
-                crop, media = info["crop"], info["media"]
-                if crop != media or crop["rotation"] or crop["crop_box"][:2] != (0, 0):
-                    continue
-                page = document.pages[selected.index(number) if h6 else number - 1]
-                words_by_page[number] = [
-                    {
-                        "text": word["text"],
-                        "bbox": [
-                            word["x0"],
-                            page.height - word["bottom"],
-                            word["x1"],
-                            page.height - word["top"],
-                        ],
-                    }
-                    for word in page.extract_words()
-                ]
-        raw = json.loads((work / "source.json").read_bytes())
-        repaired, receipts = repair_stacked_headers(
-            raw, words_by_page, locate_rows=profile["table_structure_repair"] == "odl_header_v2"
-        )
-        (work / "source-repaired.json").write_bytes(_json(repaired))
-        (work / "table-repair.json").write_bytes(
-            _json(
-                dict(
-                    version=profile["table_structure_repair"],
-                    source_json_sha256=sha256(_json(raw)).hexdigest(),
-                    receipts=receipts,
-                )
-            )
-        )
-    if profile["table_auxiliary"]:
-        import pdfplumber
-
-        nodes = []
-        open_pdf = page_cache.open if page_cache is not None else pdfplumber.open
-        with open_pdf(input_path if h6 else work / "source.pdf") as document:
-            for number in selected:
-                page = document.pages[selected.index(number) if h6 else number - 1]
-                for index, table in enumerate(page.find_tables()):
-                    table_id = f"p{number}-t{index}"
-                    options = {}
-                    if profile.get("table_text_y_tolerance") is not None:
-                        options["y_tolerance"] = profile["table_text_y_tolerance"]
-                    rows, texts = [], table.extract(**options)
-                    for row_index, row in enumerate(table.rows):
-                        cells = []
-                        for column_index, bbox in enumerate(row.cells):
-                            if bbox is None:
-                                continue
-                            cells.append(
-                                dict(
-                                    type="table cell",
-                                    id=f"{table_id}-r{row_index}-c{column_index}",
-                                    **{
-                                        "page number": number,
-                                        "bounding box": bbox,
-                                        "page origin": page.bbox[:2],
-                                        "row number": row_index + 1,
-                                        "column number": column_index + 1,
-                                        "content": texts[row_index][column_index] or "",
-                                    },
-                                )
-                            )
-                        rows.append(
-                            dict(
-                                type="table row",
-                                id=f"{table_id}-r{row_index}",
-                                cells=cells,
-                                **{
-                                    "page number": number,
-                                    "bounding box": row.bbox,
-                                    "page origin": page.bbox[:2],
-                                    "row number": row_index + 1,
-                                },
-                            )
-                        )
-                    nodes.append(
-                        dict(
-                            type="table",
-                            id=table_id,
-                            rows=rows,
-                            **{
-                                "page number": number,
-                                "bounding box": table.bbox,
-                                "page origin": page.bbox[:2],
-                            },
-                        )
-                    )
-        (work / "auxiliary.json").write_bytes(_json(dict(kids=nodes)))
-        if _locates_auxiliary_cells(profile):
-            from proofops.adapters.local.native_glyph_geometry import native_word_ink_geometry
-            from proofops.adapters.parsing.odl_table_repair import locate_auxiliary_cells
-
-            # pdfplumber assigns a slot's text by ink midpoint, so a detected slot
-            # can hold text its own box does not contain. Snap each slot onto the
-            # ink it owns; a table whose ownership is not exact stays untouched.
-            words_by_page = {}
-            source_pdf_bytes = (work / "source.pdf").read_bytes()
-            with open_pdf(input_path if h6 else work / "source.pdf") as document:
-                for number in selected:
-                    page = document.pages[selected.index(number) if h6 else number - 1]
-                    raw_words = page.extract_words()
-                    if not raw_words:
-                        continue
-                    word_indices = list(range(len(raw_words)))
-                    try:
-                        ink_res = native_word_ink_geometry(source_pdf_bytes, number, word_indices)
-                        matched_map = {
-                            m["native_word_index"]: m["ink_bbox"]
-                            for m in ink_res.get("matched_words", [])
-                        }
-                        unresolved_set = set(ink_res.get("unresolved_word_indices", []))
-                    except Exception:
-                        matched_map = {}
-                        unresolved_set = set(word_indices)
-                    words_by_page[number] = [
-                        {
-                            "text": word["text"],
-                            "bbox": [word["x0"], word["top"], word["x1"], word["bottom"]],
-                            "ink_bbox": matched_map.get(idx),
-                            "resolved": idx in matched_map and idx not in unresolved_set,
-                        }
-                        for idx, word in enumerate(raw_words)
-                    ]
-            located, receipts = locate_auxiliary_cells(
-                nodes, words_by_page, source=source_pdf_bytes
-            )
-            (work / "auxiliary.json").write_bytes(_json(dict(kids=located, cell_locate=receipts)))
 
 
 if __name__ == "__main__":

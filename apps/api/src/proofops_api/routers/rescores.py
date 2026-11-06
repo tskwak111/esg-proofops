@@ -2,18 +2,20 @@
 
 import sqlite3
 import time
+from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Request, Security
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyCookie
-from proofops.application.rescores import RescoreRejected
+from proofops.application.rescores import RescoreRejected, RescoreService
 from proofops.application.reviews import ReviewRejected
 from proofops.application.runs import RunRejected
 from proofops.domain.errors import DomainValidationError
 from proofops_api.auth import (
     SESSION_COOKIE_NAME,
+    AuthStore,
     _authorize,
     _error_response,
     _request_limit_response,
@@ -26,7 +28,7 @@ from pydantic import Field
 from starlette.concurrency import run_in_threadpool
 
 
-def _retag_required_message(service, tenant_id: str, run_id: str) -> str:
+def _retag_required_message(service: RescoreService, tenant_id: str, run_id: str) -> str:
     """Return actionable, tenant-scoped guidance without changing rescore state."""
     claim_ids = []
     store = getattr(service, "store", None)
@@ -70,7 +72,13 @@ class RescoreCreate(StrictDTO):
     reason: Annotated[str, Field(min_length=5, max_length=1000)]
 
 
-def build_rescores_router(service, auth_store, *, allowed_origin: str, clock=time.time):
+def build_rescores_router(
+    service: RescoreService,
+    auth_store: AuthStore,
+    *,
+    allowed_origin: str,
+    clock: Callable[[], float] = time.time,
+) -> APIRouter:
     router = APIRouter(
         responses=_ERROR_RESPONSES,
         dependencies=[
@@ -89,7 +97,7 @@ def build_rescores_router(service, auth_store, *, allowed_origin: str, clock=tim
         response_model=JobAccepted,
         openapi_extra=_request_schema(RescoreCreate) | {"x-minimum-role": "reviewer"},
     )
-    async def create(request: Request, run_id: UUID):
+    async def create(request: Request, run_id: UUID) -> JSONResponse:
         now = clock()
         auth = _authorize(request, auth_store, now, "reviewer")
         if isinstance(auth, JSONResponse):
@@ -139,7 +147,7 @@ def build_rescores_router(service, auth_store, *, allowed_origin: str, clock=tim
             "x-idempotency-required": False,
         },
     )
-    def get(request: Request, run_id: UUID, rescore_id: UUID):
+    def get(request: Request, run_id: UUID, rescore_id: UUID) -> JSONResponse:
         now = clock()
         auth = _authorize(request, auth_store, now, "viewer")
         if isinstance(auth, JSONResponse):

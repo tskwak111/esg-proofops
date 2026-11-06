@@ -1,8 +1,12 @@
 """Opt-in bounded extraction dispatch; complete source units and immutable receipts."""
 
+from __future__ import annotations
+
 import json
 from collections import Counter
 from dataclasses import asdict
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID, uuid5
 
 from proofops.application.claims import ExtractionOutputError
@@ -10,17 +14,25 @@ from proofops.application.ingest.fxg_wire import POLICY, before_dispatch
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 
+if TYPE_CHECKING:
+    from proofops.adapters.local.openrouter import OpenRouterProbe
+    from proofops.adapters.local.upstage import UpstageProbe
 
-def wire_json(value):
+    from proofops_agent.upstage_extraction import UpstageClaimExtractor
+
+
+def wire_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
-def plan(probe, system, user, *, max_tokens):
+def plan(
+    probe: UpstageProbe | OpenRouterProbe, system: str, user: dict[str, Any], *, max_tokens: int
+) -> list[dict[str, Any]]:
     """Preflight every child before dispatch; preserve complete blocks and global indexes."""
     parts = []
     parent_id = user["request_id"]
 
-    def visit(value, path):
+    def visit(value: dict[str, Any], path: str) -> None:
         if path:
             value = value | dict(
                 request_id=str(
@@ -54,7 +66,7 @@ def plan(probe, system, user, *, max_tokens):
                 "EXTRACTION_FXG_BLOCK_TOO_LARGE", failure_code="EXTRACTION_FXG_BLOCK_TOO_LARGE"
             ) from None
         parts.append(value)
-        if len(parts) > POLICY["max_parts"]:
+        if len(parts) > cast(int, POLICY["max_parts"]):
             raise ExtractionOutputError(
                 "EXTRACTION_FXG_PART_LIMIT", failure_code="EXTRACTION_FXG_PART_LIMIT"
             )
@@ -63,7 +75,7 @@ def plan(probe, system, user, *, max_tokens):
     return parts
 
 
-def _save_or_check(extractor, path, value):
+def _save_or_check(extractor: UpstageClaimExtractor, path: Path, value: object) -> None:
     content = canonical_json(value)
     if path.exists():
         if path.read_text() != content:
@@ -72,7 +84,15 @@ def _save_or_check(extractor, path, value):
         extractor._write(path, content)
 
 
-def extract_parts(extractor, packet, system, user, parts, *, context_graph):
+def extract_parts(
+    extractor: UpstageClaimExtractor,
+    packet: dict[str, Any],
+    system: str,
+    user: dict[str, Any],
+    parts: list[dict[str, Any]],
+    *,
+    context_graph: Any,
+) -> dict[str, Any]:
     """Validate each response against exactly its sent selectors before combining it."""
     root = extractor._receipts / user["request_id"]
     root.mkdir(mode=0o700, exist_ok=True)
@@ -89,7 +109,8 @@ def extract_parts(extractor, packet, system, user, parts, *, context_graph):
         requests=requests,
     )
     _save_or_check(extractor, root / "fxg-split.json", manifest)
-    presented, selected = Counter(), Counter()
+    presented: Counter[str] = Counter()
+    selected: Counter[str] = Counter()
     child_hashes = []
     data = packet["untrusted_document_data"]
     for part, request in zip(parts, requests, strict=True):
@@ -168,7 +189,7 @@ def extract_parts(extractor, packet, system, user, parts, *, context_graph):
                 extractor._fail(
                     directory, canonical_hash(packet), part["request_id"], code, transport=True
                 )
-            from proofops_agent.upstage_extraction import _PROVIDER_METADATA_KEYS
+            from proofops_agent.extraction_parts.contracts import _PROVIDER_METADATA_KEYS
 
             response = (
                 {k: response[k] for k in (*_PROVIDER_METADATA_KEYS, "content") if k in response}

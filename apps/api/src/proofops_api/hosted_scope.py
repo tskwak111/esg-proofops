@@ -4,10 +4,14 @@ import json
 import os
 import resource
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
+
+from proofops_api.hosted_contracts import DiscoveryReaderFactory, ScopeSelectionValidator
 
 
-def main():
+def main() -> None:
     resource.setrlimit(resource.RLIMIT_CPU, (60, 60))
     resource.setrlimit(resource.RLIMIT_FSIZE, (8 * 1024 * 1024, 8 * 1024 * 1024))
     if sys.platform == "linux":
@@ -15,17 +19,23 @@ def main():
     from proofops.application.analysis_profile import V2_PROFILE, policy_for
 
     from evaluation.hosted_scope_plan import inspect_streaming
-    from evaluation.rb2_reporting_period import configured_profile
+    from evaluation.rb2_reporting_period import configured_profile as _configured_profile
+
+    # Typed boundary for the unchanged evaluation implementation.
+    configured_profile: Callable[[str | None], dict[str, Any] | None] = _configured_profile
 
     pdf = Path(sys.argv[1])
     source_sha = sys.argv[3] if len(sys.argv) > 3 else None
     policy = policy_for(V2_PROFILE)
     reader = None
 
-    def discovery(page):
+    def discovery(page: int) -> dict[str, Any]:
         nonlocal reader
         if reader is None:
-            from evaluation.scope_discovery_ocr import CPUDiscoveryReader
+            from evaluation.scope_discovery_ocr import CPUDiscoveryReader as _CPUDiscoveryReader
+
+            # Typed boundary for the unchanged evaluation implementation.
+            CPUDiscoveryReader: DiscoveryReaderFactory = _CPUDiscoveryReader
 
             reader = CPUDiscoveryReader(
                 pdf,
@@ -53,12 +63,25 @@ def main():
     Path(sys.argv[2]).write_text(json.dumps(plan, ensure_ascii=False))
 
 
-def scope_selection(plan, source_sha256, page_count, *, reporting_scope=None, **kwargs):
+def scope_selection(
+    plan: dict[str, Any],
+    source_sha256: str,
+    page_count: int,
+    *,
+    reporting_scope: dict[str, Any] | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
     """Keep AS1 immutable proposal checks; bind the effective period to selection."""
     from proofops.domain.provenance import canonical_hash
 
-    from evaluation.report_scope import validate_selection
-    from evaluation.reporting_period import validate_period
+    from evaluation.report_scope import validate_selection as _validate_selection
+
+    # Typed boundary for the unchanged evaluation implementation.
+    validate_selection: ScopeSelectionValidator = _validate_selection
+    from evaluation.reporting_period import validate_period as _validate_period
+
+    # Typed boundary for the unchanged evaluation implementation.
+    validate_period: Callable[[object], dict[str, Any]] = _validate_period
 
     selection = validate_selection(plan, source_sha256, page_count, **kwargs)
     if reporting_scope is not None:

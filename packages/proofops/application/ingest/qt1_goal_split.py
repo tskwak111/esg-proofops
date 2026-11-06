@@ -1,6 +1,7 @@
 """Literal target atoms inside an already selected compound maintenance goal."""
 
 import re
+from typing import Any
 
 from proofops.application.ingest.atomic_candidates import POLICY_V3, atomic_candidates
 
@@ -14,7 +15,9 @@ POLICY = dict(
 )
 
 
-def refine_selected(spans, text, *, kind):
+def refine_selected(
+    spans: list[dict[str, Any]], text: str, *, kind: str
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     output, changes = [], []
     for span in spans:
         quote = text[span["char_start"] : span["char_end"]]

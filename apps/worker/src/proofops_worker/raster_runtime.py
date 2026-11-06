@@ -5,23 +5,37 @@ and reserving the request. Persisted max-call accounting and v5 publication are
 separate required gates; a prepared request alone is not permission to dispatch.
 """
 
+from __future__ import annotations
+
 from datetime import UTC, datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid5
 
 from proofops.adapters.local.raster_ocr import prepare_raster_ocr
 from proofops.adapters.local.raster_visibility import eligible_raster_sources, raster_ocr_policy
 from proofops.adapters.local.run_artifacts import load_run_inputs
 from proofops.adapters.local.source_verification import replay_native_sources
-from proofops.adapters.local.upstage_parse import PARSE_MODEL_PINNED
+from proofops.adapters.local.upstage_parse import PARSE_MODEL_PINNED, UpstageParseProbe
 from proofops.application.authorization import AuthContext
-from proofops.application.ports.jobs import LeaseLost
+from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+from proofops.application.ports.jobs import JobLease, LeaseLost
 from proofops.application.preflight import check_local_upstage_raster
 from proofops.application.registry import artifact_sha256
 from proofops.application.runs import validate_raster_snapshot
 from proofops.domain.provenance import canonical_hash
 
+if TYPE_CHECKING:
+    from proofops_worker.local_runner import LocalParserRunner
 
-def prepare_authorized_raster(runner, lease, graph, native, source_ids):
+
+def prepare_authorized_raster(
+    runner: LocalParserRunner,
+    lease: JobLease,
+    graph: CanonicalDocumentGraph,
+    native: dict[str, Any] | None,
+    source_ids: tuple[str, ...],
+) -> tuple[bytes, dict[str, Any]]:
     message = lease.message
     now = int(runner.clock())
     if message.stage != "parse" or not runner.store.jobs.can_call(lease, now=now):
@@ -48,7 +62,7 @@ def prepare_authorized_raster(runner, lease, graph, native, source_ids):
         raise ValueError("RASTER_RUN_INPUT_MISMATCH")
     policy = snapshot["raster_ocr_policy"]
 
-    def authorize():
+    def authorize() -> None:
         if not runner.store.jobs.can_call(lease, now=int(runner.clock())):
             raise LeaseLost("LEASE_LOST")
         if policy != raster_ocr_policy(
@@ -133,7 +147,16 @@ def prepare_authorized_raster(runner, lease, graph, native, source_ids):
     return data, request
 
 
-def dispatch_authorized_raster(runner, lease, graph, native, source_ids, *, probe, ledger):
+def dispatch_authorized_raster(
+    runner: LocalParserRunner,
+    lease: JobLease,
+    graph: CanonicalDocumentGraph,
+    native: dict[str, Any] | None,
+    source_ids: tuple[str, ...],
+    *,
+    probe: UpstageParseProbe | None,
+    ledger: str | Path,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """One durable request, at most one dispatch; ambiguous requests stay pending.
 
     Returns trusted stored request/receipt for later offline composition. This

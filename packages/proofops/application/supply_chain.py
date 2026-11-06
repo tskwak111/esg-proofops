@@ -12,10 +12,12 @@ import json
 import os
 import re
 import tomllib
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import date
 from hashlib import sha256
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote, urlparse
 
 _SBOM_CANDIDATES = ("sbom.json", "bom.json", "sbom.cdx.json", "evidence/sbom.json")
@@ -37,7 +39,7 @@ class SupplyChainResult:
 
 
 def _yaml(path: Path) -> object:
-    import yaml  # type: ignore[import-untyped]
+    import yaml
 
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
@@ -45,6 +47,7 @@ def _yaml(path: Path) -> object:
 def _inventory(root: Path) -> set[tuple[str, str, str]]:
     """Read exact (ecosystem, name, version) identities from both lockfiles."""
     inventory: set[tuple[str, str, str]] = set()
+    data: object
     for name in ("uv.lock", "pnpm-lock.yaml"):
         path = root / name
         if not path.is_file():
@@ -66,7 +69,7 @@ def _inventory(root: Path) -> set[tuple[str, str, str]]:
                         raise ValueError
                     inventory.add(("pypi", re.sub(r"[-_.]+", "-", package_name.lower()), version))
             else:
-                data = _yaml(path)  # type: ignore[assignment]
+                data = _yaml(path)
                 if not isinstance(data, dict) or str(data.get("lockfileVersion")) != "9.0":
                     raise ValueError
                 if not isinstance(data.get("importers"), dict):
@@ -89,7 +92,7 @@ def _inventory(root: Path) -> set[tuple[str, str, str]]:
     return inventory
 
 
-def generate_sbom(root: Path) -> dict:
+def generate_sbom(root: Path) -> dict[str, Any]:
     """Produce CycloneDX lock inventory with exact versions and lock hashes."""
     return {
         "bomFormat": "CycloneDX",
@@ -214,7 +217,7 @@ def _approval(root: Path) -> bool:
         return False
 
 
-def _files(root: Path):
+def _files(root: Path) -> Iterator[Path]:
     for directory, names, files in os.walk(root, followlinks=False):
         names[:] = [
             name

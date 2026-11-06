@@ -4,22 +4,42 @@ Discovery nominates exact paragraph spans. Independently extracted facts are
 verified and bound before the unchanged Python rules can decide or publish.
 """
 
+from __future__ import annotations
+
 import re
 from dataclasses import asdict
+from typing import TYPE_CHECKING, Unpack, cast
 
 from jsonschema import Draft202012Validator
 from proofops.application.evidence.binding import accept_binding
 from proofops.application.evidence.span_citations import verify_source_ref
+from proofops.application.tagging.contracts import AssemblyInputs
 from proofops.application.tagging.fact_assembly_c2 import (
     ELEMENTS,
     SCHEMA,
     TRIGGERS,
     _receipt,
-    vote_schema,
+)
+from proofops.application.tagging.fact_assembly_c2 import (
+    vote_schema as vote_schema,
 )
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rules.engine import ConfirmedFact, ConfirmedTags, RuleContext, evaluate
-from proofops.domain.values import SourceRef, _require_sha256
+from proofops.domain.values import ElementState, SourceRef, _require_sha256
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Any
+
+    from proofops.application.evidence.binding import ClaimContext
+    from proofops.application.evidence.retrieval import EvidencePacket
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.review_parts.inputs import ReviewInputs
+    from proofops.application.tagging.consensus import ConsensusResult
+    from proofops.application.tagging.fact_assembly_c2 import FactAssemblyReceiptV1
+    from proofops.domain.rulepacks import RulePackSnapshot
+    from proofops.domain.rules.engine import Decision
+
 
 PROFILE = "management-direct-certification-c4-v1"
 SYSTEMS = {"14001": "환경경영시스템", "50001": "에너지경영시스템", "45001": "안전보건경영시스템"}
@@ -48,11 +68,11 @@ POLICY = dict(
 POLICY_HASH = canonical_hash(POLICY)
 
 
-def _plain(text):
+def _plain(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def safety_reasons(quote):
+def safety_reasons(quote: str) -> list[str]:
     reasons = []
     if not POSSESSION.search(quote):
         reasons.append("CERTIFICATION_POSSESSION_UNRESOLVED")
@@ -80,9 +100,9 @@ def safety_reasons(quote):
     return sorted(set(reasons))
 
 
-def discover(graph):
+def discover(graph: CanonicalDocumentGraph) -> list[dict[str, Any]]:
     """Nominations only; same original paragraph, never source approval or a grade."""
-    found = []
+    found: list[dict[str, Any]] = []
     for block in graph.blocks:
         if block.kind != "paragraph" or block.winner is None:
             continue
@@ -148,7 +168,15 @@ def discover(graph):
     return found
 
 
-def assemble(votes, *, context, graph, packet, rulepack, tag_revision=1):
+def assemble(
+    votes: Sequence[dict[str, Any]],
+    *,
+    context: ClaimContext,
+    graph: CanonicalDocumentGraph,
+    packet: EvidencePacket,
+    rulepack: RulePackSnapshot,
+    tag_revision: int = 1,
+) -> FactAssemblyReceiptV1:
     claim = context.claim
     data = packet.to_dict()
     identity = dict(
@@ -241,7 +269,7 @@ def assemble(votes, *, context, graph, packet, rulepack, tag_revision=1):
     )
     results, facts_by_replica = [], []
 
-    def ref_for(selection):
+    def ref_for(selection: dict[str, Any]) -> SourceRef | None:
         if not isinstance(selection, dict) or set(selection) != {"source_index", "quote"}:
             return None
         source = refs.get(str(selection["source_index"]))
@@ -327,12 +355,13 @@ def assemble(votes, *, context, graph, packet, rulepack, tag_revision=1):
                 if ref is not None and claim_verified
                 else "undetermined"
             )
-            state = (
+            state: ElementState = (
                 "present"
                 if ref and binding == "accepted"
                 else ("conflict" if value.get("state") == "conflict" else "unknown")
             )
             if state == "present":
+                ref = cast("SourceRef", ref)
                 contained = any(
                     c.source_id == ref.source_id
                     and c.char_start <= ref.char_start < ref.char_end <= c.char_end
@@ -367,11 +396,13 @@ def assemble(votes, *, context, graph, packet, rulepack, tag_revision=1):
                 primitive=primitive,
                 state=state,
                 authority="raw_guarded",
-                source_refs=[asdict(ref)] if state == "present" else [],
+                source_refs=[asdict(cast("SourceRef", ref))] if state == "present" else [],
                 binding=binding if state == "present" else "undetermined",
             )
             facts.append(
-                ConfirmedFact(primitive, "present", (ref,), claim.tenant_id, True, True)
+                ConfirmedFact(
+                    primitive, "present", (cast("SourceRef", ref),), claim.tenant_id, True, True
+                )
                 if state == "present"
                 else ConfirmedFact(primitive, state)
             )
@@ -521,7 +552,7 @@ def assemble(votes, *, context, graph, packet, rulepack, tag_revision=1):
     )
 
 
-def replay(receipt, **inputs):
+def replay(receipt: dict[str, Any], **inputs: Unpack[AssemblyInputs]) -> FactAssemblyReceiptV1:
     if (
         not isinstance(receipt, dict)
         or receipt.get("schema") != SCHEMA
@@ -536,20 +567,22 @@ def replay(receipt, **inputs):
     return result
 
 
-def publication_policy_for(profile, *, pinned_hash=None):
+def publication_policy_for(profile: str, *, pinned_hash: str | None = None) -> dict[str, Any]:
     if profile != PROFILE or pinned_hash not in (None, POLICY_HASH):
         raise ValueError("C4_PUBLICATION_PROFILE_MISMATCH")
     return dict(POLICY)
 
 
-def publication_values(receipt, *, rulepack, tag_revision):
+def publication_values(
+    receipt: dict[str, Any], *, rulepack: RulePackSnapshot, tag_revision: int
+) -> tuple[ConsensusResult, Decision]:
     # This builder is policy-independent; C4 replay validates its authority first.
     from proofops.application.tagging.fact_assembly_c3 import publication_values as values
 
     return values(receipt, rulepack=rulepack, tag_revision=tag_revision)
 
 
-def validate_publication(inputs):
+def validate_publication(inputs: ReviewInputs) -> None:
     if inputs.fact_assembly_receipt is None:
         raise ValueError("C4_PUBLICATION_RECEIPT_REQUIRED")
     receipt = replay(
@@ -573,19 +606,25 @@ def validate_publication(inputs):
         or inputs.run_id != inputs.packet.to_dict()["run_id"]
         or inputs.packet.to_dict()["retrieval_packet_sha256"]
         != inputs.original_packet.packet_sha256
-        or asdict(evaluate(consensus.confirmed_tags, inputs.rule_context, inputs.rulepack))
+        or asdict(
+            evaluate(
+                cast("ConfirmedTags", consensus.confirmed_tags),
+                inputs.rule_context,
+                inputs.rulepack,
+            )
+        )
         != asdict(decision)
     ):
         raise ValueError("C4_PUBLICATION_INPUT_MISMATCH")
 
 
-def confirmation_display(receipt):
+def confirmation_display(receipt: dict[str, Any]) -> str:
     if not receipt["public_auto_confirmed"]:
         raise ValueError("C4_PUBLICATION_NOT_ELIGIBLE")
     result = receipt["derived_results"][0]["result"]
     refs = result["elements"]["M3"]["source_refs"]
     system = next(s for s in SYSTEMS.values() if s in refs[0]["quote"])
-    certificate = "ISO " + ISO.search(refs[0]["quote"])[1]
+    certificate = "ISO " + cast("re.Match[str]", ISO.search(refs[0]["quote"]))[1]
     scope = result["elements"]["M2"]["source_refs"][0]["quote"]
     period = result["dimensions"]["period"]
     kind = "보고서 문맥" if result["period_kind"] == "report_context" else "본문 명시 연도"

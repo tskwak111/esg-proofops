@@ -5,8 +5,11 @@ P1 votes or grading facts. All ordinary preliminary/source guards still run.
 Unknown dimension names (including grade/label attempts) remain rejected.
 """
 
+from __future__ import annotations
+
 from copy import deepcopy
 from dataclasses import asdict
+from typing import TYPE_CHECKING
 
 from proofops.application.tagging.preliminary import (
     _literal_dimension_ref,
@@ -16,6 +19,14 @@ from proofops.application.tagging.preliminary import (
 from proofops.application.tagging.table_sources import table_structural_sources
 from proofops.domain.provenance import canonical_hash
 
+if TYPE_CHECKING:
+    from typing import Any
+
+    from proofops.application.claims import Claim
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.tagging.contracts import PreliminaryClassification
+
+
 POLICY = dict(
     profile="preliminary-fact-fields-pb2-v1",
     auxiliary_fields=["unit", "value", "quantity"],
@@ -24,7 +35,7 @@ POLICY = dict(
 POLICY_HASH = canonical_hash(POLICY)
 
 
-def enabled(claim, graph, analysis_policy):
+def enabled(claim: Claim, graph: CanonicalDocumentGraph, analysis_policy: dict[str, Any]) -> bool:
     if analysis_policy.get("preliminary_fact_fields") != POLICY["profile"]:
         return False
     scope = analysis_policy.get("preliminary_fact_fields_scope")
@@ -36,7 +47,14 @@ def enabled(claim, graph, analysis_policy):
     return any(b.source_id in ids and b.kind in ("table", "table_cell") for b in graph.blocks)
 
 
-def validate_preliminary(claim, graph, response, *, tenant_id, allow_unverified=False):
+def validate_preliminary(
+    claim: Claim,
+    graph: CanonicalDocumentGraph,
+    response: dict[str, Any],
+    *,
+    tenant_id: str,
+    allow_unverified: bool = False,
+) -> tuple[PreliminaryClassification, list[dict[str, Any]]]:
     data = deepcopy(response)
     dimensions = data.get("dimensions")
     if not isinstance(dimensions, dict):
@@ -46,7 +64,7 @@ def validate_preliminary(claim, graph, response, *, tenant_id, allow_unverified=
     sources = _sources(claim, graph, tenant_id, allow_unverified=allow_unverified)
     table = table_structural_sources(graph, sources, tenant_id=tenant_id)
     quotable = (*sources, *(item.ref for item in table.verified))
-    auxiliary = []
+    auxiliary: list[dict[str, Any]] = []
     for name in POLICY["auxiliary_fields"]:
         if name not in dimensions:
             continue

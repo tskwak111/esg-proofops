@@ -24,6 +24,12 @@ from pathlib import Path
 from types import TracebackType
 
 # JOBOBJECT_EXTENDED_LIMIT_INFORMATION, per Microsoft's documented layout.
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    import ctypes
+
+
 _EXTENDED_LIMIT_INFORMATION = 9
 _LIMIT_PROCESS_TIME = 0x00000002
 _LIMIT_PROCESS_MEMORY = 0x00000100
@@ -50,7 +56,9 @@ class IsolationUnavailable(RuntimeError):
     """Windows refused to provide containment; the caller must fail closed."""
 
 
-def kill_and_reap(process: subprocess.Popen, *, timeout: float = REAP_TIMEOUT_SECONDS) -> None:
+def kill_and_reap(
+    process: subprocess.Popen[bytes], *, timeout: float = REAP_TIMEOUT_SECONDS
+) -> None:
     """Terminate one process by its own handle and wait for it, always bounded.
 
     A suspended child never exits on its own, so an unbounded `wait()` after a
@@ -84,7 +92,7 @@ class PosixSessionIsolation:
         *,
         cwd: Path,
         env: Mapping[str, str],
-    ) -> subprocess.Popen:
+    ) -> subprocess.Popen[bytes]:
         with (cwd / "launcher-stderr.txt").open("wb") as stderr:
             (cwd / "launcher-stderr.txt").chmod(0o600)
             return subprocess.Popen(
@@ -96,7 +104,7 @@ class PosixSessionIsolation:
                 start_new_session=True,
             )
 
-    def peak_memory_bytes(self, process: subprocess.Popen) -> int:
+    def peak_memory_bytes(self, process: subprocess.Popen[bytes]) -> int:
         # Includes the SDK child and Java descendants, not only the launcher.
         rows = subprocess.run(
             ["/bin/ps", "-axo", "pgid=,rss="],
@@ -110,10 +118,10 @@ class PosixSessionIsolation:
             if len(parts := row.split()) == 2 and int(parts[0]) == process.pid
         )
 
-    def memory_limit_exceeded(self, process: subprocess.Popen) -> bool:
+    def memory_limit_exceeded(self, process: subprocess.Popen[bytes]) -> bool:
         return self.peak_memory_bytes(process) > self._memory_bytes
 
-    def terminate_tree(self, process: subprocess.Popen) -> None:
+    def terminate_tree(self, process: subprocess.Popen[bytes]) -> None:
         if sys.platform == "win32":  # pragma: no cover - the factory never selects this here
             return
         import os
@@ -128,18 +136,20 @@ class PosixSessionIsolation:
         return None
 
 
-def process_isolation(*, memory_bytes: int, cpu_seconds: int):
+def process_isolation(
+    *, memory_bytes: int, cpu_seconds: int
+) -> PosixSessionIsolation | WindowsJobIsolation:
     """Containment for one parser invocation, matched to the host platform."""
     if sys.platform == "win32":
         return WindowsJobIsolation(memory_bytes=memory_bytes, cpu_seconds=cpu_seconds)
     return PosixSessionIsolation(memory_bytes=memory_bytes, cpu_seconds=cpu_seconds)
 
 
-def _kernel32():
+def _kernel32() -> ctypes.CDLL:
     import ctypes
     from ctypes import wintypes
 
-    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel = cast(ctypes.CDLL, getattr(ctypes, "WinDLL")("kernel32", use_last_error=True))
     kernel.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
     kernel.CreateJobObjectW.restype = wintypes.HANDLE
     kernel.SetInformationJobObject.argtypes = [
@@ -176,7 +186,7 @@ def _kernel32():
     return kernel
 
 
-def _structures():
+def _structures() -> tuple[type[ctypes.Structure], type[ctypes.Structure]]:
     import ctypes
     from ctypes import wintypes
 
@@ -273,7 +283,7 @@ class WindowsJobIsolation:
         *,
         cwd: Path,
         env: Mapping[str, str],
-    ) -> subprocess.Popen:
+    ) -> subprocess.Popen[bytes]:
         """Create the child suspended, contain it, then let it run."""
         with (cwd / "launcher-stderr.txt").open("wb") as stderr:
             (cwd / "launcher-stderr.txt").chmod(0o600)
@@ -287,6 +297,7 @@ class WindowsJobIsolation:
                 creationflags=_CREATE_SUSPENDED | _CREATE_NO_WINDOW | _CREATE_NEW_PROCESS_GROUP,
             )
         try:
+            # CPython exposes this native handle on Windows; POSIX typing omits it.
             handle = int(process._handle)  # type: ignore[attr-defined]
             if not self._kernel.AssignProcessToJobObject(self._job, handle):
                 raise IsolationUnavailable("assign_to_job_failed")
@@ -328,7 +339,7 @@ class WindowsJobIsolation:
         finally:
             self._kernel.CloseHandle(snapshot)
 
-    def peak_memory_bytes(self, process: subprocess.Popen) -> int:
+    def peak_memory_bytes(self, process: subprocess.Popen[bytes]) -> int:
         """Peak committed memory across every process in the job, launcher and JVM."""
         del process
         info = self._extended()
@@ -342,7 +353,7 @@ class WindowsJobIsolation:
             raise IsolationUnavailable("query_job_information_failed")
         return int(info.peak_job_memory)
 
-    def memory_limit_exceeded(self, process: subprocess.Popen) -> bool:
+    def memory_limit_exceeded(self, process: subprocess.Popen[bytes]) -> bool:
         """True only when a sample actually observed more than the bound.
 
         The job's cap is the primary defence and is strict, so the usual
@@ -354,7 +365,7 @@ class WindowsJobIsolation:
         """
         return self.peak_memory_bytes(process) > self._memory_bytes
 
-    def terminate_tree(self, process: subprocess.Popen) -> None:
+    def terminate_tree(self, process: subprocess.Popen[bytes]) -> None:
         """Kill the launcher and every descendant, whatever state they are in."""
         del process
         if self._job:

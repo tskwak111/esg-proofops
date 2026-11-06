@@ -1,6 +1,14 @@
 """Versioned semantic guidance and display-only QI1 hold explanations."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, cast
+
 from proofops.domain.provenance import canonical_hash
+
+if TYPE_CHECKING:
+    from typing import Any
+
 
 ELEMENT_DEFINITIONS = """
 QI1 guidance: original v2.0 §4.4/4.5 and docs/28, no new grade rules.
@@ -37,7 +45,7 @@ LADDER = {
 }
 
 
-def hold_projection(item, *, profile=None):
+def hold_projection(item: dict[str, Any], *, profile: str | None = None) -> dict[str, Any]:
     """Explain an uninformative whole-pack range without changing facts or grades."""
     if profile == "v3-dec92-v1":
         from proofops.application.tagging.v3_dec92 import hold_projection as v3_hold
@@ -48,7 +56,7 @@ def hold_projection(item, *, profile=None):
     result = item["provisional_grade"]
     bounds = result.get("grade_range") or {}
     if result.get("evidence_grade") or (bounds.get("floor"), bounds.get("ceiling")) != ("E0", "E3"):
-        return result
+        return cast("dict[str, Any]", result)
     track = (item.get("frozen_packet") or {}).get("track")
     tracks = [track] if track in LADDER else []
     if not tracks:
@@ -90,28 +98,33 @@ def hold_projection(item, *, profile=None):
             reasons.append(ESTIMATE_HOLD)
     if not present:
         reasons.append("근거 없음")
-    return result | dict(
-        display_type="hold",
-        display="판정 보류",
-        hold_reasons=reasons,
-        hold_reason_detail=item.get("reason") or result.get("reason"),
-        evidence_note=(
-            "근거 없음은 이 패킷에 인정된 근거가 없다는 뜻이며 " "문서 전체 부재 판정이 아닙니다."
+    return cast(
+        "dict[str, Any]",
+        result
+        | dict(
+            display_type="hold",
+            display="판정 보류",
+            hold_reasons=reasons,
+            hold_reason_detail=item.get("reason") or result.get("reason"),
+            evidence_note=(
+                "근거 없음은 이 패킷에 인정된 근거가 없다는 뜻이며 "
+                "문서 전체 부재 판정이 아닙니다."
+            ),
+            needed_evidence=[
+                dict(
+                    track=t,
+                    target_grade=grade,
+                    elements=[eid for eid in elements if eid not in present],
+                )
+                for t in tracks
+                for grade, elements in LADDER[t]
+                if any(eid not in present for eid in elements)
+            ],
         ),
-        needed_evidence=[
-            dict(
-                track=t,
-                target_grade=grade,
-                elements=[eid for eid in elements if eid not in present],
-            )
-            for t in tracks
-            for grade, elements in LADDER[t]
-            if any(eid not in present for eid in elements)
-        ],
     )
 
 
-def _cause_specific_hold(item):
+def _cause_specific_hold(item: dict[str, Any]) -> dict[str, Any]:
     result = hold_projection(item, profile="dec24-v1")
     codes = {
         (record.get("stable_reason") or {}).get("error_code")

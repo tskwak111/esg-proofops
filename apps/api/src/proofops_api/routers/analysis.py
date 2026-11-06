@@ -5,18 +5,20 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
+from collections.abc import Callable
 from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Request, Security
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyCookie
-from proofops.adapters.local.analysis_store import SafeHarborPending
+from proofops.adapters.local.analysis_store import LocalAnalysisStore, SafeHarborPending
 from proofops.adapters.local.catalog_pages import CatalogCapacityExceeded, InvalidCatalogCursor
 from proofops.application.runs import RunRejected
 from proofops.domain.errors import DomainValidationError
 from proofops_api.auth import (
     SESSION_COOKIE_NAME,
+    AuthStore,
     _authorize,
     _error_response,
     _request_limit_response,
@@ -27,7 +29,7 @@ from proofops_api.routers.documents import StrictDTO
 from proofops_api.routers.reviews import Element
 from proofops_api.routers.sources import SourceRef
 from proofops_api.rulepacks import _ERROR_RESPONSES
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 
 class Observation(StrictDTO):
@@ -72,7 +74,9 @@ class SafeHarborRecordPage(StrictDTO):
     snapshot_epoch: Annotated[int, Field(ge=0)] | None
 
 
-def build_analysis_router(store, auth_store, *, clock=time.time) -> APIRouter:
+def build_analysis_router(
+    store: LocalAnalysisStore, auth_store: AuthStore, *, clock: Callable[[], float] = time.time
+) -> APIRouter:
     router = APIRouter(
         responses=_ERROR_RESPONSES,
         dependencies=[
@@ -89,7 +93,7 @@ def build_analysis_router(store, auth_store, *, clock=time.time) -> APIRouter:
         "x-rate-limit": "120/min/user",
     }
 
-    def failure(exc, endpoint):
+    def failure(exc: Exception, endpoint: str) -> JSONResponse:
         if isinstance(exc, InvalidCatalogCursor):
             return _error_response(
                 400, "INVALID_CURSOR", "Pagination cursor is invalid or expired."
@@ -114,7 +118,14 @@ def build_analysis_router(store, auth_store, *, clock=time.time) -> APIRouter:
             f"{endpoint} analysis is pending or failed integrity checks.",
         )
 
-    def read(request, run_id, endpoint, cursor, limit, model):
+    def read(
+        request: Request,
+        run_id: str,
+        endpoint: str,
+        cursor: str | None,
+        limit: int,
+        model: type[BaseModel],
+    ) -> JSONResponse:
         auth_now = time.time()
         auth = _authorize(request, auth_store, auth_now, "viewer")
         if isinstance(auth, JSONResponse):
@@ -141,13 +152,13 @@ def build_analysis_router(store, auth_store, *, clock=time.time) -> APIRouter:
         except (ValueError, KeyError, OSError, DomainValidationError, sqlite3.DatabaseError) as exc:
             return failure(exc, endpoint)
 
-    def add(path, operation_id, response_model):
+    def add(path: str, operation_id: str, response_model: type[BaseModel]) -> None:
         def endpoint(
             request: Request,
             run_id: UUID,
             cursor: str | None = None,
             limit: Annotated[int, Query(ge=1, le=100)] = 50,
-        ):
+        ) -> JSONResponse:
             return read(request, str(run_id), operation_id, cursor, limit, response_model)
 
         router.add_api_route(

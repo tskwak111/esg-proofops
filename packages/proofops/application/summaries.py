@@ -102,7 +102,7 @@ class Summary:
         }
 
 
-def _validated_coverage(value: Mapping[str, object]) -> dict[str, int | bool]:
+def _validated_coverage(value: object) -> dict[str, int | bool]:
     if not isinstance(value, Mapping) or set(value) != _COVERAGE_FIELDS:
         raise ValueError("coverage must match the fixed Coverage contract")
     raw_counts = {key: value[key] for key in _COVERAGE_FIELDS - {"full_scope", "complete"}}

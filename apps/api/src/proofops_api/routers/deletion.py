@@ -2,6 +2,7 @@
 
 import sqlite3
 import time
+from collections.abc import Callable
 from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
@@ -9,9 +10,10 @@ from uuid import UUID
 from fastapi import APIRouter, Request, Security
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyCookie
-from proofops.adapters.local.retention_store import RetentionRejected
+from proofops.adapters.local.retention_store import LocalRetentionStore, RetentionRejected
 from proofops_api.auth import (
     SESSION_COOKIE_NAME,
+    AuthStore,
     _authorize,
     _error_response,
     _request_limit_response,
@@ -34,7 +36,13 @@ class DeletionRequest(StrictDTO):
     requested_at: datetime
 
 
-def build_deletion_router(store, auth_store, *, allowed_origin, clock=time.time):
+def build_deletion_router(
+    store: LocalRetentionStore,
+    auth_store: AuthStore,
+    *,
+    allowed_origin: str,
+    clock: Callable[[], float] = time.time,
+) -> APIRouter:
     router = APIRouter(
         responses=_ERROR_RESPONSES,
         dependencies=[
@@ -53,7 +61,7 @@ def build_deletion_router(store, auth_store, *, allowed_origin, clock=time.time)
         response_model=DeletionRequest,
         openapi_extra=_request_schema(ActionReason) | {"x-minimum-role": "admin"},
     )
-    async def request_deletion(request: Request, document_id: UUID):
+    async def request_deletion(request: Request, document_id: UUID) -> JSONResponse:
         now = clock()
         actor = _authorize(request, auth_store, now, "admin")
         if isinstance(actor, JSONResponse):

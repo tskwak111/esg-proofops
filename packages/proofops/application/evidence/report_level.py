@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
+from typing import cast
 from unicodedata import normalize
 
+from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.domain.rulepacks import RulePackSnapshot
 from proofops.domain.values import SourceRef
 
@@ -50,7 +52,14 @@ _REPORT_WIDE = re.compile(
 )
 
 
-def scope_rejection_reason(element_id, refs, *, rulepack, original, policy=None):
+def scope_rejection_reason(
+    element_id: str,
+    refs: Sequence[SourceRef],
+    *,
+    rulepack: RulePackSnapshot,
+    original: CanonicalDocumentGraph,
+    policy: str | None = None,
+) -> str | None:
     """V2 excludes reporting prose, including subspans of its original block.
 
     An unrelated heading elsewhere on the page never vetoes an activity scope.
@@ -134,19 +143,30 @@ def _covers(coverage: str, code: str) -> bool:
     return code in re.findall(_DISCLOSURE, listed)
 
 
-def _on_page(ref: SourceRef, page_texts: Mapping[int, Sequence[str]], pattern: re.Pattern) -> bool:
+def _on_page(
+    ref: SourceRef, page_texts: Mapping[int, Sequence[str]], pattern: re.Pattern[str]
+) -> bool:
     return any(pattern.search(_text(text)) for text in page_texts.get(ref.page_num, ()))
 
 
-def _gri_assured_page(refs, claim_refs, page_texts, credited_from) -> bool:
+def _gri_assured_page(
+    refs: Sequence[SourceRef],
+    claim_refs: Sequence[SourceRef],
+    page_texts: Mapping[int, Sequence[str]],
+    credited_from: str | None,
+) -> bool:
     if len(refs) != 3:
         return False
     index, coverage, standard = refs
     labels = {ref.printed_page_label for ref in claim_refs}
-    if len(labels) != 1 or not next(iter(labels), None) or not next(iter(labels)).isdigit():
+    if (
+        len(labels) != 1
+        or not next(iter(labels), None)
+        or not cast(str, next(iter(labels))).isdigit()
+    ):
         return False
     row = _INDEX_ROW.match(_text(index.quote))
-    if row is None or int(next(iter(labels))) not in _pages(row["pages"]):
+    if row is None or int(cast(str, next(iter(labels)))) not in _pages(row["pages"]):
         return False
     index_page_blocks = {_text(text).casefold() for text in page_texts.get(index.page_num, ())}
     return (
@@ -162,7 +182,12 @@ def _gri_assured_page(refs, claim_refs, page_texts, credited_from) -> bool:
     )
 
 
-def _report_scope(refs, claim_quote, page_texts, credited_from) -> bool:
+def _report_scope(
+    refs: Sequence[SourceRef],
+    claim_quote: str,
+    page_texts: Mapping[int, Sequence[str]],
+    credited_from: str | None,
+) -> bool:
     if len(refs) != 1:
         return False
     (scope,) = refs

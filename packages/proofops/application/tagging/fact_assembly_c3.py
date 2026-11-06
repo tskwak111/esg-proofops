@@ -1,13 +1,27 @@
 """DEC-43/R8 opt-in publication. C2 remains an immutable, disabled reader."""
 
+from __future__ import annotations
+
 import re
 from dataclasses import asdict
+from typing import TYPE_CHECKING, Unpack, cast
 
 from proofops.application.tagging import fact_assembly_c2 as c2
 from proofops.application.tagging.consensus import ConsensusResult
+from proofops.application.tagging.contracts import C2AssemblyInputs
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rules.engine import ConfirmedFact, ConfirmedTags, RuleContext, evaluate
 from proofops.domain.values import LlmElement, SourceRef
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Any
+
+    from proofops.application.review_parts.inputs import ReviewInputs
+    from proofops.application.tagging.fact_assembly_c2 import FactAssemblyReceiptV1
+    from proofops.domain.rulepacks import RulePackSnapshot
+    from proofops.domain.rules.engine import Decision
+
 
 PROFILE = "management-direct-certification-c3-v1"
 REVIEWED_IDENTITY = dict(
@@ -35,7 +49,7 @@ DISPLAY = (
 )
 
 
-def safety_reasons(claim_quote, raw):
+def safety_reasons(claim_quote: str, raw: dict[str, Any]) -> list[str]:
     """Fail closed on source attribution; never turn a blocked fact into absent."""
     reasons = []
     evidence = raw["elements"]["M3"].get("evidence")
@@ -66,7 +80,9 @@ def safety_reasons(claim_quote, raw):
     return sorted(set(reasons))
 
 
-def assemble(votes, **inputs):
+def assemble(
+    votes: Sequence[dict[str, Any]], **inputs: Unpack[C2AssemblyInputs]
+) -> FactAssemblyReceiptV1:
     result = c2.assemble(votes, **inputs).to_dict()
     reasons = sorted(
         {r for v in votes for r in safety_reasons(inputs["context"].claim.quote, v["raw"])}
@@ -107,7 +123,7 @@ def assemble(votes, **inputs):
     return c2._receipt(result)
 
 
-def replay(receipt, **inputs):
+def replay(receipt: dict[str, Any], **inputs: Unpack[C2AssemblyInputs]) -> FactAssemblyReceiptV1:
     if receipt.get("policy_sha256") != POLICY_HASH:
         raise ValueError("C3_POLICY_MISMATCH")
     result = assemble(receipt["raw_receipts"], **inputs)
@@ -116,15 +132,20 @@ def replay(receipt, **inputs):
     return result
 
 
-def publication_policy_for(profile, *, pinned_hash=None):
+def publication_policy_for(profile: str, *, pinned_hash: str | None = None) -> dict[str, Any]:
     if profile != PROFILE or pinned_hash not in (None, POLICY_HASH):
         raise ValueError("C3_PUBLICATION_PROFILE_MISMATCH")
     return dict(POLICY)
 
 
 def publication_values(
-    receipt, *, rulepack, tag_revision, require_public=True, local_synthetic=False
-):
+    receipt: dict[str, Any],
+    *,
+    rulepack: RulePackSnapshot,
+    tag_revision: int,
+    require_public: bool = True,
+    local_synthetic: bool = False,
+) -> tuple[ConsensusResult, Decision]:
     """Reconstruct Python facts from the individually guarded matcher outputs."""
     if type(local_synthetic) is not bool:
         raise ValueError("C3_LOCAL_SYNTHETIC_FLAG_INVALID")
@@ -192,7 +213,7 @@ def publication_values(
     return consensus, decision
 
 
-def validate_publication(inputs):
+def validate_publication(inputs: ReviewInputs) -> None:
     if inputs.fact_assembly_receipt is None:
         raise ValueError("C3_PUBLICATION_RECEIPT_REQUIRED")
     receipt = replay(
@@ -220,7 +241,9 @@ def validate_publication(inputs):
         raise ValueError("C3_PUBLICATION_INPUT_MISMATCH")
     from proofops.domain.rules.engine import evaluate
 
-    if asdict(evaluate(consensus.confirmed_tags, inputs.rule_context, inputs.rulepack)) != asdict(
-        decision
-    ):
+    if asdict(
+        evaluate(
+            cast("ConfirmedTags", consensus.confirmed_tags), inputs.rule_context, inputs.rulepack
+        )
+    ) != asdict(decision):
         raise ValueError("C3_PUBLICATION_DECISION_MISMATCH")

@@ -1,33 +1,49 @@
 """Tenant-scoped reads and human resolutions over unchanged R108 stores."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import os
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 
+from proofops.adapters.local.claim_store import LocalClaimStore
 from proofops.adapters.local.review_store import LocalSQLiteReviewStore
 from proofops.adapters.local.run_store import LocalSQLiteRunStore
 from proofops.adapters.local.tag_store import LocalTagStore
 from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser
+from proofops.application.authorization import AuthContext
 from proofops.application.registry import Registry
 from proofops.application.reviews import ReviewRejected, ReviewService
 from proofops.application.uploads import UploadService
 
+from proofops_api.hosted_contracts import HostedError
 from proofops_api.hosted_ocr import ReplayOCRStore, reader_scope
-from proofops_api.hosted_store import HostedError
+from proofops_api.hosted_snapshots import pilot_text
+
+if TYPE_CHECKING:
+    from proofops.adapters.local.c3_publication import LocalC3Publication as C3Publication
+    from proofops.adapters.local.c4_publication import LocalC4Publication as C4Publication
 
 
 @contextmanager
-def services(path: Path, tenant: str):
-    manifest = json.loads((path / "pilot.json").read_text())
+def services(
+    path: Path, tenant: str
+) -> Iterator[
+    tuple[str, LocalClaimStore | None, LocalTagStore | C3Publication | C4Publication, ReviewService]
+]:
+    manifest = pilot_text(path)
     if manifest["tenant_id"] != tenant:
         raise HostedError("RESOURCE_NOT_FOUND", 404)
     from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
+    publication: C3Publication | C4Publication
     if manifest.get("publication_profile") == C4_PROFILE:
         from proofops.adapters.local.c4_publication import LocalC4Publication
 
@@ -74,7 +90,7 @@ def services(path: Path, tenant: str):
         registry.close()
 
 
-def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
+def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict[str, Any]:
     result = _read_result(path, tenant, selected_pages)
     bounded = path / "bounded-c3"
     if (bounded / "pilot.json").is_file():
@@ -88,13 +104,13 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
     return result
 
 
-def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
+def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict[str, Any]:
     from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
     if (path / "pilot.json").is_file():
-        manifest = json.loads((path / "pilot.json").read_text())
+        manifest = pilot_text(path)
         if manifest.get("publication_profile") == C4_PROFILE:
             if manifest["tenant_id"] != tenant:
                 raise HostedError("RESOURCE_NOT_FOUND", 404)
@@ -124,6 +140,9 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             page_map=selected_pages,
         )
     with services(path, tenant) as (run, claims, tags, reviews):
+        # C3/C4 return above; this branch uses the ordinary local stores.
+        claims = cast(LocalClaimStore, claims)
+        tags = cast(LocalTagStore, tags)
         state = claims.store.jobs.get_run(tenant, run)
         # No extraction publication means no invented empty successful analysis.
         if "extract_job" not in state:
@@ -528,7 +547,9 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             )
         if search_projection is not None:
             search_projection.finish()
-        page = reviews.store.page(tenant, run, cursor=None, limit=100, now=0, cursors=claims.store)
+        page = cast(LocalSQLiteReviewStore, reviews.store).page(
+            tenant, run, cursor=None, limit=100, now=0, cursors=claims.store
+        )
         return dict(
             schema="r108-hosted-result-v1",
             claims=rows,
@@ -574,7 +595,9 @@ def result_snapshot(path: Path, tenant: str, selected_pages: list[int]) -> bytes
     ).encode()
 
 
-def resolve_review(path, auth, review, body, if_match, key):
+def resolve_review(
+    path: Path, auth: AuthContext, review: str, body: dict[str, Any], if_match: str | None, key: str
+) -> dict[str, Any]:
     bounded = path / "bounded-c3"
     if (bounded / "pilot.json").is_file():
         extra = _read_result(bounded, auth.tenant_id, [36])
@@ -592,7 +615,7 @@ def resolve_review(path, auth, review, body, if_match, key):
             raise HostedError("REVIEW_INPUT_UNAVAILABLE", 409) from None
 
 
-def clear_receipt_caches():
+def clear_receipt_caches() -> None:
     """Purge process-local source readings without touching frozen reader code."""
     from proofops_api.hosted_reads import clear_source_cache
 

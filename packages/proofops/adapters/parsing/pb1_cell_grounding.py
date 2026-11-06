@@ -1,10 +1,21 @@
 """Exact native cell grounding in an Upstage-declared grid; no numeric repair."""
 
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import Any
+
 from proofops.adapters.parsing.gemini_vision import _ground, compact
 from proofops.application.ingest.pb1_tables import NUMERIC, UNIT
 
 
-def ground_cells(cells, words, box, *, chars=()):
+def ground_cells(
+    cells: Sequence[dict[str, Any]],
+    words: list[dict[str, Any]],
+    box: Sequence[float] | None,
+    *,
+    chars: Sequence[dict[str, Any]] = (),
+) -> list[tuple[float, float, float, float] | None]:
     if box is None:
         return [None] * len(cells)
     native = [

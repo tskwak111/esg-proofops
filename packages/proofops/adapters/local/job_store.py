@@ -6,33 +6,40 @@ closed. Rollback retains the DB and immutable artifacts with workers stopped.
 
 from __future__ import annotations
 
-import hashlib
-import json
+import hashlib as hashlib
+import json as json
 import sqlite3
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from copy import deepcopy
-from dataclasses import asdict
-from datetime import UTC, datetime
+from copy import deepcopy as deepcopy
+from dataclasses import asdict as asdict
+from datetime import UTC as UTC
+from datetime import datetime as datetime
 from pathlib import Path
 from typing import Any
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL as NAMESPACE_URL
+from uuid import uuid5 as uuid5
 
-from proofops.adapters.local.audit_store import (
-    append_audit_transaction,
-    initialize_audit_schema,
-    read_audit_head,
-)
+from proofops.adapters.local import job_store_actions as _job_store_actions
+from proofops.adapters.local import job_store_checkpoint as _job_store_checkpoint
+from proofops.adapters.local import job_store_parser as _job_store_parser
+from proofops.adapters.local.audit_store import append_audit_transaction as append_audit_transaction
+from proofops.adapters.local.audit_store import initialize_audit_schema
+from proofops.adapters.local.audit_store import read_audit_head as read_audit_head
 from proofops.adapters.local.sqlite_busy import connection
-from proofops.application.ports.jobs import JobConflict, JobLease, JobMessage, LeaseLost
-from proofops.domain.audit import ChangeSet
-from proofops.domain.provenance import canonical_hash
-from proofops.domain.values import _require_strict_int, _require_uuid
+from proofops.application.ports.jobs import JobConflict as JobConflict
+from proofops.application.ports.jobs import JobLease
+from proofops.application.ports.jobs import JobMessage as JobMessage
+from proofops.application.ports.jobs import LeaseLost as LeaseLost
+from proofops.domain.audit import ChangeSet as ChangeSet
+from proofops.domain.provenance import canonical_hash as canonical_hash
+from proofops.domain.values import _require_strict_int as _require_strict_int
+from proofops.domain.values import _require_uuid as _require_uuid
 
 
-def version_is_deleted(db, tenant, version_id):
+def version_is_deleted(db: sqlite3.Connection, tenant: str, version_id: str | None) -> bool:
     if (
         db.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='retention_tombstones'"
@@ -51,7 +58,7 @@ def version_is_deleted(db, tenant, version_id):
     )
 
 
-def run_is_deleted(db, tenant, run_id):
+def run_is_deleted(db: sqlite3.Connection, tenant: str, run_id: str) -> bool:
     row = db.execute(
         "SELECT value FROM job_records WHERE tenant_id=? AND run_id=? "
         "AND kind='run' AND record_id='META'",
@@ -83,7 +90,7 @@ class LocalSQLiteJobStore:
                 PRIMARY KEY (tenant_id, run_id, kind, record_id))""")
 
     @contextmanager
-    def _transaction(self, *, timeout=10) -> Iterator[sqlite3.Connection]:
+    def _transaction(self, *, timeout: float = 10) -> Iterator[sqlite3.Connection]:
         # ponytail: one SQLite writer; use DynamoDB transactions for distributed workers.
         if timeout == 10:
             with connection(self.path) as db:
@@ -113,7 +120,7 @@ class LocalSQLiteJobStore:
             raise ValueError("duration must be positive")
 
     @staticmethod
-    def _raw(db, tenant, run, kind, key) -> bytes | None:
+    def _raw(db: sqlite3.Connection, tenant: str, run: str, kind: str, key: str) -> bytes | None:
         row = db.execute(
             """SELECT value FROM job_records
             WHERE tenant_id=? AND run_id=? AND kind=? AND record_id=?""",
@@ -121,16 +128,28 @@ class LocalSQLiteJobStore:
         ).fetchone()
         return None if row is None else row[0]
 
-    def _get(self, db, tenant, run, kind, key) -> dict[str, Any]:
+    def _get(
+        self, db: sqlite3.Connection, tenant: str, run: str, kind: str, key: str
+    ) -> dict[str, Any]:
         if kind == "run" and run_is_deleted(db, tenant, run):
             raise KeyError("resource not found")
         raw = self._raw(db, tenant, run, kind, key)
         if raw is None:
             raise KeyError("resource not found")
-        return json.loads(raw)
+        return_value: dict[str, Any] = json.loads(raw)
+        return return_value
 
     @staticmethod
-    def _put(db, tenant, run, kind, key, value, *, immutable=False) -> None:
+    def _put(
+        db: sqlite3.Connection,
+        tenant: str,
+        run: str,
+        kind: str,
+        key: str,
+        value: object,
+        *,
+        immutable: bool = False,
+    ) -> None:
         encoded = (
             value
             if isinstance(value, bytes)
@@ -143,7 +162,7 @@ class LocalSQLiteJobStore:
         )
 
     @staticmethod
-    def _all(db, tenant, run, kind) -> list[dict[str, Any]]:
+    def _all(db: sqlite3.Connection, tenant: str, run: str, kind: str) -> list[dict[str, Any]]:
         return [
             json.loads(row[0])
             for row in db.execute(
@@ -156,7 +175,9 @@ class LocalSQLiteJobStore:
         with self._transaction() as db:
             self.create_run_transaction(db, tenant_id, run_id, document_version_id)
 
-    def create_run_transaction(self, db, tenant_id, run_id, document_version_id) -> None:
+    def create_run_transaction(
+        self, db: sqlite3.Connection, tenant_id: str, run_id: str, document_version_id: str
+    ) -> None:
         """Compose initial job state in a caller-owned transaction; never commit."""
         if not db.in_transaction:
             raise ValueError("active transaction required")
@@ -186,7 +207,14 @@ class LocalSQLiteJobStore:
         with self._transaction() as db:
             return self._get(db, tenant_id, run_id, "run", "META")
 
-    def _bump_run(self, db, run, status=None, *, refresh_claim_counts=False) -> None:
+    def _bump_run(
+        self,
+        db: sqlite3.Connection,
+        run: dict[str, Any],
+        status: str | None = None,
+        *,
+        refresh_claim_counts: bool = False,
+    ) -> None:
         if refresh_claim_counts and "coverage" in run:
             coverage = run["coverage"]
             # Keep blocked records without heads and unprocessed work as published.
@@ -212,7 +240,7 @@ class LocalSQLiteJobStore:
         self._put(db, run["tenant_id"], run["run_id"], "run", "META", run)
 
     @staticmethod
-    def active_run_count(db, tenant_id) -> int:
+    def active_run_count(db: sqlite3.Connection, tenant_id: str) -> int:
         return sum(
             not run_is_deleted(db, tenant_id, row[0])
             for row in db.execute(
@@ -222,7 +250,7 @@ class LocalSQLiteJobStore:
             )
         )
 
-    def _job(self, db, message: JobMessage) -> dict[str, Any]:
+    def _job(self, db: sqlite3.Connection, message: JobMessage) -> dict[str, Any]:
         job = self._get(db, message.tenant_id, message.run_id, "job", message.job_id)
         if job["message"] != asdict(message):
             raise KeyError("resource not found")
@@ -234,14 +262,15 @@ class LocalSQLiteJobStore:
 
     def delivery_status(self, message: JobMessage) -> str:
         try:
-            return self.get_job(message)["status"]
+            return_value: str = self.get_job(message)["status"]
+            return return_value
         except KeyError:
             return "not_found"
 
-    def _save_job(self, db, message, job) -> None:
+    def _save_job(self, db: sqlite3.Connection, message: JobMessage, job: dict[str, Any]) -> None:
         self._put(db, message.tenant_id, message.run_id, "job", message.job_id, job)
 
-    def _enqueue(self, db, message, now) -> None:
+    def _enqueue(self, db: sqlite3.Connection, message: JobMessage, now: int) -> None:
         tenant, run_id = message.tenant_id, message.run_id
         run = self._get(db, tenant, run_id, "run", "META")
         if (
@@ -282,14 +311,14 @@ class LocalSQLiteJobStore:
         with self._transaction() as db:
             self._enqueue(db, message, now)
 
-    def enqueue_transaction(self, db, message: JobMessage, *, now: int) -> None:
+    def enqueue_transaction(self, db: sqlite3.Connection, message: JobMessage, *, now: int) -> None:
         """Same engine and connection as enqueue(), without opening a transaction."""
         if not db.in_transaction:
             raise ValueError("active transaction required")
         self._time(now)
         self._enqueue(db, message, now)
 
-    def _event(self, db, message, now, cause) -> None:
+    def _event(self, db: sqlite3.Connection, message: JobMessage, now: float, cause: str) -> None:
         event_id = str(uuid5(NAMESPACE_URL, canonical_hash([asdict(message), cause])))
         self._put(
             db,
@@ -360,7 +389,9 @@ class LocalSQLiteJobStore:
             self._bump_run(db, run, "running")
             return lease
 
-    def _owned(self, db, lease, now) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    def _owned(
+        self, db: sqlite3.Connection, lease: JobLease, now: int
+    ) -> tuple[dict[str, Any], dict[str, Any]] | None:
         now += int(getattr(db, "acquire_wait_seconds", 0))
         message = lease.message
         try:
@@ -402,7 +433,9 @@ class LocalSQLiteJobStore:
         finally:
             self._heartbeat_lock.release()
 
-    def _renew_heartbeat(self, lease, *, now, lease_seconds, started):
+    def _renew_heartbeat(
+        self, lease: JobLease, *, now: int, lease_seconds: int, started: float
+    ) -> JobLease:
         # Renewal has its own bounded busy path. SPT's ready claims can keep
         # SQLite's single writer busy beyond a normal transaction's ten-second
         # wait without losing the five-minute job lease. Retry only this
@@ -446,180 +479,41 @@ class LocalSQLiteJobStore:
                     raise
                 time.sleep(min(0.05, max(0, deadline - time.monotonic())))
 
-    def bind_parser_note_policy(self, lease, policy, *, now):
-        self._time(now)
-        message = lease.message
-        if message.stage != "parse":
-            raise ValueError("parser policy requires parse stage")
-        with self._transaction() as db:
-            if self._owned(db, lease, now) is None:
-                raise LeaseLost("LEASE_LOST")
-            raw = self._raw(
-                db, message.tenant_id, message.run_id, "parser_note_policy", message.job_id
-            )
-            if raw is not None:
-                if json.loads(raw) != policy:
-                    raise ValueError("NOTE_REVIEW_POLICY_MISMATCH")
-            else:
-                self._put(
-                    db,
-                    message.tenant_id,
-                    message.run_id,
-                    "parser_note_policy",
-                    message.job_id,
-                    policy,
-                    immutable=True,
-                )
+    def bind_parser_note_policy(
+        self, lease: JobLease, policy: dict[str, Any] | None, *, now: int
+    ) -> None:
+        return _job_store_parser.bind_parser_note_policy(self, lease, policy, now=now)
 
-    def parser_note_policy(self, message):
-        with self._transaction() as db:
-            self._job(db, message)
-            raw = self._raw(
-                db, message.tenant_id, message.run_id, "parser_note_policy", message.job_id
-            )
-            return None if raw is None else json.loads(raw)
+    def parser_note_policy(self, message: JobMessage) -> dict[str, Any] | None:
+        return _job_store_parser.parser_note_policy(self, message)
 
-    def bind_parser_native_policy(self, lease, policy, *, now):
-        self._time(now)
-        message = lease.message
-        if message.stage != "parse":
-            raise ValueError("parser policy requires parse stage")
-        from proofops.adapters.local.run_artifacts import native_paragraph_policy
+    def bind_parser_native_policy(
+        self, lease: JobLease, policy: dict[str, Any] | None, *, now: int
+    ) -> None:
+        return _job_store_parser.bind_parser_native_policy(self, lease, policy, now=now)
 
-        if policy is not None and policy != native_paragraph_policy():
-            from proofops.adapters.local.claim_source_policies import page_ocr_profile
+    def parser_native_policy(self, message: JobMessage) -> dict[str, Any] | None:
+        return _job_store_parser.parser_native_policy(self, message)
 
-            mode = policy.get("mode") if isinstance(policy, dict) else None
-            try:
-                expected = page_ocr_profile(mode, policy=policy, native=True).native_policy()
-            except ValueError:
-                raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH") from None
-            if policy != expected:
-                raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH")
-        with self._transaction() as db:
-            if self._owned(db, lease, now) is None:
-                raise LeaseLost("LEASE_LOST")
-            raw = self._raw(
-                db, message.tenant_id, message.run_id, "parser_native_policy", message.job_id
-            )
-            if raw is not None:
-                if json.loads(raw) != policy:
-                    raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH")
-            else:
-                self._put(
-                    db,
-                    message.tenant_id,
-                    message.run_id,
-                    "parser_native_policy",
-                    message.job_id,
-                    policy,
-                    immutable=True,
-                )
+    def register_parser_note_request(self, lease: JobLease, request_id: str, *, now: int) -> None:
+        return _job_store_parser.register_parser_note_request(self, lease, request_id, now=now)
 
-    def parser_native_policy(self, message):
-        with self._transaction() as db:
-            self._job(db, message)
-            raw = self._raw(
-                db, message.tenant_id, message.run_id, "parser_native_policy", message.job_id
-            )
-            return None if raw is None else json.loads(raw)
-
-    def register_parser_note_request(self, lease, request_id, *, now):
-        self._time(now)
-        _require_uuid("request_id", request_id)
-        message = lease.message
-        with self._transaction() as db:
-            if message.stage != "parse" or self._owned(db, lease, now) is None:
-                raise LeaseLost("LEASE_LOST")
-            self._put(
-                db,
-                message.tenant_id,
-                message.run_id,
-                "parser_note_request",
-                message.job_id + ":" + request_id,
-                dict(request_id=request_id, fencing_token=lease.fencing_token, owner=lease.owner),
-                immutable=True,
-            )
-
-    def finish_parser_note_request(self, lease, request_id):
+    def finish_parser_note_request(self, lease: JobLease, request_id: str) -> None:
         """Retain return evidence even if ownership expired during the HTTP call."""
-        message = lease.message
-        key = message.job_id + ":" + request_id
-        with self._transaction() as db:
-            registered = self._get(
-                db, message.tenant_id, message.run_id, "parser_note_request", key
-            )
-            if registered != dict(
-                request_id=request_id, fencing_token=lease.fencing_token, owner=lease.owner
-            ):
-                raise LeaseLost("unknown note request owner")
-            if self._raw(db, message.tenant_id, message.run_id, "parser_note_return", key) is None:
-                self._put(
-                    db,
-                    message.tenant_id,
-                    message.run_id,
-                    "parser_note_return",
-                    key,
-                    registered,
-                    immutable=True,
-                )
+        return _job_store_parser.finish_parser_note_request(self, lease, request_id)
 
-    def parser_note_requests(self, message, *, returned=False):
-        with self._transaction() as db:
-            self._job(db, message)
-            return tuple(
-                json.loads(row[0])["request_id"]
-                for row in db.execute(
-                    "SELECT value FROM job_records WHERE tenant_id=? AND run_id=? "
-                    "AND kind=? AND record_id LIKE ? ORDER BY record_id",
-                    (
-                        message.tenant_id,
-                        message.run_id,
-                        "parser_note_return" if returned else "parser_note_request",
-                        message.job_id + ":%",
-                    ),
-                )
-            )
+    def parser_note_requests(
+        self, message: JobMessage, *, returned: bool = False
+    ) -> tuple[str, ...]:
+        return _job_store_parser.parser_note_requests(self, message, returned=returned)
 
-    def bind_parser_note_reviews(self, lease, artifacts: tuple[str, ...], *, now: int):
-        self._time(now)
-        message = lease.message
-        if message.stage != "parse" or not isinstance(artifacts, tuple):
-            raise ValueError("invalid parser note input")
-        if any(
-            not isinstance(item, str) or len(item.encode("utf-8")) > 16 * 1024 * 1024
-            for item in artifacts
-        ):
-            raise ValueError("invalid parser note input")
-        with self._transaction() as db:
-            if self._owned(db, lease, now) is None:
-                raise LeaseLost("LEASE_LOST")
-            raw = self._raw(
-                db, message.tenant_id, message.run_id, "parser_note_input", message.job_id
-            )
-            if raw is not None:
-                pinned = tuple(json.loads(raw))
-                if artifacts and artifacts != pinned:
-                    raise ValueError("NOTE_REVIEW_INPUT_ALREADY_BOUND")
-                return pinned
-            self._put(
-                db,
-                message.tenant_id,
-                message.run_id,
-                "parser_note_input",
-                message.job_id,
-                list(artifacts),
-                immutable=True,
-            )
-            return artifacts
+    def bind_parser_note_reviews(
+        self, lease: JobLease, artifacts: tuple[str, ...], *, now: int
+    ) -> tuple[str, ...]:
+        return _job_store_parser.bind_parser_note_reviews(self, lease, artifacts, now=now)
 
-    def parser_note_reviews(self, message):
-        with self._transaction() as db:
-            self._job(db, message)
-            raw = self._raw(
-                db, message.tenant_id, message.run_id, "parser_note_input", message.job_id
-            )
-            return None if raw is None else tuple(json.loads(raw))
+    def parser_note_reviews(self, message: JobMessage) -> tuple[str, ...] | None:
+        return _job_store_parser.parser_note_reviews(self, message)
 
     def commit_job(
         self,
@@ -628,258 +522,11 @@ class LocalSQLiteJobStore:
         payload: bytes,
         now: int,
         next_job: JobMessage | None = None,
-        publish=None,
+        publish: Callable[[sqlite3.Connection], None] | None = None,
     ) -> bool:
-        self._time(now)
-        if not isinstance(payload, bytes):
-            raise ValueError("checkpoint must be bytes")
-        message = lease.message
-        if next_job is not None and (
-            next_job.tenant_id,
-            next_job.run_id,
-            next_job.document_version_id,
-        ) != (message.tenant_id, message.run_id, message.document_version_id):
-            raise ValueError("next job must belong to the same tenant/run/document version")
-        with self._transaction() as db:
-            owned = self._owned(db, lease, now)
-            if owned is None:
-                return False
-            job, run = owned
-            before_hash = canonical_hash(run)
-            try:
-                envelope = json.loads(payload)
-            except (ValueError, UnicodeDecodeError):
-                envelope = None
-            if message.stage == "parse":
-                pinned = self._raw(
-                    db, message.tenant_id, message.run_id, "parser_note_input", message.job_id
-                )
-                policy_raw = self._raw(
-                    db, message.tenant_id, message.run_id, "parser_note_policy", message.job_id
-                )
-                policy = None if policy_raw is None else json.loads(policy_raw)
-                native_raw = self._raw(
-                    db, message.tenant_id, message.run_id, "parser_native_policy", message.job_id
-                )
-                native_policy = None if native_raw is None else json.loads(native_raw)
-                if (
-                    native_raw is None
-                    and isinstance(envelope, dict)
-                    and envelope.get("schema")
-                    in {"local_parser_checkpoint_v4", "local_parser_checkpoint_v5"}
-                ):
-                    raise ValueError("NATIVE_PARAGRAPH_INPUT_NOT_BOUND")
-                if native_policy is not None and (
-                    not isinstance(envelope, dict)
-                    or envelope.get("schema")
-                    not in {"local_parser_checkpoint_v4", "local_parser_checkpoint_v5"}
-                    or envelope.get("native_paragraph_policy_sha256")
-                    != canonical_hash(native_policy)
-                ):
-                    raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH")
-                if (
-                    isinstance(envelope, dict)
-                    and native_policy is None
-                    and (
-                        envelope.get("schema")
-                        in {"local_parser_checkpoint_v4", "local_parser_checkpoint_v5"}
-                        or any(key.startswith("native_paragraph_") for key in envelope)
-                    )
-                ):
-                    raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH")
-                if native_policy is not None:
-                    from proofops.adapters.local.run_artifacts import (
-                        checkpoint_native_attestation,
-                    )
-
-                    if not isinstance(envelope, dict) or (
-                        checkpoint_native_attestation(envelope) is None
-                    ):
-                        raise ValueError("NATIVE_PARAGRAPH_CHECKPOINT_INPUT_MISMATCH")
-                if policy is not None and (
-                    pinned is None
-                    or not isinstance(envelope, dict)
-                    or envelope.get("schema")
-                    not in {
-                        "local_parser_checkpoint_v3",
-                        "local_parser_checkpoint_v4",
-                        "local_parser_checkpoint_v5",
-                    }
-                    or envelope.get("note_review_policy_sha256") != canonical_hash(policy)
-                ):
-                    raise ValueError("NOTE_REVIEW_POLICY_MISMATCH")
-                if (
-                    isinstance(envelope, dict)
-                    and policy is None
-                    and (
-                        envelope.get("schema") == "local_parser_checkpoint_v3"
-                        or "note_review_policy_sha256" in envelope
-                    )
-                ):
-                    raise ValueError("NOTE_REVIEW_POLICY_MISMATCH")
-                if (
-                    pinned is None
-                    and isinstance(envelope, dict)
-                    and envelope.get("schema") == "local_parser_checkpoint_v2"
-                ):
-                    raise ValueError("NOTE_REVIEW_INPUT_NOT_BOUND")
-                if pinned is not None:
-                    from proofops.adapters.local.run_artifacts import checkpoint_note_reviews
-
-                    if not isinstance(envelope, dict) or checkpoint_note_reviews(envelope) != tuple(
-                        json.loads(pinned)
-                    ):
-                        raise ValueError("NOTE_REVIEW_CHECKPOINT_INPUT_MISMATCH")
-            if isinstance(envelope, dict) and str(envelope.get("schema", "")).startswith(
-                "local_parser_checkpoint_"
-            ):
-                from proofops.adapters.local.run_artifacts import checkpoint_note_reviews
-
-                checkpoint_note_reviews(envelope)
-                coverage = envelope.get("coverage", {})
-                counts = (
-                    "pages_total",
-                    "pages_processed",
-                    "pages_unreadable",
-                    "pages_unprocessed",
-                    "chunks_discovered",
-                    "chunks_processed",
-                    "claims_discovered",
-                    "claims_decided",
-                    "claims_needs_review",
-                )
-                if (
-                    message.stage != "parse"
-                    or next_job is None
-                    or next_job.stage != "extract"
-                    or next_job.input_hash != message.input_hash
-                    or envelope.get("input_hash") != message.input_hash
-                    or envelope.get("stage_status") != "completed"
-                    or envelope.get("downstream_status") != "pending"
-                    or not isinstance(coverage, dict)
-                    or set(coverage) != {*counts, "full_scope", "complete"}
-                    or any(
-                        type(coverage.get(key)) is not int or coverage[key] < 0 for key in counts
-                    )
-                    or coverage["complete"] is not False
-                    or type(coverage["full_scope"]) is not bool
-                    or coverage["pages_total"] != sum(coverage[k] for k in counts[1:4])
-                    or any(coverage[k] != 0 for k in counts[4:])
-                ):
-                    raise ValueError("invalid local parse stage checkpoint")
-                row = db.execute(
-                    "SELECT payload FROM run_snapshots WHERE tenant_id=? AND run_id=?",
-                    (message.tenant_id, message.run_id),
-                ).fetchone()
-                if row is None:
-                    raise ValueError("parse checkpoint requires a frozen run snapshot")
-                snapshot = json.loads(row[0])
-                if (
-                    snapshot["input_hash"] != message.input_hash
-                    or snapshot["document"]["version_id"] != message.document_version_id
-                    or coverage["pages_total"] != snapshot["document"]["page_count"]
-                    or coverage["full_scope"] != (snapshot["scope"] == "full")
-                    or coverage["pages_unprocessed"]
-                    != coverage["pages_total"] - len(snapshot["selected_pages"])
-                ):
-                    raise ValueError("parse coverage differs from frozen run selection")
-                from proofops.adapters.local.raster_job_store import (
-                    validate_raster_checkpoint_bindings,
-                )
-
-                validate_raster_checkpoint_bindings(db, self, message, snapshot, envelope)
-                run.update(current_stage="extract", coverage=coverage, parse_job=asdict(message))
-            if (
-                message.stage == "extract"
-                and "parse_job" in run
-                and (
-                    not isinstance(envelope, dict)
-                    or envelope.get("schema")
-                    not in {"local_extract_checkpoint_v1", "local_extract_checkpoint_v2"}
-                )
-            ):
-                raise ValueError("local extract requires versioned claim snapshot")
-            if isinstance(envelope, dict) and envelope.get("schema") in {
-                "local_extract_checkpoint_v1",
-                "local_extract_checkpoint_v2",
-            }:
-                from proofops.adapters.local.claim_store import validate_extract_commit
-
-                validate_extract_commit(db, self, run, message, envelope, next_job, now=now)
-                run.update(
-                    current_stage="tag",
-                    coverage=envelope["coverage"],
-                    extract_job=asdict(message),
-                    claim_snapshot_sha256=hashlib.sha256(payload).hexdigest(),
-                )
-            if message.stage == "tag" and "extract_job" in run:
-                from proofops.adapters.local.tag_store import validate_tag_commit
-
-                if not isinstance(envelope, dict) or publish is None:
-                    raise ValueError("tag stage requires fenced versioned publication")
-                coverage = validate_tag_commit(db, self, run, message, envelope, next_job)
-                run.update(
-                    current_stage="tag" if envelope["stage_status"] == "blocked" else "review",
-                    status="completed"
-                    if envelope.get("pipeline_profile") == "unattended-v1"
-                    else "partial",
-                    coverage=coverage,
-                    tag_job=asdict(message),
-                    tag_stage_status=envelope["stage_status"],
-                    tag_snapshot_sha256=hashlib.sha256(payload).hexdigest(),
-                )
-            elif publish is not None:
-                raise ValueError("publication hook is restricted to local tag checkpoints")
-            key = f"job/{message.job_id}/attempt/{lease.fencing_token}/checkpoint"
-            self._put(
-                db, message.tenant_id, message.run_id, "artifact", key, payload, immutable=True
-            )
-            job.update(
-                status="succeeded",
-                artifact_ref={
-                    "key": key,
-                    "sha256": hashlib.sha256(payload).hexdigest(),
-                    "byte_size": len(payload),
-                    "storage": self.kind,
-                },
-            )
-            self._save_job(db, message, job)
-            if next_job is not None:
-                self._enqueue(db, next_job, now)
-            if publish is not None:
-                publish(db)
-            self._bump_run(db, run, refresh_claim_counts=publish is not None)
-            if publish is not None:
-                append_audit_transaction(
-                    connection=db,
-                    change=ChangeSet(
-                        message.tenant_id,
-                        message.run_id,
-                        "local-tag-worker",
-                        "tag_stage_published",
-                        message.job_id,
-                        before_hash,
-                        canonical_hash(run),
-                        run["revision"],
-                        envelope["stage_status"],
-                    ),
-                    expected_head=read_audit_head(db, message.tenant_id, message.run_id),
-                    event_id=str(
-                        uuid5(
-                            NAMESPACE_URL,
-                            canonical_hash(
-                                [
-                                    message.tenant_id,
-                                    message.run_id,
-                                    message.job_id,
-                                    lease.fencing_token,
-                                ]
-                            ),
-                        )
-                    ),
-                    timestamp=datetime.fromtimestamp(now, UTC).isoformat().replace("+00:00", "Z"),
-                )
-            return True
+        return _job_store_checkpoint.commit_job(
+            self, lease, payload=payload, now=now, next_job=next_job, publish=publish
+        )
 
     def read_checkpoint(self, message: JobMessage) -> bytes | None:
         with self._transaction() as db:
@@ -1012,108 +659,28 @@ class LocalSQLiteJobStore:
             return job
 
     def _action(
-        self, tenant, run_id, *, action, expected_revision, idempotency_key, reason, now, actor_sub
-    ):
-        self._scope(tenant, run_id)
-        self._time(now)
-        if _require_strict_int("expected_revision", expected_revision) < 1:
-            raise JobConflict("revision must be positive")
-        if not isinstance(idempotency_key, str) or not 16 <= len(idempotency_key) <= 128:
-            raise ValueError("invalid idempotency key")
-        if not isinstance(reason, str) or not reason.strip():
-            raise ValueError("reason required")
-        if not isinstance(actor_sub, str) or not actor_sub.strip():
-            raise ValueError("server actor_sub required")
-        timestamp = datetime.fromtimestamp(now, UTC).isoformat().replace("+00:00", "Z")
-        key = canonical_hash([action, idempotency_key])
-        request_hash = canonical_hash([action, expected_revision, reason])
-        with self._transaction() as db:
-            run = self._get(db, tenant, run_id, "run", "META")
-            if self._raw(db, tenant, run_id, "idempotency", key) is not None:
-                previous = self._get(db, tenant, run_id, "idempotency", key)
-                if now < previous.get("expires_at", 0):
-                    if previous["request_hash"] != request_hash:
-                        raise JobConflict("idempotency key reused with different request")
-                    return previous["response"]
-            if run["revision"] != expected_revision:
-                raise JobConflict("stale revision")
-            jobs = self._all(db, tenant, run_id, "job")
-            before = deepcopy({"run": run, "jobs": jobs})
-            if action == "cancel":
-                if run["status"] == "completed":
-                    raise JobConflict("completed run cannot be cancelled")
-                run["cancellation_requested"] = True
-                for job in jobs:
-                    if job["status"] in {"pending", "leased", "failed"}:
-                        job["status"] = "cancelled"
-                        self._save_job(db, JobMessage(**job["message"]), job)
-                self._bump_run(db, run, "cancelled")
-            else:
-                if run["status"] not in {"partial", "failed"} or run["cancellation_requested"]:
-                    raise JobConflict("run is not retryable")
-                if self.active_run_count(db, tenant) >= 2:
-                    raise JobConflict("tenant run limit")
-                for job in jobs:
-                    if job["status"] == "failed":
-                        job.update(status="pending", next_attempt_at=now, retry_attempt=0)
-                        message = JobMessage(**job["message"])
-                        self._save_job(db, message, job)
-                        self._event(db, message, now, f"manual:{expected_revision}")
-                self._bump_run(db, run, "running")
-            self._put(
-                db,
-                tenant,
-                run_id,
-                "idempotency",
-                key,
-                {"request_hash": request_hash, "response": run, "expires_at": now + 86400},
-            )
-            after = {"run": run, "jobs": self._all(db, tenant, run_id, "job")}
-            before_hash = canonical_hash(before)
-            after_hash = canonical_hash(after)
-            event_id = str(uuid5(NAMESPACE_URL, canonical_hash([tenant, run_id, run["revision"]])))
-            self._put(
-                db,
-                tenant,
-                run_id,
-                "action",
-                str(run["revision"]),
-                {
-                    "schema_version": 1,
-                    "tenant_id": tenant,
-                    "run_id": run_id,
-                    "event_id": event_id,
-                    "actor_sub": actor_sub,
-                    "timestamp": timestamp,
-                    "target_id": run_id,
-                    "action": action,
-                    "reason": reason,
-                    "revision": run["revision"],
-                    "before": before,
-                    "after": after,
-                    "before_hash": before_hash,
-                    "after_hash": after_hash,
-                },
-                immutable=True,
-            )
-            append_audit_transaction(
-                connection=db,
-                change=ChangeSet(
-                    tenant_id=tenant,
-                    run_id=run_id,
-                    actor_sub=actor_sub,
-                    action=action,
-                    target_id=run_id,
-                    before_hash=before_hash,
-                    after_hash=after_hash,
-                    revision=run["revision"],
-                    reason=reason,
-                ),
-                expected_head=read_audit_head(db, tenant, run_id),
-                event_id=event_id,
-                timestamp=timestamp,
-            )
-            return run
+        self,
+        tenant: str,
+        run_id: str,
+        *,
+        action: str,
+        expected_revision: int,
+        idempotency_key: str,
+        reason: str,
+        now: int,
+        actor_sub: str,
+    ) -> dict[str, Any]:
+        return _job_store_actions._action(
+            self,
+            tenant,
+            run_id,
+            action=action,
+            expected_revision=expected_revision,
+            idempotency_key=idempotency_key,
+            reason=reason,
+            now=now,
+            actor_sub=actor_sub,
+        )
 
     def cancel_run(
         self,

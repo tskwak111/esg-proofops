@@ -10,7 +10,7 @@ import math
 import secrets
 import sqlite3
 from collections.abc import Callable, Iterable, Mapping
-from typing import Any
+from typing import Any, cast
 
 SCHEMA_VERSION = 1
 CURSOR_TTL_SECONDS = 900
@@ -107,7 +107,7 @@ def _decode(
             or result["after"] < 0
         ):
             raise ValueError
-        return result
+        return cast("dict[str, Any]", result)
     except (ValueError, KeyError, TypeError, UnicodeError, json.JSONDecodeError):
         raise InvalidCatalogCursor("invalid cursor") from None
 

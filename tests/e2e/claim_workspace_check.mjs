@@ -149,6 +149,11 @@ export async function check() {
     assert(resolveCalls === 1, 'Review resolution should submit exactly once');
     assert(resolveHeaders.get('X-CSRF-Token') === 'csrf-test', 'Review resolution must send CSRF');
     assert(resolveHeaders.get('If-Match') === '"2"', 'Review resolution must send quoted If-Match');
+    assert(resolveBody.elements.length === 6, 'Performance review must include every required element');
+    assert(resolveBody.elements[0].state === 'present' && resolveBody.elements[0].evidence_refs[0].raw_text_sha256 === source.raw_text_sha256,
+      'Existing present state and source hash must survive element completion');
+    assert(resolveBody.elements.slice(1).every(element => element.state === 'unknown' && element.evidence_refs.length === 0 && element.normalized_value === null),
+      'Missing elements must remain unknown without invented evidence or values');
     assert(resolveBody.reason === '412 뒤에도 남아야 하는 초안', 'Review draft must reach API');
     assert(reason.value === '412 뒤에도 남아야 하는 초안', '412 must preserve the local draft');
 
@@ -170,7 +175,7 @@ export async function check() {
     assert(lateSignal.aborted, 'Tenant replacement must abort the old run request');
     assert(!host.textContent.includes('FOREIGN TENANT LEAK'), 'Late foreign-tenant data must be ignored');
     return { route: true, filters: true, source_projection: true, csrf_if_match: true,
-      draft_412: true, source_renew_once: true, foreign_session_cleared: true };
+      unknown_completion: true, draft_412: true, source_renew_once: true, foreign_session_cleared: true };
   } finally {
     root.unmount();
     host.remove();

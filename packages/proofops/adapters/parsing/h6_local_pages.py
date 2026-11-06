@@ -1,17 +1,29 @@
 """Opt-in bounded page batches; repaired subsets are candidates, never source proof."""
 
+from __future__ import annotations
+
 import io
 import json
 import os
+from collections.abc import Callable, Sequence
 from copy import deepcopy
 from dataclasses import replace
 from hashlib import sha256
+from pathlib import Path
 from time import monotonic
+from typing import TYPE_CHECKING, Any
 
 import pypdfium2 as pdfium
 from proofops.domain.provenance import canonical_hash
 
-POLICY = {
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import (
+        ParserProfile,
+        SourceArtifact,
+    )
+
+
+POLICY: dict[str, Any] = {
     "profile": "selected-pdf-h6-v1",
     "batch_pages": 4,
     "subset": "PDFium-import-original-page-objects; candidate-only",
@@ -28,7 +40,7 @@ FAILURES = {
 }
 
 
-def subset(content, pages):
+def subset(content: bytes, pages: Sequence[int]) -> bytes:
     """Preserve page objects (including boxes/rotation), discarding broken xrefs."""
     if not pages or tuple(sorted(set(pages))) != tuple(pages):
         raise ValueError("UPSTAGE_PAGE_SELECTION_INVALID")
@@ -53,20 +65,27 @@ def subset(content, pages):
         return stream.getvalue()
 
 
-def remap(raw, pages, count, prefix):
+def remap(raw: dict[str, Any], pages: Sequence[int], count: int, prefix: str) -> dict[str, Any]:
     from proofops.adapters.parsing.h1_local_pages import restore_pages
 
     return _prefix(restore_pages(raw, pages, count), prefix)
 
 
-def execute(command, work, env, profile, run):
+def execute(
+    command: list[str],
+    work: Path,
+    env: dict[str, str],
+    profile: ParserProfile,
+    run: Callable[[list[str], Path, dict[str, str], ParserProfile], None],
+) -> None:
     """Each batch gets fresh Python/JVM heaps and the same aggregate deadline."""
-    from proofops.adapters.parsing.opendataloader import ParseFailure, _json, _output_bytes
+    from proofops.adapters.parsing.odl_parts.common import ParseFailure, _json, _output_bytes
 
     request = json.loads((work / "request.json").read_bytes())
     selected = request["selected"]
     deadline = monotonic() + profile.timeout_seconds
-    records, geometry, kids, auxiliary, markdown = [], {}, [], [], []
+    records: list[dict[str, Any]] = []
+    geometry, kids, auxiliary, markdown = {}, [], [], []
     repaired_kids, repairs = [], []
     pending = [selected[i : i + POLICY["batch_pages"]] for i in range(0, len(selected), 4)]
     original_count = None
@@ -185,7 +204,7 @@ def execute(command, work, env, profile, run):
     )
 
 
-def _prefix(raw, prefix):
+def _prefix(raw: dict[str, Any], prefix: str) -> dict[str, Any]:
     mapped = deepcopy(raw)
     stack = [mapped]
     while stack:
@@ -199,7 +218,13 @@ def _prefix(raw, prefix):
     return mapped
 
 
-def validate(receipt, values, artifacts, source, selected):
+def validate(
+    receipt: dict[str, Any],
+    values: dict[str, Any],
+    artifacts: dict[str, str],
+    source: SourceArtifact,
+    selected: Sequence[int],
+) -> None:
     """Reconstruct the merged raw candidates from their hash-checked batches."""
     if (
         receipt["policy"] != POLICY
@@ -244,7 +269,7 @@ def validate(receipt, values, artifacts, source, selected):
         raise ValueError("H6_LOCAL_MERGE_MISMATCH")
 
 
-def failures(receipt):
+def failures(receipt: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         dict(pages=b["pages"], error_code=b["error_code"])
         for b in receipt["batches"]

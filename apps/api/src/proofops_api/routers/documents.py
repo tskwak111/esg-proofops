@@ -12,6 +12,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query, Request, Security
 from fastapi.responses import JSONResponse, Response
 from fastapi.security import APIKeyCookie
+from proofops.application.authorization import AuthContext
 from proofops.application.uploads import UploadService
 from proofops.application.uploads_security import UploadRejected
 from proofops_api.auth import (
@@ -30,6 +31,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException
 from starlette.formparsers import MultiPartException
+from starlette.types import Message
 
 
 class StrictDTO(BaseModel):
@@ -105,7 +107,7 @@ class DocumentVersionPage(StrictDTO):
     snapshot_epoch: Annotated[int, Field(ge=0)] | None
 
 
-def _request_schema(model: type[BaseModel]) -> dict:
+def _request_schema(model: type[BaseModel]) -> dict[str, Any]:
     return {
         "x-minimum-role": "editor",
         "x-idempotency-required": True,
@@ -181,7 +183,9 @@ def build_documents_router(
         ],
     )
 
-    def authorize(request: Request, operation_id: str | None = None, write: bool = False):
+    def authorize(
+        request: Request, operation_id: str | None = None, write: bool = False
+    ) -> AuthContext | JSONResponse:
         now = now_fn()
         auth = _authorize(request, auth_store, now, "editor" if write else "viewer")
         if isinstance(auth, JSONResponse):
@@ -204,7 +208,7 @@ def build_documents_router(
                 return limited
         return auth
 
-    async def payload(request: Request, model: type[BaseModel]) -> dict:
+    async def payload(request: Request, model: type[BaseModel]) -> dict[str, Any]:
         key = request.headers.get("Idempotency-Key", "")
         if not 16 <= len(key) <= 128:
             raise UploadRejected("IDEMPOTENCY_KEY_INVALID")
@@ -223,7 +227,7 @@ def build_documents_router(
         operation_id="document_create",
         openapi_extra=_request_schema(DocumentCreate),
     )
-    async def create_document(request: Request):
+    async def create_document(request: Request) -> Response:
         auth = authorize(request, "document_create", True)
         if isinstance(auth, JSONResponse):
             return auth
@@ -260,7 +264,7 @@ def build_documents_router(
         request: Request,
         cursor: str | None = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
-    ):
+    ) -> Response:
         auth = authorize(request, "documents_list")
         if isinstance(auth, JSONResponse):
             return auth
@@ -278,7 +282,7 @@ def build_documents_router(
         operation_id="document_get",
         openapi_extra=read_contract,
     )
-    def get_document(request: Request, document_id: UUID):
+    def get_document(request: Request, document_id: UUID) -> Response:
         auth = authorize(request, "document_get")
         if isinstance(auth, JSONResponse):
             return auth
@@ -299,7 +303,7 @@ def build_documents_router(
         document_id: UUID,
         cursor: str | None = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
-    ):
+    ) -> Response:
         auth = authorize(request, "versions_list")
         if isinstance(auth, JSONResponse):
             return auth
@@ -324,7 +328,7 @@ def build_documents_router(
         operation_id="version_create",
         openapi_extra=_request_schema(VersionCreate),
     )
-    async def initiate_upload(request: Request, document_id: UUID):
+    async def initiate_upload(request: Request, document_id: UUID) -> Response:
         auth = authorize(request, "version_create", True)
         if isinstance(auth, JSONResponse):
             return auth
@@ -345,7 +349,7 @@ def build_documents_router(
             return _failure(exc)
 
     @router.post("/local/uploads/{upload_id}/content", include_in_schema=False)
-    async def receive_content(request: Request, upload_id: UUID):
+    async def receive_content(request: Request, upload_id: UUID) -> Response:
         auth = authorize(request, write=True)
         if isinstance(auth, JSONResponse):
             return auth
@@ -358,7 +362,7 @@ def build_documents_router(
                 raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
             received = 0
 
-            async def bounded_receive():
+            async def bounded_receive() -> Message:
                 nonlocal received
                 message = await request.receive()
                 received += len(message.get("body", b""))
@@ -401,7 +405,7 @@ def build_documents_router(
         operation_id="upload_complete",
         openapi_extra=_request_schema(UploadComplete),
     )
-    async def complete_upload(request: Request, upload_id: UUID):
+    async def complete_upload(request: Request, upload_id: UUID) -> Response:
         auth = authorize(request, "upload_complete", True)
         if isinstance(auth, JSONResponse):
             return auth
@@ -439,7 +443,7 @@ def build_documents_router(
             "x-rate-limit": "120/min/user",
         },
     )
-    def get_version(request: Request, version_id: UUID):
+    def get_version(request: Request, version_id: UUID) -> Response:
         auth = authorize(request, "version_get")
         if isinstance(auth, JSONResponse):
             return auth

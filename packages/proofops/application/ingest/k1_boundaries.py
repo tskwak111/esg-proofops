@@ -5,6 +5,7 @@ copies a facility heading into evidence, or grants source verification.
 """
 
 import re
+from typing import Any
 
 from proofops.domain.provenance import canonical_hash
 
@@ -23,7 +24,9 @@ POLICY = dict(
 POLICY_HASH = canonical_hash(POLICY)
 
 
-def trim_table_labels(spans: list[dict], text: str, *, kind: str) -> tuple[list[dict], list[dict]]:
+def trim_table_labels(
+    spans: list[dict[str, Any]], text: str, *, kind: str
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     if kind not in {"table", "table_cell", "table_row"}:
         return spans, []
     changes = {}

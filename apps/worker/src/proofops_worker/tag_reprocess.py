@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from proofops.adapters.local.classification_reprocess import (  # re-exported for callers/tests
     CLAIM_REQUEST_BUDGET,
@@ -29,6 +29,12 @@ from proofops.application.tagging.consensus import reviewable_checkpoint
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 from proofops_agent.upstage_tagging import TransportResume
+
+if TYPE_CHECKING:
+    import sqlite3
+
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops.adapters.local.tag_store import LocalTagStore
 
 
 def _transport_resume(
@@ -72,7 +78,9 @@ class TagReprocess:
             raise ReprocessRejected("TAG_REPROCESS_ALLOWANCE_SPENT:" + str(error)) from None
 
     @classmethod
-    def load(cls, store, tags, message: JobMessage) -> TagReprocess | None:
+    def load(
+        cls, store: LocalSQLiteRunStore, tags: LocalTagStore, message: JobMessage
+    ) -> TagReprocess | None:
         plan = load_plan(store, message)
         if plan is None:
             return None
@@ -131,7 +139,9 @@ class TagReprocess:
             raise ReprocessRejected("TAG_REPROCESS_CLAIM_NOT_IN_LINEAGE")
         return reviewable_checkpoint(json.loads(canonical_json(item)), pinned_profile=self._profile)
 
-    def verify_published(self, store, *, db=None) -> int:
+    def verify_published(
+        self, store: LocalSQLiteRunStore, *, db: sqlite3.Connection | None = None
+    ) -> int:
         """Every carried published item must still match its immutable revision.
 
         The review id is content-addressed on the review inputs, so a carried item that
@@ -165,7 +175,7 @@ class TagReprocess:
             verified += 1
         return verified
 
-    def verify_publication(self, store, db):
+    def verify_publication(self, store: LocalSQLiteRunStore, db: sqlite3.Connection) -> None:
         """Recheck the authorized lineage inside the checkpoint publication transaction."""
         plan = self.plan
         current = store.jobs._get(db, plan.tenant_id, plan.run_id, "run", "META")

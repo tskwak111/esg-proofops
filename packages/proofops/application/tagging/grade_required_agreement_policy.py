@@ -11,16 +11,23 @@ unknown into absence, issue SC1 search certificates, or replace the Python engin
 SC1's independent 3/3 scope search remains mandatory at every positive threshold.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from proofops.domain.provenance import canonical_hash
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
 class GradeRequiredAgreementPolicy:
     minimum_present_replicas: int = 3
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if type(self.minimum_present_replicas) is not int or self.minimum_present_replicas not in (
             1,
             2,
@@ -28,7 +35,7 @@ class GradeRequiredAgreementPolicy:
         ):
             raise ValueError("minimum_present_replicas must be 1, 2, or 3")
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return dict(
             profile="grade-required-present-agreement-r18-v1",
             minimum_present_replicas=self.minimum_present_replicas,
@@ -44,14 +51,14 @@ class GradeRequiredAgreementPolicy:
         )
 
     @property
-    def sha256(self):
+    def sha256(self) -> str:
         return canonical_hash(self.to_dict())
 
 
 DEFAULT_POLICY = GradeRequiredAgreementPolicy()
 
 
-def _sha256(value):
+def _sha256(value: object) -> bool:
     return (
         isinstance(value, str)
         and len(value) == 64
@@ -60,12 +67,12 @@ def _sha256(value):
 
 
 def assess_grade_required_facts(
-    replicas,
+    replicas: Sequence[dict[str, Any]],
     *,
-    required_element_ids,
-    claim_source_verified,
-    policy=DEFAULT_POLICY,
-):
+    required_element_ids: Sequence[str],
+    claim_source_verified: bool,
+    policy: GradeRequiredAgreementPolicy = DEFAULT_POLICY,
+) -> dict[str, Any]:
     """Return a deterministic, non-publishing receipt from trusted guarded facts.
 
     No caller may interpret ``grade_facts_satisfied`` as a confirmed grade. In

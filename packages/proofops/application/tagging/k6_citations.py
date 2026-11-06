@@ -1,9 +1,17 @@
 """Restore repeated units only through model-selected adjacent scalar anchors."""
 
+from __future__ import annotations
+
 import re
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING
 
 from proofops.application.ingest.k6_coverage import UNIT
 from proofops.application.tagging.pb6_citation_restore import POLICY as OLD_POLICY
+
+if TYPE_CHECKING:
+    from typing import Any
+
 
 POLICY = OLD_POLICY | dict(
     profile="citation-selected-adjacent-unit-k6-v1",
@@ -18,13 +26,13 @@ RISK_POLICY = dict(
 )
 
 
-def risk_without_commitment(quote):
+def risk_without_commitment(quote: str) -> bool:
     return bool(
         re.search(RISK_POLICY["trigger"], quote) and not re.search(RISK_POLICY["commitment"], quote)
     )
 
 
-def anchor_units(selected, refs):
+def anchor_units(selected: Sequence[object], refs: Mapping[str, dict[str, Any]]) -> list[object]:
     result = []
     for index, choice in enumerate(selected):
         fixed = choice

@@ -38,6 +38,11 @@ pinned historical one.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.ports.jobs import JobMessage
 import importlib.util
 from pathlib import Path
 from types import ModuleType
@@ -50,7 +55,7 @@ from proofops.adapters.local.run_artifacts import (
 _LOCAL = Path(__file__).parent
 
 
-def raster_policy_requires_pinned_native(snapshot):
+def raster_policy_requires_pinned_native(snapshot: object) -> bool:
     """True only when the stored raster policy's `native_policy_sha256` is a
     verified pinned historical digest and every other field still matches
     the live composition exactly -- the one legitimate divergence this
@@ -95,7 +100,7 @@ def _exec_private(path: Path, module_name: str) -> ModuleType:
     return module
 
 
-def _load_private_raster_modules(native_policy):
+def _load_private_raster_modules(native_policy: dict[str, Any]) -> ModuleType:
     """Load private `raster_visibility` + `raster_checkpoint` instances whose
     native-verifier dependency is rebound to the pinned historical replayer
     bound to this run's own trusted `native_policy`, never to the receipt."""
@@ -106,7 +111,9 @@ def _load_private_raster_modules(native_policy):
         "proofops.adapters.local._frozen.raster_visibility_pinned",
     )
 
-    def _pinned_replay_native_sources(receipt, graph, source, *, tenant_id):
+    def _pinned_replay_native_sources(
+        receipt: dict[str, Any], graph: CanonicalDocumentGraph, source: bytes, *, tenant_id: str
+    ) -> CanonicalDocumentGraph:
         return replay_native_with_policy(native_policy, receipt, graph, source, tenant_id=tenant_id)
 
     # Rebind only on this private instance; the shared, live module used by
@@ -116,8 +123,8 @@ def _load_private_raster_modules(native_policy):
     # -- not just `replay_native_sources` -- makes its embedded
     # `native_policy_sha256` match this run's trusted, pinned policy instead
     # of recomputing the live (possibly dirty) verifier.
-    visibility.native_paragraph_policy = lambda: native_policy
-    visibility.replay_native_sources = _pinned_replay_native_sources
+    setattr(visibility, "native_paragraph_policy", lambda: native_policy)
+    setattr(visibility, "replay_native_sources", _pinned_replay_native_sources)
 
     checkpoint = _exec_private(
         _LOCAL / "raster_checkpoint.py",
@@ -125,16 +132,23 @@ def _load_private_raster_modules(native_policy):
     )
     # The private checkpoint module imported the *real* visibility module's
     # names at load time; rebind it to resolve against the pinned instance.
-    checkpoint.raster_ocr_policy = visibility.raster_ocr_policy
-    checkpoint.corroborate_native_visibility = visibility.corroborate_native_visibility
-    checkpoint.eligible_raster_sources = visibility.eligible_raster_sources
-    checkpoint.replay_native_sources = _pinned_replay_native_sources
+    setattr(checkpoint, "raster_ocr_policy", visibility.raster_ocr_policy)
+    setattr(checkpoint, "corroborate_native_visibility", visibility.corroborate_native_visibility)
+    setattr(checkpoint, "eligible_raster_sources", visibility.eligible_raster_sources)
+    setattr(checkpoint, "replay_native_sources", _pinned_replay_native_sources)
     return checkpoint
 
 
 def replay_raster_records_frozen(
-    snapshot, message, native, graph, source, registrations, receipts, native_policy
-):
+    snapshot: dict[str, Any],
+    message: JobMessage,
+    native: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    registrations: tuple[dict[str, Any], ...],
+    receipts: dict[str, dict[str, Any]],
+    native_policy: dict[str, Any],
+) -> tuple[CanonicalDocumentGraph, dict[str, list[str]], list[dict[str, str]]]:
     """Replay a v5 raster checkpoint pinned to a verified historical native
     verifier, by delegating to private, unmodified-byte instances of the
     real `raster_checkpoint`/`raster_visibility` logic with only the native
@@ -153,6 +167,9 @@ def replay_raster_records_frozen(
     ):
         raise ValueError("RASTER_CHECKPOINT_POLICY_CHANGED")
     checkpoint = _load_private_raster_modules(native_policy)
-    return checkpoint.replay_raster_records(
-        snapshot, message, native, graph, source, registrations, receipts
+    return cast(
+        "tuple[CanonicalDocumentGraph, dict[str, list[str]], list[dict[str, str]]]",
+        checkpoint.replay_raster_records(
+            snapshot, message, native, graph, source, registrations, receipts
+        ),
     )

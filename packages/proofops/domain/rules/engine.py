@@ -8,9 +8,10 @@ and binding services must produce them after checking original evidence.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass, replace
 from itertools import product
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from proofops.domain.errors import DomainValidationError
 from proofops.domain.rulepacks import RulePackSnapshot, canonical_json
@@ -35,7 +36,7 @@ ENGINE_VERSION = "explicit-ladders-exceptions-3"
 # User decision 2026-09-25 resolving GAP-003: the §4.4 ladder alone sets the
 # grade; §4.5 additional elements stay in missing/unresolved and review status.
 ADDITIONAL_REPORT_ONLY = "report_without_grade_effect"
-MAPPINGS = {
+MAPPINGS: dict[str, Mapping[str, tuple[str, ...]]] = {
     "goal": goal.ELEMENTS,
     "performance": performance.ELEMENTS,
     "management": management.ELEMENTS,
@@ -294,7 +295,14 @@ def evaluate(tags: ConfirmedTags, context: RuleContext, pack: RulePackSnapshot) 
     return _evaluate(tags, context, pack)
 
 
-def _evaluate(tags, context, pack, *, analysis_scope=False, dec127=False):
+def _evaluate(
+    tags: ConfirmedTags,
+    context: RuleContext,
+    pack: RulePackSnapshot,
+    *,
+    analysis_scope: bool = False,
+    dec127: bool = False,
+) -> Decision:
     effect = apply_source_exceptions(tags, context, pack, analysis_scope=dec127)
     elements = MAPPINGS[tags.track]
     definitions = {e["id"]: e for e in pack.file_content("rubric/elements.yaml")["elements"]}
@@ -309,6 +317,7 @@ def _evaluate(tags, context, pack, *, analysis_scope=False, dec127=False):
 
     missing, unresolved, excluded, additional = [], [], [], []
     bases = []
+    names: Iterable[str]
     for element, names in elements.items():
         definition = definitions[element]
         bases.append(canonical_json({"element_id": element, **definition["basis"]}))
@@ -471,7 +480,12 @@ def _evaluate(tags, context, pack, *, analysis_scope=False, dec127=False):
     )
 
 
-def display_grade_range(pack: RulePackSnapshot, *, tags=None, context=None) -> dict:
+def display_grade_range(
+    pack: RulePackSnapshot,
+    *,
+    tags: ConfirmedTags | None = None,
+    context: RuleContext | None = None,
+) -> dict[str, Any]:
     """Display-only counterfactual envelope using the exact pinned ladder selector.
 
     No ConfirmedFact is manufactured or changed. Undefined branches/mappings
@@ -481,8 +495,13 @@ def display_grade_range(pack: RulePackSnapshot, *, tags=None, context=None) -> d
     reachable: set[str] = set()
     open_elements: set[str] = set()
     rule_gap = False
-    effect = apply_source_exceptions(tags, context, pack) if tags is not None else None
-    facts = {f.name: f.state for f in tags.facts} if tags is not None else {}
+    # The existing input validator rejects a missing context when tags are supplied.
+    effect = (
+        apply_source_exceptions(tags, cast(RuleContext, context), pack)
+        if tags is not None
+        else None
+    )
+    facts: dict[str, str] = {f.name: f.state for f in tags.facts} if tags is not None else {}
     if effect and effect.ordinal_state is not None:
         facts.update({name: effect.ordinal_state for name in performance.ELEMENTS["P1"]})
     for track in tracks:

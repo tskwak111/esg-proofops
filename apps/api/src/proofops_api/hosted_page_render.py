@@ -11,6 +11,9 @@ from dataclasses import asdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
+from typing import Any
+
+from proofops.domain.documents import PageGeometry
 
 MAX_PNG_BYTES = 16 * 1024 * 1024
 DPI = 144
@@ -20,10 +23,12 @@ TIMEOUT_SECONDS = 15
 MEMORY_BYTES = 512 * 1024 * 1024
 
 
-def render(source: Path, page: int, geometry, root: Path, *, fit_page=False) -> tuple[bytes, dict]:
+def render(
+    source: Path, page: int, geometry: PageGeometry, root: Path, *, fit_page: bool = False
+) -> tuple[bytes, dict[str, Any]]:
     from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser, ParseFailure
 
-    from proofops_api.hosted_store import HostedError
+    from proofops_api.hosted_contracts import HostedError
 
     profile = SimpleNamespace(
         timeout_seconds=TIMEOUT_SECONDS, memory_bytes=MEMORY_BYTES, max_output_bytes=MAX_PNG_BYTES
