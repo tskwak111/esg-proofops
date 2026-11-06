@@ -57,7 +57,14 @@ def _price_import(name, globals=None, locals=None, fromlist=(), level=0):
 def install_price_clock(set_attribute=setattr):
     """Patch only audited price modules; pytest supplies a reversible setter."""
     for name in PRICE_MODULES:
-        set_attribute(importlib.import_module(name), "datetime", PriceDateTime)
+        try:
+            module = importlib.import_module(name)
+        except ModuleNotFoundError as error:
+            # POSIX-only adapters cannot load on Windows, so no test there reads their prices.
+            if error.name != "fcntl":
+                raise
+            continue
+        set_attribute(module, "datetime", PriceDateTime)
     set_attribute(builtins, "__import__", _price_import)
 
 
