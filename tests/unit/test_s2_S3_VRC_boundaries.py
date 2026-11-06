@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pickle
+import sys
 from collections import OrderedDict
 from contextlib import contextmanager
 from dataclasses import asdict, replace
@@ -36,7 +37,11 @@ def scope(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     monkeypatch.setattr(cache, "sys", SimpleNamespace(platform="vrc-boundary"))
     monkeypatch.setenv("DEVELOPER_DIR", "/vrc/toolchain")
     monkeypatch.setenv("PROOFOPS_VERIFIED_READ_CACHE", "exact-verified-read-v8")
-    monkeypatch.setattr(local_raster_reader, "runtime_policy", lambda: {"runtime": "fixed"})
+    # Profile modules bind runtime_policy at import; pin every binding to keep host OCR out of keys.
+    real_runtime = local_raster_reader.runtime_policy
+    for name, module in list(sys.modules.items()):
+        if name.startswith("proofops.") and vars(module).get("runtime_policy") is real_runtime:
+            monkeypatch.setattr(module, "runtime_policy", lambda: {"runtime": "fixed"})
     monkeypatch.setattr(environment, "read_profile", lambda: "fixed-read-profile")
     graph = CanonicalDocumentGraph(
         TENANT,
@@ -98,7 +103,7 @@ def test_v13_path_bytes_hash_and_fresh_key(
     monkeypatch.setattr(Path, "read_bytes", tracked_read)
     monkeypatch.setattr(cache, "sha256", tracked_hash)
     key = cache._fresh_key(**scope)
-    assert key == "fresh:6c25463f7a075d9d051ed132a7eea53dd25be37b28474b6ffec8d8010da6cda8"
+    assert key == "fresh:4c696f55e6cfb2440e9e7698fd35203a28f694dec7fa43f3d135e51f001e404d"
     assert (expected_path, expected_bytes) in reads
     assert expected_bytes in hashes
     cache.remember_fresh_attestation(**scope)
@@ -106,7 +111,7 @@ def test_v13_path_bytes_hash_and_fresh_key(
     assert cache._results == {key: encoded}
     assert (
         sha256(encoded).hexdigest()
-        == "f170ae66055a1240d7a651b40a3927734546c487778cb86deaf4ee6bbaafdd6e"
+        == "f319e54aa03544d7ed6033af517b09e8ce9dc52b50ae7be47cda354a51493084"
     )
 
 
@@ -147,7 +152,7 @@ def test_parse_key_and_compressed_receipt_hooks(
     args = {k: scope[k] for k in ("policy", "receipt", "graph", "source", "tenant_id")}
     args["reader_name"] = "boundary-reader"
     key = cache._parse_key(**args)
-    assert key == "parse:3ecac9bb9c71d834db6f4318ba9fde92a021b806bd488c4fe9eca03adb7701a5"
+    assert key == "parse:050cbe90c20ea4408f83665dbf559067e30c5c7c85b852e83846fa0c8e8dd909"
     cache.remember_parse_attestation(**args)
     assert cache._results[key] == compress(canonical_json(args["receipt"]).encode(), level=1)
     monkeypatch.setattr(cache, "_project_parse", lambda *args, **kwargs: scope["graph"])
